@@ -11,7 +11,7 @@ a repository or a tag before pulling it (using disk space) - e.g. - which tags a
 Examples:
 ```sh
 # show repository's labels of rhel7:latest
-$ skopeo registry.access.redhat.com/rhel7 | jq '.Config.Labels'
+$ skopeo inspect registry.access.redhat.com/rhel7 | jq '.Config.Labels'
 {
   "Architecture": "x86_64",
   "Authoritative_Registry": "registry.access.redhat.com",
@@ -24,7 +24,7 @@ $ skopeo registry.access.redhat.com/rhel7 | jq '.Config.Labels'
 }
 
 # show repository's tags
-$ skopeo docker.io/fedora | jq '.RepoTags'
+$ skopeo inspect docker.io/fedora | jq '.RepoTags'
 [
   "20",
   "21",
@@ -36,7 +36,7 @@ $ skopeo docker.io/fedora | jq '.RepoTags'
 ]
 
 # show image's digest
-$ skopeo docker.io/fedora:rawhide | jq '.Digest'
+$ skopeo inspect docker.io/fedora:rawhide | jq '.Digest'
 "sha256:905b4846938c8aef94f52f3e41a11398ae5b40f5855fb0e40ed9c157e721d7f8"
 ```
 
@@ -61,7 +61,7 @@ $ cat /home/runcom/.docker/config.json
 }
 
 # we can see I'm already authenticated via docker login so everything will be fine
-$ skopeo myregistrydomain.com:5000/busybox
+$ skopeo inspect myregistrydomain.com:5000/busybox
 {"Tag":"latest","Digest":"sha256:473bb2189d7b913ed7187a33d11e743fdc2f88931122a44d91a301b64419f092","RepoTags":["latest"],"Comment":"","Created":"2016-01-15T18:06:41.282540103Z","ContainerConfig":{"Hostname":"aded96b43f48","Domainname":"","User":"","AttachStdin":false,"AttachStdout":false,"AttachStderr":false,"Tty":false,"OpenStdin":false,"StdinOnce":false,"Env":null,"Cmd":["/bin/sh","-c","#(nop) CMD [\"sh\"]"],"Image":"9e77fef7a1c9f989988c06620dabc4020c607885b959a2cbd7c2283c91da3e33","Volumes":null,"WorkingDir":"","Entrypoint":null,"OnBuild":null,"Labels":null},"DockerVersion":"1.8.3","Author":"","Config":{"Hostname":"aded96b43f48","Domainname":"","User":"","AttachStdin":false,"AttachStdout":false,"AttachStderr":false,"Tty":false,"OpenStdin":false,"StdinOnce":false,"Env":null,"Cmd":["sh"],"Image":"9e77fef7a1c9f989988c06620dabc4020c607885b959a2cbd7c2283c91da3e33","Volumes":null,"WorkingDir":"","Entrypoint":null,"OnBuild":null,"Labels":null},"Architecture":"amd64","Os":"linux"}
 
 # let's try now to fake a non existent Docker's config file
