@@ -248,13 +248,14 @@ func validateRepoName(name string) error {
 	return nil
 }
 
-func makeImageInspect(img *image.Image, tag string, dgst digest.Digest, tagList []string) *types.ImageInspect {
+func makeImageInspect(img *image.Image, rawManifest []byte, tag string, dgst digest.Digest, tagList []string) *types.ImageInspect {
 	var digest string
 	if err := dgst.Validate(); err == nil {
 		digest = dgst.String()
 	}
 	return &types.ImageInspect{
 		Tag:             tag,
+		RawManifest:     rawManifest,
 		Digest:          digest,
 		RepoTags:        tagList,
 		Comment:         img.Comment,
