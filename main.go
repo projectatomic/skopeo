@@ -49,6 +49,35 @@ var inspectCommand = cli.Command{
 
 }
 
+type Kind int
+
+const (
+	KindUnknown Kind = iota
+	KindDocker
+	KindAppc
+)
+
+type Image interface {
+	Kind() Kind
+	GetLayers(layers []string) error
+	GetRawManifest(version string) ([]byte, error)
+}
+
+// TODO(runcom): document args and usage
+var layersCommand = cli.Command{
+	Name:      "layers",
+	Usage:     "",
+	Action: func(context *cli.Context) {
+		img, err := parseImage(context)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		if err := img.GetLayers(context.Args().Tail()); err != nil {
+			logrus.Fatal(err)
+		}
+	},
+}
+
 func main() {
 	app := cli.NewApp()
 	app.Name = "skopeo"
@@ -85,6 +114,7 @@ func main() {
 	}
 	app.Commands = []cli.Command{
 		inspectCommand,
+		layersCommand,
 	}
 	if err := app.Run(os.Args); err != nil {
 		logrus.Fatal(err)
