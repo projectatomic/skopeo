@@ -7,6 +7,7 @@ import (
 type ImageInspect struct {
 	Tag             string
 	Digest          string
+	RawManifest     []byte
 	RepoTags        []string
 	Comment         string
 	Created         string
