@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
 	"github.com/docker/distribution/digest"
 	distreference "github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/api/errcode"
@@ -62,7 +61,8 @@ func validateName(name string) error {
 	return nil
 }
 
-func GetData(c *cli.Context, name string) (*types.ImageInspect, error) {
+func GetData(img *DockerImage) (*types.ImageInspect, error) {
+	name := img.ref.FullName()
 	if err := validateName(name); err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func GetData(c *cli.Context, name string) (*types.ImageInspect, error) {
 	if err != nil {
 		return nil, err
 	}
-	authConfig, err := getAuthConfig(c, repoInfo.Index)
+	authConfig, err := getAuthConfig(img, repoInfo.Index)
 	if err != nil {
 		return nil, err
 	}
@@ -202,11 +202,11 @@ func newManifestFetcher(endpoint registry.APIEndpoint, repoInfo *registry.Reposi
 	return nil, fmt.Errorf("unknown version %d for registry %s", endpoint.Version, endpoint.URL)
 }
 
-func getAuthConfig(c *cli.Context, index *registryTypes.IndexInfo) (engineTypes.AuthConfig, error) {
+func getAuthConfig(img *DockerImage, index *registryTypes.IndexInfo) (engineTypes.AuthConfig, error) {
 	var (
-		username      = c.GlobalString("username")
-		password      = c.GlobalString("password")
-		cfg           = c.GlobalString("docker-cfg")
+		username      = img.username
+		password      = img.password
+		cfg           = img.cfg
 		defAuthConfig = engineTypes.AuthConfig{
 			Username: username,
 			Password: password,
