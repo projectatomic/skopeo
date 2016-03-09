@@ -208,8 +208,8 @@ func getAuthConfig(c *cli.Context, index *registryTypes.IndexInfo) (engineTypes.
 		password      = c.GlobalString("password")
 		cfg           = c.GlobalString("docker-cfg")
 		defAuthConfig = engineTypes.AuthConfig{
-			Username: c.GlobalString("username"),
-			Password: c.GlobalString("password"),
+			Username: username,
+			Password: password,
 			Email:    "stub@example.com",
 		}
 	)

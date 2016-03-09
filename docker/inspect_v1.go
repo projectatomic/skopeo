@@ -142,7 +142,7 @@ func (mf *v1ManifestFetcher) fetchWithSession(ctx context.Context, ref reference
 		return nil, fmt.Errorf("No such image %s:%s", mf.repoInfo.FullName(), tag)
 	}
 
-	return makeImageInspect(pulledImg, []byte{}, tag, "", tagList), nil
+	return makeImageInspect(pulledImg, nil, tag, "", tagList), nil
 }
 
 func (mf *v1ManifestFetcher) pullImageJSON(imgID, endpoint string, token []string) (*image.Image, error) {

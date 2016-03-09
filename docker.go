@@ -15,8 +15,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/codegangsta/cli"
 	"github.com/Sirupsen/logrus"
+	"github.com/codegangsta/cli"
 	"github.com/docker/docker/pkg/homedir"
 	"github.com/docker/docker/reference"
 )
@@ -43,6 +43,14 @@ type dockerImage struct {
 	WWWAuthenticate string
 	scheme          string
 	rawManifest     []byte
+}
+
+func (i *dockerImage) GetManifest() ([]byte, error) {
+	imgInspect, err := inspect(i.ref.FullName(), i.Kind())
+	if err != nil {
+		return nil, err
+	}
+	return imgInspect, nil
 }
 
 func (i *dockerImage) GetRawManifest(version string) ([]byte, error) {

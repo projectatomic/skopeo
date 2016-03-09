@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -16,30 +15,34 @@ const (
 )
 
 var inspectCommand = cli.Command{
-	Name:      "inspect",
-	Usage:     "",
+	Name:  "inspect",
+	Usage: "",
 	Action: func(context *cli.Context) {
-		imgInspect, err := inspect(context)
+		img, err := parseImage(context)
 		if err != nil {
 			logrus.Fatal(err)
 		}
 		if context.Bool("raw") {
-			fmt.Println(string(imgInspect.RawManifest))
-		} else {
-			out, err := json.Marshal(imgInspect)
+			rawManifest, err := img.GetRawManifest("2-1")
 			if err != nil {
 				logrus.Fatal(err)
 			}
-			fmt.Println(string(out))
+			fmt.Println(string(rawManifest))
+		} else {
+			imgInspect, err := img.GetManifest()
+			//imgInspect, err := inspect(context)
+			if err != nil {
+				logrus.Fatal(err)
+			}
+			fmt.Println(string(imgInspect))
 		}
 	},
-	Flags: 	[]cli.Flag{
+	Flags: []cli.Flag{
 		cli.BoolFlag{
 			Name:  "raw",
-			Usage: "raw manifest",
+			Usage: "output raw manifest",
 		},
 	},
-
 }
 
 type Kind int
@@ -53,13 +56,14 @@ const (
 type Image interface {
 	Kind() Kind
 	GetLayers(layers []string) error
+	GetManifest() ([]byte, error)
 	GetRawManifest(version string) ([]byte, error)
 }
 
 // TODO(runcom): document args and usage
 var layersCommand = cli.Command{
-	Name:      "layers",
-	Usage:     "",
+	Name:  "layers",
+	Usage: "",
 	Action: func(context *cli.Context) {
 		img, err := parseImage(context)
 		if err != nil {
