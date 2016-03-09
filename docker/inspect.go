@@ -208,8 +208,8 @@ func getAuthConfig(c *cli.Context, index *registryTypes.IndexInfo) (engineTypes.
 		password      = c.GlobalString("password")
 		cfg           = c.GlobalString("docker-cfg")
 		defAuthConfig = engineTypes.AuthConfig{
-			Username: c.GlobalString("username"),
-			Password: c.GlobalString("password"),
+			Username: username,
+			Password: password,
 			Email:    "stub@example.com",
 		}
 	)
@@ -248,13 +248,14 @@ func validateRepoName(name string) error {
 	return nil
 }
 
-func makeImageInspect(img *image.Image, tag string, dgst digest.Digest, tagList []string) *types.ImageInspect {
+func makeImageInspect(img *image.Image, rawManifest []byte, tag string, dgst digest.Digest, tagList []string) *types.ImageInspect {
 	var digest string
 	if err := dgst.Validate(); err == nil {
 		digest = dgst.String()
 	}
 	return &types.ImageInspect{
 		Tag:             tag,
+		RawManifest:     rawManifest,
 		Digest:          digest,
 		RepoTags:        tagList,
 		Comment:         img.Comment,
