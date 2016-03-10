@@ -22,6 +22,7 @@ import (
 )
 
 const (
+	// DockerPrefix is the prefix used by docker images
 	DockerPrefix       = "docker://"
 	dockerHostname     = "docker.io"
 	dockerRegistry     = "registry-1.docker.io"
@@ -34,7 +35,8 @@ const (
 
 var validHex = regexp.MustCompile(`^([a-f0-9]{64})$`)
 
-type DockerImage struct {
+// Image is a Docker image
+type Image struct {
 	ref             reference.Named
 	tag             string
 	registry        string
@@ -46,7 +48,8 @@ type DockerImage struct {
 	cfg             string // FIXME doesnt belong here
 }
 
-func (i *DockerImage) GetManifest() ([]byte, error) {
+// GetManifest gives the metadata of the image
+func (i *Image) GetManifest() ([]byte, error) {
 	imgInspect, err := GetData(i)
 	if err != nil {
 		return nil, err
@@ -59,7 +62,8 @@ func (i *DockerImage) GetManifest() ([]byte, error) {
 	return out, nil
 }
 
-func (i *DockerImage) GetRawManifest(version string) ([]byte, error) {
+// GetRawManifest gives the metadata of the image without any processing
+func (i *Image) GetRawManifest(version string) ([]byte, error) {
 	// TODO(runcom): unused version param for now, default to docker v2-1
 	if err := i.retrieveRawManifest(); err != nil {
 		return nil, err
@@ -86,6 +90,7 @@ type manifestSchema1 struct {
 	//Signature []byte `json:"signature"`
 }
 
+// GetLayers returns the layers of the image
 func (m *manifestSchema1) GetLayers() []string {
 	layers := make([]string, len(m.FSLayers))
 	for i, layer := range m.FSLayers {
@@ -102,7 +107,7 @@ func sanitize(s string) string {
 	return strings.Replace(s, "/", "-", -1)
 }
 
-func (i *DockerImage) makeRequest(method, url string, auth bool, headers map[string]string) (*http.Response, error) {
+func (i *Image) makeRequest(method, url string, auth bool, headers map[string]string) (*http.Response, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -126,7 +131,7 @@ func (i *DockerImage) makeRequest(method, url string, auth bool, headers map[str
 	return res, nil
 }
 
-func (i *DockerImage) setupRequestAuth(req *http.Request) error {
+func (i *Image) setupRequestAuth(req *http.Request) error {
 	tokens := strings.SplitN(strings.TrimSpace(i.WWWAuthenticate), " ", 2)
 	if len(tokens) != 2 {
 		return fmt.Errorf("expected 2 tokens in WWW-Authenticate: %d, %s", len(tokens), i.WWWAuthenticate)
@@ -185,7 +190,7 @@ func (i *DockerImage) setupRequestAuth(req *http.Request) error {
 	// support docker bearer with authconfig's Auth string? see docker2aci
 }
 
-func (i *DockerImage) getBearerToken(realm, service, scope string) (string, error) {
+func (i *Image) getBearerToken(realm, service, scope string) (string, error) {
 	authReq, err := http.NewRequest("GET", realm, nil)
 	if err != nil {
 		return "", err
@@ -234,7 +239,7 @@ func (i *DockerImage) getBearerToken(realm, service, scope string) (string, erro
 	return tokenStruct.Token, nil
 }
 
-func (i *DockerImage) retrieveRawManifest() error {
+func (i *Image) retrieveRawManifest() error {
 	if i.rawManifest != nil {
 		return nil
 	}
@@ -309,7 +314,7 @@ func fixManifestLayers1(manifest *manifestSchema1) error {
 	return nil
 }
 
-func (i *DockerImage) getSchema1Manifest() (manifest, error) {
+func (i *Image) getSchema1Manifest() (manifest, error) {
 	if err := i.retrieveRawManifest(); err != nil {
 		return nil, err
 	}
@@ -323,7 +328,9 @@ func (i *DockerImage) getSchema1Manifest() (manifest, error) {
 	return mschema1, nil
 }
 
-func (i *DockerImage) GetLayers(layers []string) error {
+// GetLayers downloads the layers of the image.  If `layers` is specified,
+// only these ones will be downloaded.
+func (i *Image) GetLayers(layers []string) error {
 	m, err := i.getSchema1Manifest()
 	if err != nil {
 		return err
@@ -354,7 +361,7 @@ func (i *DockerImage) GetLayers(layers []string) error {
 	return nil
 }
 
-func (i *DockerImage) getLayer(l, url, tmpDir string) error {
+func (i *Image) getLayer(l, url, tmpDir string) error {
 	lurl := url + l
 	logrus.Infof("Downloading %s", lurl)
 	res, err := i.makeRequest("GET", lurl, i.WWWAuthenticate != "", nil)
@@ -391,16 +398,16 @@ func getDefaultConfigDir(confPath string) string {
 	return conf
 }
 
-type DockerAuthConfigObsolete struct {
+type dockerAuthConfigObsolete struct {
 	Auth string `json:"auth"`
 }
 
-type DockerAuthConfig struct {
+type dockerAuthConfig struct {
 	Auth string `json:"auth,omitempty"`
 }
 
-type DockerConfigFile struct {
-	AuthConfigs map[string]DockerAuthConfig `json:"auths"`
+type dockerConfigFile struct {
+	AuthConfigs map[string]dockerAuthConfig `json:"auths"`
 }
 
 func decodeDockerAuth(s string) (string, string, error) {
@@ -438,7 +445,7 @@ func getAuth(c *cli.Context, hostname string) (string, string, string, error) {
 		if err != nil {
 			return "", "", dockerCfgPath, err
 		}
-		var dockerAuth DockerConfigFile
+		var dockerAuth dockerConfigFile
 		if err := json.Unmarshal(j, &dockerAuth); err != nil {
 			return "", "", dockerCfgPath, err
 		}
@@ -456,7 +463,7 @@ func getAuth(c *cli.Context, hostname string) (string, string, string, error) {
 		if err != nil {
 			return "", "", dockerCfgPath, err
 		}
-		var dockerAuthOld map[string]DockerAuthConfigObsolete
+		var dockerAuthOld map[string]dockerAuthConfigObsolete
 		if err := json.Unmarshal(j, &dockerAuthOld); err != nil {
 			return "", "", dockerCfgPath, err
 		}
@@ -472,7 +479,7 @@ func getAuth(c *cli.Context, hostname string) (string, string, string, error) {
 	return "", "", dockerCfgPath, nil
 }
 
-type APIErr struct {
+type apiErr struct {
 	Code    string
 	Message string
 	Detail  interface{}
@@ -482,7 +489,7 @@ type pingResponse struct {
 	WWWAuthenticate string
 	APIVersion      string
 	scheme          string
-	errors          []APIErr
+	errors          []apiErr
 }
 
 func (pr *pingResponse) needsAuth() bool {
@@ -508,7 +515,7 @@ func ping(registry string) (*pingResponse, error) {
 		pr.scheme = scheme
 		if resp.StatusCode == http.StatusUnauthorized {
 			type APIErrors struct {
-				Errors []APIErr
+				Errors []apiErr
 			}
 			errs := &APIErrors{}
 			if err := json.NewDecoder(resp.Body).Decode(errs); err != nil {
@@ -537,7 +544,8 @@ func validateV1ID(id string) error {
 	return nil
 }
 
-func ParseDockerImage(c *cli.Context, img string) (*DockerImage, error) {
+// ParseImage parses the img string into an Image
+func ParseImage(c *cli.Context, img string) (*Image, error) {
 	ref, err := reference.ParseNamed(img)
 	if err != nil {
 		return nil, err
@@ -563,7 +571,7 @@ func ParseDockerImage(c *cli.Context, img string) (*DockerImage, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &DockerImage{
+	return &Image{
 		ref:      ref,
 		tag:      tag,
 		registry: registry,

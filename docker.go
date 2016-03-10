@@ -6,7 +6,7 @@ import (
 )
 
 type dockerImage struct {
-	img *docker.DockerImage
+	img *docker.Image
 }
 
 func (i *dockerImage) GetManifest() ([]byte, error) {
@@ -17,16 +17,16 @@ func (i *dockerImage) GetRawManifest(version string) ([]byte, error) {
 	return i.img.GetRawManifest(version)
 }
 
-func (i *dockerImage) Kind() Kind {
-	return KindDocker
+func (i *dockerImage) Kind() kind {
+	return kindDocker
 }
 
 func (i *dockerImage) GetLayers(layers []string) error {
 	return i.img.GetLayers(layers)
 }
 
-func parseDockerImage(c *cli.Context, img string) (Image, error) {
-	image, err := docker.ParseDockerImage(c, img)
+func parseDockerImage(c *cli.Context, img string) (image, error) {
+	image, err := docker.ParseImage(c, img)
 	if err != nil {
 		return nil, err
 	}

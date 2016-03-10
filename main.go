@@ -45,16 +45,16 @@ var inspectCommand = cli.Command{
 	},
 }
 
-type Kind int
+type kind int
 
 const (
-	KindUnknown Kind = iota
-	KindDocker
-	KindAppc
+	kindUnknown kind = iota
+	kindDocker
+	kindAppc
 )
 
-type Image interface {
-	Kind() Kind
+type image interface {
+	Kind() kind
 	GetLayers(layers []string) error
 	GetManifest() ([]byte, error)
 	GetRawManifest(version string) ([]byte, error)

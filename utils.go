@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func parseImage(c *cli.Context) (Image, error) {
+func parseImage(c *cli.Context) (image, error) {
 	img := c.Args().First()
 	switch {
 	case strings.HasPrefix(img, docker.DockerPrefix):

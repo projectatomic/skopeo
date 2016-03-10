@@ -61,7 +61,8 @@ func validateName(name string) error {
 	return nil
 }
 
-func GetData(img *DockerImage) (*types.ImageInspect, error) {
+// GetData do the lookup of a Docker image
+func GetData(img *Image) (*types.ImageInspect, error) {
 	name := img.ref.FullName()
 	if err := validateName(name); err != nil {
 		return nil, err
@@ -202,7 +203,7 @@ func newManifestFetcher(endpoint registry.APIEndpoint, repoInfo *registry.Reposi
 	return nil, fmt.Errorf("unknown version %d for registry %s", endpoint.Version, endpoint.URL)
 }
 
-func getAuthConfig(img *DockerImage, index *registryTypes.IndexInfo) (engineTypes.AuthConfig, error) {
+func getAuthConfig(img *Image, index *registryTypes.IndexInfo) (engineTypes.AuthConfig, error) {
 	var (
 		username      = img.username
 		password      = img.password
