@@ -106,6 +106,11 @@ func (mf *v2ManifestFetcher) fetchWithRepository(ctx context.Context, ref refere
 	// the other side speaks the v2 protocol.
 	mf.confirmedV2 = true
 
+	_, payload, err := manifest.Payload()
+	if err != nil {
+		return nil, err
+	}
+
 	tagList, err = mf.repo.Tags(ctx).All(ctx)
 	if err != nil {
 		// If this repository doesn't exist on V2, we should
@@ -146,7 +151,7 @@ func (mf *v2ManifestFetcher) fetchWithRepository(ctx context.Context, ref refere
 	//ref = reference.WithDefaultTag(ref)
 	//}
 	//_ = showTags
-	return makeImageInspect(image, tagOrDigest, manifestDigest, tagList), nil
+	return makeImageInspect(image, payload, tagOrDigest, manifestDigest, tagList), nil
 }
 
 func (mf *v2ManifestFetcher) pullSchema1(ctx context.Context, ref reference.Named, unverifiedManifest *schema1.SignedManifest) (img *image.Image, manifestDigest digest.Digest, err error) {

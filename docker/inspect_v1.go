@@ -37,7 +37,8 @@ func (mf *v1ManifestFetcher) Fetch(ctx context.Context, ref reference.Named) (*t
 	)
 	if _, isCanonical := ref.(reference.Canonical); isCanonical {
 		// Allowing fallback, because HTTPS v1 is before HTTP v2
-		return nil, fallbackError{err: dockerdistribution.ErrNoSupport{errors.New("Cannot pull by digest with v1 registry")}}
+		err := dockerdistribution.ErrNoSupport{errors.New("Cannot pull by digest with v1 registry")}
+		return nil, fallbackError{err: err}
 	}
 	tlsConfig, err := mf.service.TLSConfig(mf.repoInfo.Index.Name)
 	if err != nil {
@@ -142,7 +143,7 @@ func (mf *v1ManifestFetcher) fetchWithSession(ctx context.Context, ref reference
 		return nil, fmt.Errorf("No such image %s:%s", mf.repoInfo.FullName(), tag)
 	}
 
-	return makeImageInspect(pulledImg, tag, "", tagList), nil
+	return makeImageInspect(pulledImg, nil, tag, "", tagList), nil
 }
 
 func (mf *v1ManifestFetcher) pullImageJSON(imgID, endpoint string, token []string) (*image.Image, error) {
