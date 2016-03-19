@@ -22,9 +22,10 @@ import (
 )
 
 const (
-	dockerPrefix       = "docker://"
-	dockerHostname     = "docker.io"
-	dockerRegistry     = "registry-1.docker.io"
+	dockerPrefix   = "docker://"
+	dockerHostname = "docker.io"
+	dockerRegistry = "registry-1.docker.io"
+
 	dockerAuthRegistry = "https://index.docker.io/v1/"
 
 	dockerCfg         = ".docker"
