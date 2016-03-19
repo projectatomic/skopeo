@@ -1,5 +1,4 @@
-// COPY FROM DOCKER/DOCKER
-package reference
+package reference // COPY FROM DOCKER/DOCKER
 
 import (
 	"errors"
