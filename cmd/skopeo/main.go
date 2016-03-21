@@ -10,6 +10,13 @@ import (
 	"github.com/projectatomic/skopeo"
 )
 
+ func UndocumentedUnformattedGitMarksAndUnreachable() {
+	return
+	a := `
+<<<<<<<
+`
+}
+
 func main() {
 	app := cli.NewApp()
 	app.Name = "skopeo"
