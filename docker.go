@@ -372,16 +372,16 @@ func getDefaultConfigDir(confPath string) string {
 	return filepath.Join(homedir.Get(), confPath)
 }
 
-type DockerAuthConfigObsolete struct {
+type dockerAuthConfigObsolete struct {
 	Auth string `json:"auth"`
 }
 
-type DockerAuthConfig struct {
+type dockerAuthConfig struct {
 	Auth string `json:"auth,omitempty"`
 }
 
-type DockerConfigFile struct {
-	AuthConfigs map[string]DockerAuthConfig `json:"auths"`
+type dockerConfigFile struct {
+	AuthConfigs map[string]dockerAuthConfig `json:"auths"`
 }
 
 func decodeDockerAuth(s string) (string, string, error) {
@@ -408,7 +408,7 @@ func getAuth(hostname string) (string, string, error) {
 		if err != nil {
 			return "", "", err
 		}
-		var dockerAuth DockerConfigFile
+		var dockerAuth dockerConfigFile
 		if err := json.Unmarshal(j, &dockerAuth); err != nil {
 			return "", "", err
 		}
@@ -425,7 +425,7 @@ func getAuth(hostname string) (string, string, error) {
 		if err != nil {
 			return "", "", err
 		}
-		var dockerAuthOld map[string]DockerAuthConfigObsolete
+		var dockerAuthOld map[string]dockerAuthConfigObsolete
 		if err := json.Unmarshal(j, &dockerAuthOld); err != nil {
 			return "", "", err
 		}
@@ -440,7 +440,7 @@ func getAuth(hostname string) (string, string, error) {
 	return "", "", nil
 }
 
-type APIErr struct {
+type apiErr struct {
 	Code    string
 	Message string
 	Detail  interface{}
@@ -450,7 +450,7 @@ type pingResponse struct {
 	WWWAuthenticate string
 	APIVersion      string
 	scheme          string
-	errors          []APIErr
+	errors          []apiErr
 }
 
 func (pr *pingResponse) needsAuth() bool {
@@ -476,7 +476,7 @@ func ping(registry string) (*pingResponse, error) {
 		pr.scheme = scheme
 		if resp.StatusCode == http.StatusUnauthorized {
 			type APIErrors struct {
-				Errors []APIErr
+				Errors []apiErr
 			}
 			errs := &APIErrors{}
 			if err := json.NewDecoder(resp.Body).Decode(errs); err != nil {

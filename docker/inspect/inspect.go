@@ -62,6 +62,7 @@ func validateName(name string) error {
 	return nil
 }
 
+// GetData retrieves an image manifest for a specified Docker reference.
 func GetData(c *cli.Context, name string) (types.ImageManifest, error) {
 	if err := validateName(name); err != nil {
 		return nil, err
