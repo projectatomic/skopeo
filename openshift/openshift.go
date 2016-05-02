@@ -2,6 +2,7 @@ package openshift
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +19,16 @@ import (
 	"github.com/projectatomic/skopeo/types"
 	"github.com/projectatomic/skopeo/version"
 )
+
+func signatureKey(i int) string {
+	// FIXME FIXME: testing only
+	if i == 0 {
+		return "openshift/signature"
+	}
+	i--
+	// FIXME: needs official allocation
+	return fmt.Sprintf("openshift/signature-%d", i)
+}
 
 // openshiftClient is configuration for dealing with a single image stream, for reading or writing.
 type openshiftClient struct {
@@ -208,7 +219,36 @@ func (s *openshiftImageSource) GetBlob(digest string) (io.ReadCloser, int64, err
 }
 
 func (s *openshiftImageSource) GetSignatures() ([][]byte, error) {
-	return nil, nil
+	if err := s.ensureImageIsResolved(); err != nil {
+		return nil, err
+	}
+
+	// FIXME: validate components per validation.IsValidPathSegmentName?
+	path := fmt.Sprintf("/oapi/v1/namespaces/%s/imagestreamimages/%s@%s", s.client.namespace, s.client.stream, s.imageStreamImageName)
+	body, err := s.client.doRequest("GET", path, nil)
+	if err != nil {
+		return nil, err
+	}
+	// Note: This does absolutely no kind/version checking or conversions.
+	var isi imageStreamImage
+	if err := json.Unmarshal(body, &isi); err != nil {
+		return nil, err
+	}
+	var sigs [][]byte
+	for i := 0; true; i++ {
+		key := signatureKey(i)
+		val, ok := isi.Image.Annotations[key]
+		if !ok {
+			break
+		}
+		sig, err := base64.StdEncoding.DecodeString(val)
+		if err != nil {
+			logrus.Warnf("Failed decoding signature annotation %s, ignoring", key)
+			continue
+		}
+		sigs = append(sigs, sig)
+	}
+	return sigs, nil
 }
 
 // ensureImageIsResolved sets up s.docker and s.imageStreamImageName
@@ -259,6 +299,8 @@ func (s *openshiftImageSource) ensureImageIsResolved() error {
 type openshiftImageDestination struct {
 	client *openshiftClient
 	docker types.ImageDestination // The Docker Registry endpoint
+	// State
+	signatures [][]byte
 }
 
 // NewOpenshiftImageDestination creates a new ImageDestination for the specified image and connection specification.
@@ -289,6 +331,10 @@ func (d *openshiftImageDestination) CanonicalDockerReference() (string, error) {
 
 func (d *openshiftImageDestination) PutManifest(m []byte) error {
 	// Note: This does absolutely no kind/version checking or conversions.
+	annotations := map[string]string{}
+	for i, signature := range d.signatures {
+		annotations[signatureKey(i)] = base64.StdEncoding.EncodeToString(signature)
+	}
 	manifestDigest, err := manifest.Digest(m)
 	if err != nil {
 		return err
@@ -306,7 +352,8 @@ func (d *openshiftImageDestination) PutManifest(m []byte) error {
 		},
 		Image: image{
 			objectMeta: objectMeta{
-				Name: manifestDigest,
+				Name:        manifestDigest,
+				Annotations: annotations,
 			},
 			DockerImageReference: dockerImageReference,
 			DockerImageManifest:  string(m),
@@ -333,9 +380,12 @@ func (d *openshiftImageDestination) PutBlob(digest string, stream io.Reader) err
 }
 
 func (d *openshiftImageDestination) PutSignatures(signatures [][]byte) error {
-	if len(signatures) != 0 {
-		return fmt.Errorf("Pushing signatures to an Atomic Registry is not supported")
+	// FIXME: This assumption that signatures are stored before the manifest rather breaks the model.
+	// Move to a "set properties" + commit API instead?
+	if d.signatures != nil {
+		return fmt.Errorf("Signatures already pending")
 	}
+	d.signatures = signatures
 	return nil
 }
 
