@@ -7,4 +7,4 @@ notifications:
   email: false
 
 script:
-  - make check
+  - make check CHECK_BASE_IMAGES='fedora centos' SKIP_GOLINT_IF_MISSING=1
