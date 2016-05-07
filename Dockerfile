@@ -1,6 +1,7 @@
 FROM fedora
 
-RUN dnf -y update && dnf install -y make git golang golang-github-cpuguy83-go-md2man \
+RUN if (. /etc/os-release ; [ "$ID" != centos ]); then dnf=dnf; else dnf=yum; $dnf install -y epel-release; fi \
+	&& $dnf -y update && $dnf install -y make git golang golang-github-cpuguy83-go-md2man \
 	# gpgme bindings deps
 	libassuan-devel gpgme-devel \
 	gnupg \
@@ -11,6 +12,7 @@ RUN dnf -y update && dnf install -y make git golang golang-github-cpuguy83-go-md
 	swig \
 	redhat-rpm-config \
 	openssl-devel \
+	m2crypto \
 	patch
 
 # Install three versions of the registry. The first is an older version that
@@ -31,14 +33,15 @@ RUN set -x \
 	&& rm -rf "$GOPATH" \
 	&& export DRV1="$(mktemp -d)" \
 	&& git clone https://github.com/docker/docker-registry.git "$DRV1" \
+	# drop M2Crypto dependency, that one does not build with just pip on CentOS, and we have a newer version in the distribution anyway.
+	&& sed -i.nom2 /M2Crypto==0.22.3/d "$DRV1/requirements/main.txt" \
 	# no need for setuptools since we have a version conflict with fedora
 	&& sed -i.bak s/setuptools==5.8//g "$DRV1/requirements/main.txt" \
 	&& sed -i.bak s/setuptools==5.8//g "$DRV1/depends/docker-registry-core/requirements/main.txt" \
 	&& pip install "$DRV1/depends/docker-registry-core" \
 	&& pip install file://"$DRV1#egg=docker-registry[bugsnag,newrelic,cors]" \
 	&& patch $(python -c 'import boto; import os; print os.path.dirname(boto.__file__)')/connection.py \
-		< "$DRV1/contrib/boto_header_patch.diff" \
-	&& dnf -y update && dnf install -y m2crypto
+		< "$DRV1/contrib/boto_header_patch.diff"
 
 RUN set -x \
 	&& yum install -y which git tar wget hostname util-linux bsdtar socat ethtool device-mapper iptables tree findutils nmap-ncat e2fsprogs xfsprogs lsof docker iproute \
@@ -51,10 +54,13 @@ RUN set -x \
 	&& cp "$GOPATH/src/github.com/openshift/origin/images/dockerregistry/config.yml" /atomic-registry-config.yml \
 	&& mkdir /registry
 
-ENV GOPATH /usr/share/gocode:/go
+ENV GOPATH /usr/share/gocode:/go:/go/src/github.com/projectatomic/skopeo/vendor
 ENV PATH $GOPATH/bin:/usr/share/gocode/bin:$PATH
-RUN go get github.com/golang/lint/golint
+# golint does not build against Go 1.4, and vet is not included in the package.
+RUN if go version | grep -qF 'go1.4'; then yum install -y golang-vet ; else go get github.com/golang/lint/golint ; fi
 WORKDIR /go/src/github.com/projectatomic/skopeo
 COPY . /go/src/github.com/projectatomic/skopeo
+# Go 1.4 does not support GO15VENDOREXPERIMENT; emulate by using GOPATH pointing to the vendor directory, and making vendor/src == vendor
+RUN { ! go version | grep -qF 'go1.4' ; } || { rm -rf vendor/src; ln -s . vendor/src ; }
 
 #ENTRYPOINT ["hack/dind"]
