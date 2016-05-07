@@ -1,6 +1,7 @@
 FROM fedora
 
-RUN dnf -y update && dnf install -y make git golang golang-github-cpuguy83-md2man \
+RUN if (. /etc/os-release ; [ "$ID" != centos ]); then dnf=dnf; md2man=golang-github-cpuguy83-md2man; else dnf=yum; md2man=golang-github-cpuguy83-go-md2man; $dnf install -y epel-release; fi \
+	&& $dnf -y update && $dnf install -y make git golang $md2man \
 	# storage deps
 	btrfs-progs-devel \
 	device-mapper-devel \
@@ -14,7 +15,7 @@ RUN dnf -y update && dnf install -y make git golang golang-github-cpuguy83-md2ma
         bats jq podman runc \
 	golint \
 	openssl \
-	&& dnf clean all
+	&& $dnf clean all
 
 # Install two versions of the registry. The first is an older version that
 # only supports schema1 manifests. The second is a newer version that supports
