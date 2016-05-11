@@ -2,20 +2,13 @@ package docker
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"regexp"
 	"strings"
-	"time"
 
 	"github.com/projectatomic/skopeo/directory"
 	"github.com/projectatomic/skopeo/types"
-)
-
-var (
-	validHex = regexp.MustCompile(`^([a-f0-9]{64})$`)
 )
 
 type dockerImage struct {
@@ -83,57 +76,9 @@ type config struct {
 	Labels map[string]string
 }
 
-type v1Image struct {
-	// Config is the configuration of the container received from the client
-	Config *config `json:"config,omitempty"`
-	// DockerVersion specifies version on which image is built
-	DockerVersion string `json:"docker_version,omitempty"`
-	// Created timestamp when image was created
-	Created time.Time `json:"created"`
-	// Architecture is the hardware that the image is build and runs on
-	Architecture string `json:"architecture,omitempty"`
-	// OS is the operating system used to build and run the image
-	OS string `json:"os,omitempty"`
-}
-
 // TODO(runcom)
 func (i *dockerImage) DockerTar() ([]byte, error) {
 	return nil, nil
-}
-
-// will support v1 one day...
-type manifest interface {
-	String() string
-	GetLayers() []string
-}
-
-type manifestSchema1 struct {
-	Name     string
-	Tag      string
-	FSLayers []struct {
-		BlobSum string `json:"blobSum"`
-	} `json:"fsLayers"`
-	History []struct {
-		V1Compatibility string `json:"v1Compatibility"`
-	} `json:"history"`
-	// TODO(runcom) verify the downloaded manifest
-	//Signature []byte `json:"signature"`
-}
-
-func (m *manifestSchema1) GetLayers() []string {
-	layers := make([]string, len(m.FSLayers))
-	for i, layer := range m.FSLayers {
-		layers[i] = layer.BlobSum
-	}
-	return layers
-}
-
-func (m *manifestSchema1) String() string {
-	return fmt.Sprintf("%s-%s", sanitize(m.Name), sanitize(m.Tag))
-}
-
-func sanitize(s string) string {
-	return strings.Replace(s, "/", "-", -1)
 }
 
 func (i *dockerImage) retrieveRawManifest() error {
@@ -208,55 +153,4 @@ func (i *dockerImage) getLayer(dest types.ImageDestination, digest string) error
 	}
 	defer stream.Close()
 	return dest.PutLayer(digest, stream)
-}
-
-func fixManifestLayers(manifest *manifestSchema1) error {
-	type imageV1 struct {
-		ID     string
-		Parent string
-	}
-	imgs := make([]*imageV1, len(manifest.FSLayers))
-	for i := range manifest.FSLayers {
-		img := &imageV1{}
-
-		if err := json.Unmarshal([]byte(manifest.History[i].V1Compatibility), img); err != nil {
-			return err
-		}
-
-		imgs[i] = img
-		if err := validateV1ID(img.ID); err != nil {
-			return err
-		}
-	}
-	if imgs[len(imgs)-1].Parent != "" {
-		return errors.New("Invalid parent ID in the base layer of the image.")
-	}
-	// check general duplicates to error instead of a deadlock
-	idmap := make(map[string]struct{})
-	var lastID string
-	for _, img := range imgs {
-		// skip IDs that appear after each other, we handle those later
-		if _, exists := idmap[img.ID]; img.ID != lastID && exists {
-			return fmt.Errorf("ID %+v appears multiple times in manifest", img.ID)
-		}
-		lastID = img.ID
-		idmap[lastID] = struct{}{}
-	}
-	// backwards loop so that we keep the remaining indexes after removing items
-	for i := len(imgs) - 2; i >= 0; i-- {
-		if imgs[i].ID == imgs[i+1].ID { // repeated ID. remove and continue
-			manifest.FSLayers = append(manifest.FSLayers[:i], manifest.FSLayers[i+1:]...)
-			manifest.History = append(manifest.History[:i], manifest.History[i+1:]...)
-		} else if imgs[i].Parent != imgs[i+1].ID {
-			return fmt.Errorf("Invalid parent ID. Expected %v, got %v.", imgs[i+1].ID, imgs[i].Parent)
-		}
-	}
-	return nil
-}
-
-func validateV1ID(id string) error {
-	if ok := validHex.MatchString(id); !ok {
-		return fmt.Errorf("image ID %q is invalid", id)
-	}
-	return nil
 }

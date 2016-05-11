@@ -74,7 +74,7 @@ type DockerImageManifest struct {
 	Labels        map[string]string
 	Architecture  string
 	Os            string
-	FSLayers      []string
+	FSLayers      []string `json:"Layers"`
 }
 
 // Raw returns the raw manifest as received from the registry

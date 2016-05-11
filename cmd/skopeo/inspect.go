@@ -18,20 +18,20 @@ var inspectCmd = cli.Command{
 		},
 	},
 	Action: func(c *cli.Context) {
-		img, err := parseImage(c)
+		img, err := parseImageSource(c, c.Args()[0])
 		if err != nil {
 			logrus.Fatal(err)
 		}
 		if c.Bool("raw") {
 			// TODO(runcom): hardcoded schema 2 version 1
-			b, err := img.RawManifest("2-1")
+			m, _, err := img.GetManifest()
 			if err != nil {
 				logrus.Fatal(err)
 			}
-			fmt.Println(string(b))
+			fmt.Println(string(m.Raw()))
 			return
 		}
-		imgInspect, err := img.Manifest()
+		imgInspect, _, err := img.GetManifest()
 		if err != nil {
 			logrus.Fatal(err)
 		}
