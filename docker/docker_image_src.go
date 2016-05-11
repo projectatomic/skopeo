@@ -1,6 +1,7 @@
-package main
+package docker
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -48,7 +49,7 @@ func NewDockerImageSource(img, certPath string, tlsVerify bool) (types.ImageSour
 	return newDockerImageSource(img, certPath, tlsVerify)
 }
 
-func (s *dockerImageSource) GetManifest() (manifest []byte, unverifiedCanonicalDigest string, err error) {
+func (s *dockerImageSource) GetManifest() (manifest types.ImageManifest, unverifiedCanonicalDigest string, err error) {
 	url := fmt.Sprintf(manifestURL, s.ref.RemoteName(), s.tag)
 	// TODO(runcom) set manifest version header! schema1 for now - then schema2 etc etc and v1
 	// TODO(runcom) NO, switch on the resulter manifest like Docker is doing
@@ -64,7 +65,9 @@ func (s *dockerImageSource) GetManifest() (manifest []byte, unverifiedCanonicalD
 	if res.StatusCode != http.StatusOK {
 		return nil, "", errFetchManifest{res.StatusCode, manblob}
 	}
-	return manblob, res.Header.Get("Docker-Content-Digest"), nil
+	unverifiedCanonicalDigest = res.Header.Get("Docker-Content-Digest")
+	manifest, err = makeImageManifest(s.ref.FullName(), manblob, unverifiedCanonicalDigest, nil)
+	return
 }
 
 func (s *dockerImageSource) GetLayer(digest string) (io.ReadCloser, error) {
@@ -83,4 +86,31 @@ func (s *dockerImageSource) GetLayer(digest string) (io.ReadCloser, error) {
 
 func (s *dockerImageSource) GetSignatures() ([][]byte, error) {
 	return [][]byte{}, nil
+}
+
+func makeImageManifest(name string, manblob []byte, dgst string, tagList []string) (types.ImageManifest, error) {
+	m := manifestSchema1{}
+	if err := json.Unmarshal(manblob, &m); err != nil {
+		return nil, err
+	}
+	if err := fixManifestLayers(&m); err != nil {
+		return nil, err
+	}
+	v1 := &v1Image{}
+	if err := json.Unmarshal([]byte(m.History[0].V1Compatibility), v1); err != nil {
+		return nil, err
+	}
+	return &types.DockerImageManifest{
+		Name:          name,
+		Tag:           m.Tag,
+		Digest:        dgst,
+		RepoTags:      tagList,
+		DockerVersion: v1.DockerVersion,
+		Created:       v1.Created,
+		Labels:        v1.Config.Labels,
+		Architecture:  v1.Architecture,
+		Os:            v1.OS,
+		FSLayers:      m.GetLayers(),
+		RawManifest:   manblob,
+	}, nil
 }

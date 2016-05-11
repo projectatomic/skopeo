@@ -1,4 +1,4 @@
-package main
+package docker
 
 import (
 	"encoding/json"
@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/projectatomic/skopeo/directory"
 	"github.com/projectatomic/skopeo/types"
 )
 
@@ -23,7 +24,9 @@ type dockerImage struct {
 	rawManifest []byte
 }
 
-func parseDockerImage(img, certPath string, tlsVerify bool) (types.Image, error) {
+// ParseDockerImage returns a new Image interface type after setting up
+// a client to the registry hosting the given image
+func ParseDockerImage(img, certPath string, tlsVerify bool) (types.Image, error) {
 	s, err := newDockerImageSource(img, certPath, tlsVerify)
 	if err != nil {
 		return nil, err
@@ -40,20 +43,14 @@ func (i *dockerImage) RawManifest(version string) ([]byte, error) {
 }
 
 func (i *dockerImage) Manifest() (types.ImageManifest, error) {
-	// TODO(runcom): unused version param for now, default to docker v2-1
-	m, err := i.getSchema1Manifest()
-	if err != nil {
+	if err := i.retrieveRawManifest(); err != nil {
 		return nil, err
-	}
-	ms1, ok := m.(*manifestSchema1)
-	if !ok {
-		return nil, fmt.Errorf("error retrivieng manifest schema1")
 	}
 	tags, err := i.getTags()
 	if err != nil {
 		return nil, err
 	}
-	imgManifest, err := makeImageManifest(i.src.ref.FullName(), ms1, i.digest, tags)
+	imgManifest, err := makeImageManifest(i.src.ref.FullName(), i.rawManifest, i.digest, tags)
 	if err != nil {
 		return nil, err
 	}
@@ -97,25 +94,6 @@ type v1Image struct {
 	Architecture string `json:"architecture,omitempty"`
 	// OS is the operating system used to build and run the image
 	OS string `json:"os,omitempty"`
-}
-
-func makeImageManifest(name string, m *manifestSchema1, dgst string, tagList []string) (types.ImageManifest, error) {
-	v1 := &v1Image{}
-	if err := json.Unmarshal([]byte(m.History[0].V1Compatibility), v1); err != nil {
-		return nil, err
-	}
-	return &types.DockerImageManifest{
-		Name:          name,
-		Tag:           m.Tag,
-		Digest:        dgst,
-		RepoTags:      tagList,
-		DockerVersion: v1.DockerVersion,
-		Created:       v1.Created,
-		Labels:        v1.Config.Labels,
-		Architecture:  v1.Architecture,
-		Os:            v1.OS,
-		Layers:        m.GetLayers(),
-	}, nil
 }
 
 // TODO(runcom)
@@ -162,11 +140,11 @@ func (i *dockerImage) retrieveRawManifest() error {
 	if i.rawManifest != nil {
 		return nil
 	}
-	manblob, unverifiedCanonicalDigest, err := i.src.GetManifest()
+	manifest, unverifiedCanonicalDigest, err := i.src.GetManifest()
 	if err != nil {
 		return err
 	}
-	i.rawManifest = manblob
+	i.rawManifest = manifest.Raw()
 	i.digest = unverifiedCanonicalDigest
 	return nil
 }
@@ -201,7 +179,7 @@ func (i *dockerImage) Layers(layers ...string) error {
 	if err != nil {
 		return err
 	}
-	dest := NewDirImageDestination(tmpDir)
+	dest := directory.NewDirImageDestination(tmpDir)
 	data, err := json.Marshal(m)
 	if err != nil {
 		return err

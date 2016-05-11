@@ -5,6 +5,9 @@ import (
 	"strings"
 
 	"github.com/codegangsta/cli"
+	"github.com/projectatomic/skopeo/directory"
+	"github.com/projectatomic/skopeo/docker"
+	"github.com/projectatomic/skopeo/openshift"
 	"github.com/projectatomic/skopeo/types"
 )
 
@@ -17,7 +20,7 @@ func parseImage(c *cli.Context) (types.Image, error) {
 	)
 	switch {
 	case strings.HasPrefix(imgName, types.DockerPrefix):
-		return parseDockerImage(strings.TrimPrefix(imgName, types.DockerPrefix), certPath, tlsVerify)
+		return docker.ParseDockerImage(strings.TrimPrefix(imgName, types.DockerPrefix), certPath, tlsVerify)
 		//case strings.HasPrefix(img, appcPrefix):
 		//
 	}
@@ -32,11 +35,11 @@ func parseImageSource(c *cli.Context, name string) (types.ImageSource, error) {
 	)
 	switch {
 	case strings.HasPrefix(name, types.DockerPrefix):
-		return NewDockerImageSource(strings.TrimPrefix(name, types.DockerPrefix), certPath, tlsVerify)
+		return docker.NewDockerImageSource(strings.TrimPrefix(name, types.DockerPrefix), certPath, tlsVerify)
 	case strings.HasPrefix(name, types.AtomicPrefix):
-		return NewOpenshiftImageSource(strings.TrimPrefix(name, types.AtomicPrefix), certPath, tlsVerify)
+		return openshift.NewOpenshiftImageSource(strings.TrimPrefix(name, types.AtomicPrefix), certPath, tlsVerify)
 	case strings.HasPrefix(name, types.DirectoryPrefix):
-		return NewDirImageSource(strings.TrimPrefix(name, types.DirectoryPrefix)), nil
+		return directory.NewDirImageSource(strings.TrimPrefix(name, types.DirectoryPrefix)), nil
 	}
 	return nil, fmt.Errorf("Unrecognized image reference %s", name)
 }
@@ -49,11 +52,11 @@ func parseImageDestination(c *cli.Context, name string) (types.ImageDestination,
 	)
 	switch {
 	case strings.HasPrefix(name, types.DockerPrefix):
-		return NewDockerImageDestination(strings.TrimPrefix(name, types.DockerPrefix), certPath, tlsVerify)
+		return docker.NewDockerImageDestination(strings.TrimPrefix(name, types.DockerPrefix), certPath, tlsVerify)
 	case strings.HasPrefix(name, types.AtomicPrefix):
-		return NewOpenshiftImageDestination(strings.TrimPrefix(name, types.AtomicPrefix), certPath, tlsVerify)
+		return openshift.NewOpenshiftImageDestination(strings.TrimPrefix(name, types.AtomicPrefix), certPath, tlsVerify)
 	case strings.HasPrefix(name, types.DirectoryPrefix):
-		return NewDirImageDestination(strings.TrimPrefix(name, types.DirectoryPrefix)), nil
+		return directory.NewDirImageDestination(strings.TrimPrefix(name, types.DirectoryPrefix)), nil
 	}
 	return nil, fmt.Errorf("Unrecognized image reference %s", name)
 }

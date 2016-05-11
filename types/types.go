@@ -30,7 +30,7 @@ type Repository interface {
 
 // ImageSource is a service, possibly remote (= slow), to download components of a single image.
 type ImageSource interface {
-	GetManifest() (manifest []byte, unverifiedCanonicalDigest string, err error)
+	GetManifest() (manifest ImageManifest, unverifiedCanonicalDigest string, err error)
 	GetLayer(digest string) (io.ReadCloser, error)
 	GetSignatures() ([][]byte, error)
 }
@@ -56,12 +56,15 @@ type Image interface {
 // ImageManifest is the interesting subset of metadata about an Image.
 // TODO(runcom)
 type ImageManifest interface {
+	Raw() []byte
+	Layers() []string
 	String() string
 }
 
 // DockerImageManifest is a set of metadata describing Docker images and their manifest.json files.
 // Note that this is not exactly manifest.json, e.g. some fields have been added.
 type DockerImageManifest struct {
+	RawManifest   []byte `json:"-"`
 	Name          string
 	Tag           string
 	Digest        string
@@ -71,7 +74,17 @@ type DockerImageManifest struct {
 	Labels        map[string]string
 	Architecture  string
 	Os            string
-	Layers        []string
+	FSLayers      []string
+}
+
+// Raw returns the raw manifest as received from the registry
+func (m *DockerImageManifest) Raw() []byte {
+	return m.RawManifest
+}
+
+// Layers returns a list of the FS layers in the manifest
+func (m *DockerImageManifest) Layers() []string {
+	return m.FSLayers
 }
 
 func (m *DockerImageManifest) String() string {
