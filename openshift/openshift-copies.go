@@ -1,4 +1,4 @@
-package main
+package openshift
 
 import (
 	"crypto/tls"

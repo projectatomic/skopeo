@@ -1,15 +1,18 @@
-package main
+package docker
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
+	"github.com/projectatomic/skopeo/reference"
 	"github.com/projectatomic/skopeo/types"
 )
 
@@ -17,53 +20,72 @@ var (
 	validHex = regexp.MustCompile(`^([a-f0-9]{64})$`)
 )
 
-type dockerImage struct {
-	src         *dockerImageSource
-	digest      string
-	rawManifest []byte
+type errFetchManifest struct {
+	statusCode int
+	body       []byte
 }
 
-func parseDockerImage(img, certPath string, tlsVerify bool) (types.Image, error) {
-	s, err := newDockerImageSource(img, certPath, tlsVerify)
+func (e errFetchManifest) Error() string {
+	return fmt.Sprintf("error fetching manifest: status code: %d, body: %s", e.statusCode, string(e.body))
+}
+
+type dockerImageSource struct {
+	ref reference.Named
+	tag string
+	c   *dockerClient
+}
+
+// newDockerImageSource is the same as NewDockerImageSource, only it returns the more specific *dockerImageSource type.
+func newDockerImageSource(img, certPath string, tlsVerify bool) (*dockerImageSource, error) {
+	ref, tag, err := parseDockerImageName(img)
 	if err != nil {
 		return nil, err
 	}
-	return &dockerImage{src: s}, nil
-}
-
-func (i *dockerImage) RawManifest(version string) ([]byte, error) {
-	// TODO(runcom): unused version param for now, default to docker v2-1
-	if err := i.retrieveRawManifest(); err != nil {
-		return nil, err
-	}
-	return i.rawManifest, nil
-}
-
-func (i *dockerImage) Manifest() (types.ImageManifest, error) {
-	// TODO(runcom): unused version param for now, default to docker v2-1
-	m, err := i.getSchema1Manifest()
+	c, err := newDockerClient(ref.Hostname(), certPath, tlsVerify)
 	if err != nil {
 		return nil, err
 	}
-	ms1, ok := m.(*manifestSchema1)
-	if !ok {
-		return nil, fmt.Errorf("error retrivieng manifest schema1")
-	}
-	tags, err := i.getTags()
-	if err != nil {
-		return nil, err
-	}
-	imgManifest, err := makeImageManifest(i.src.ref.FullName(), ms1, i.digest, tags)
-	if err != nil {
-		return nil, err
-	}
-	return imgManifest, nil
+	return &dockerImageSource{
+		ref: ref,
+		tag: tag,
+		c:   c,
+	}, nil
 }
 
-func (i *dockerImage) getTags() ([]string, error) {
-	// FIXME? Breaking the abstraction.
-	url := fmt.Sprintf(tagsURL, i.src.ref.RemoteName())
-	res, err := i.src.c.makeRequest("GET", url, nil, nil)
+// NewDockerImageSource creates a new ImageSource for the specified image and connection specification.
+func NewDockerImageSource(img, certPath string, tlsVerify bool) (types.ImageSource, error) {
+	return newDockerImageSource(img, certPath, tlsVerify)
+}
+
+func (s *dockerImageSource) GetManifest() (manifest types.ImageManifest, unverifiedCanonicalDigest string, err error) {
+	url := fmt.Sprintf(manifestURL, s.ref.RemoteName(), s.tag)
+	// TODO(runcom) set manifest version header! schema1 for now - then schema2 etc etc and v1
+	// TODO(runcom) NO, switch on the resulter manifest like Docker is doing
+	res, err := s.c.makeRequest("GET", url, nil, nil)
+	if err != nil {
+		return nil, "", err
+	}
+	defer res.Body.Close()
+	manblob, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, "", err
+	}
+	if res.StatusCode != http.StatusOK {
+		return nil, "", errFetchManifest{res.StatusCode, manblob}
+	}
+	// TODO(remove, already set in manifest, below): Miloslav?
+	unverifiedCanonicalDigest = res.Header.Get("Docker-Content-Digest")
+	tags, err := s.getTags()
+	if err != nil {
+		return nil, "", err
+	}
+	manifest, err = makeImageManifest(s.ref.FullName(), manblob, res.Header.Get("Docker-Content-Digest"), tags)
+	return
+}
+
+func (s *dockerImageSource) getTags() ([]string, error) {
+	url := fmt.Sprintf(tagsURL, s.ref.RemoteName())
+	res, err := s.c.makeRequest("GET", url, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -82,8 +104,22 @@ func (i *dockerImage) getTags() ([]string, error) {
 	return tags.Tags, nil
 }
 
-type config struct {
-	Labels map[string]string
+func (s *dockerImageSource) GetLayer(digest string) (io.ReadCloser, error) {
+	url := fmt.Sprintf(blobsURL, s.ref.RemoteName(), digest)
+	logrus.Infof("Downloading %s", url)
+	res, err := s.c.makeRequest("GET", url, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	if res.StatusCode != http.StatusOK {
+		// print url also
+		return nil, fmt.Errorf("Invalid status code returned when fetching blob %d", res.StatusCode)
+	}
+	return res.Body, nil
+}
+
+func (s *dockerImageSource) GetSignatures() ([][]byte, error) {
+	return [][]byte{}, nil
 }
 
 type v1Image struct {
@@ -97,30 +133,6 @@ type v1Image struct {
 	Architecture string `json:"architecture,omitempty"`
 	// OS is the operating system used to build and run the image
 	OS string `json:"os,omitempty"`
-}
-
-func makeImageManifest(name string, m *manifestSchema1, dgst string, tagList []string) (types.ImageManifest, error) {
-	v1 := &v1Image{}
-	if err := json.Unmarshal([]byte(m.History[0].V1Compatibility), v1); err != nil {
-		return nil, err
-	}
-	return &types.DockerImageManifest{
-		Name:          name,
-		Tag:           m.Tag,
-		Digest:        dgst,
-		RepoTags:      tagList,
-		DockerVersion: v1.DockerVersion,
-		Created:       v1.Created,
-		Labels:        v1.Config.Labels,
-		Architecture:  v1.Architecture,
-		Os:            v1.OS,
-		Layers:        m.GetLayers(),
-	}, nil
-}
-
-// TODO(runcom)
-func (i *dockerImage) DockerTar() ([]byte, error) {
-	return nil, nil
 }
 
 // will support v1 one day...
@@ -158,78 +170,31 @@ func sanitize(s string) string {
 	return strings.Replace(s, "/", "-", -1)
 }
 
-func (i *dockerImage) retrieveRawManifest() error {
-	if i.rawManifest != nil {
-		return nil
-	}
-	manblob, unverifiedCanonicalDigest, err := i.src.GetManifest()
-	if err != nil {
-		return err
-	}
-	i.rawManifest = manblob
-	i.digest = unverifiedCanonicalDigest
-	return nil
-}
-
-func (i *dockerImage) getSchema1Manifest() (manifest, error) {
-	if err := i.retrieveRawManifest(); err != nil {
+func makeImageManifest(name string, manblob []byte, dgst string, tagList []string) (types.ImageManifest, error) {
+	m := manifestSchema1{}
+	if err := json.Unmarshal(manblob, &m); err != nil {
 		return nil, err
 	}
-	mschema1 := &manifestSchema1{}
-	if err := json.Unmarshal(i.rawManifest, mschema1); err != nil {
+	if err := fixManifestLayers(&m); err != nil {
 		return nil, err
 	}
-	if err := fixManifestLayers(mschema1); err != nil {
+	v1 := &v1Image{}
+	if err := json.Unmarshal([]byte(m.History[0].V1Compatibility), v1); err != nil {
 		return nil, err
 	}
-	// TODO(runcom): verify manifest schema 1, 2 etc
-	//if len(m.FSLayers) != len(m.History) {
-	//return nil, fmt.Errorf("length of history not equal to number of layers for %q", ref.String())
-	//}
-	//if len(m.FSLayers) == 0 {
-	//return nil, fmt.Errorf("no FSLayers in manifest for %q", ref.String())
-	//}
-	return mschema1, nil
-}
-
-func (i *dockerImage) Layers(layers ...string) error {
-	m, err := i.getSchema1Manifest()
-	if err != nil {
-		return err
-	}
-	tmpDir, err := ioutil.TempDir(".", "layers-"+m.String()+"-")
-	if err != nil {
-		return err
-	}
-	dest := NewDirImageDestination(tmpDir)
-	data, err := json.Marshal(m)
-	if err != nil {
-		return err
-	}
-	if err := dest.PutManifest(data); err != nil {
-		return err
-	}
-	if len(layers) == 0 {
-		layers = m.GetLayers()
-	}
-	for _, l := range layers {
-		if !strings.HasPrefix(l, "sha256:") {
-			l = "sha256:" + l
-		}
-		if err := i.getLayer(dest, l); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (i *dockerImage) getLayer(dest types.ImageDestination, digest string) error {
-	stream, err := i.src.GetLayer(digest)
-	if err != nil {
-		return err
-	}
-	defer stream.Close()
-	return dest.PutLayer(digest, stream)
+	return &types.DockerImageManifest{
+		Name:          name,
+		Tag:           m.Tag,
+		Digest:        dgst,
+		RepoTags:      tagList,
+		DockerVersion: v1.DockerVersion,
+		Created:       v1.Created,
+		Labels:        v1.Config.Labels,
+		Architecture:  v1.Architecture,
+		Os:            v1.OS,
+		FSLayers:      m.GetLayers(),
+		RawManifest:   manblob,
+	}, nil
 }
 
 func fixManifestLayers(manifest *manifestSchema1) error {

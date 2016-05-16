@@ -1,4 +1,4 @@
-package main
+package directory
 
 import (
 	"fmt"
@@ -77,13 +77,15 @@ func NewDirImageSource(dir string) types.ImageSource {
 	return &dirImageSource{dir}
 }
 
-func (s *dirImageSource) GetManifest() ([]byte, string, error) {
+func (s *dirImageSource) GetManifest() (types.ImageManifest, string, error) {
 	manifest, err := ioutil.ReadFile(manifestPath(s.dir))
 	if err != nil {
 		return nil, "", err
 	}
+	// TODO(runcom): we should hide this type from the pkg API
+	m := &types.DockerImageManifest{RawManifest: manifest}
 
-	return manifest, "", nil // FIXME? unverifiedCanonicalDigest value - really primarily used by dockerImage
+	return m, "", nil // FIXME? unverifiedCanonicalDigest value - really primarily used by dockerImage
 }
 
 func (s *dirImageSource) GetLayer(digest string) (io.ReadCloser, error) {

@@ -1,28 +1,10 @@
 package main
 
 import (
-	"encoding/json"
-
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/projectatomic/skopeo/signature"
 )
-
-// FIXME: Also handle schema2, and put this elsewhere:
-// docker.go contains similar code, more sophisticated
-// (at the very least the deduplication should be reused from there).
-func manifestLayers(manifest []byte) ([]string, error) {
-	man := manifestSchema1{}
-	if err := json.Unmarshal(manifest, &man); err != nil {
-		return nil, err
-	}
-
-	layers := []string{}
-	for _, layer := range man.FSLayers {
-		layers = append(layers, layer.BlobSum)
-	}
-	return layers, nil
-}
 
 func copyHandler(context *cli.Context) {
 	if len(context.Args()) != 2 {
@@ -45,11 +27,7 @@ func copyHandler(context *cli.Context) {
 		logrus.Fatalf("Error reading manifest: %s", err.Error())
 	}
 
-	layers, err := manifestLayers(manifest)
-	if err != nil {
-		logrus.Fatalf("Error parsing manifest: %s", err.Error())
-	}
-	for _, layer := range layers {
+	for _, layer := range manifest.Layers() {
 		stream, err := src.GetLayer(layer)
 		if err != nil {
 			logrus.Fatalf("Error reading layer %s: %s", layer, err.Error())
@@ -75,7 +53,7 @@ func copyHandler(context *cli.Context) {
 			logrus.Fatalf("Error determining canonical Docker reference: %s", err.Error())
 		}
 
-		newSig, err := signature.SignDockerManifest(manifest, dockerReference, mech, signBy)
+		newSig, err := signature.SignDockerManifest(manifest.Raw(), dockerReference, mech, signBy)
 		if err != nil {
 			logrus.Fatalf("Error creating signature: %s", err.Error())
 		}
@@ -87,7 +65,7 @@ func copyHandler(context *cli.Context) {
 	}
 
 	// FIXME: We need to call PutManifest after PutLayer and PutSignatures. This seems ugly; move to a "set properties" + "commit" model?
-	if err := dest.PutManifest(manifest); err != nil {
+	if err := dest.PutManifest(manifest.Raw()); err != nil {
 		logrus.Fatalf("Error writing manifest: %s", err.Error())
 	}
 }

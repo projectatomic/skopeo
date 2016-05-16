@@ -1,4 +1,4 @@
-package main
+package docker
 
 import "github.com/projectatomic/skopeo/reference"
 
