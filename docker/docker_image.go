@@ -19,9 +19,10 @@ var (
 )
 
 type dockerImage struct {
-	src              *dockerImageSource
-	cachedManifest   []byte   // Private cache for Manifest(); nil if not yet known.
-	cachedSignatures [][]byte // Private cache for Signatures(); nil if not yet known.
+	src                    *dockerImageSource
+	cachedManifest         []byte // Private cache for Manifest(); nil if not yet known.
+	cachedManifestMIMEType string
+	cachedSignatures       [][]byte // Private cache for Signatures(); nil if not yet known.
 }
 
 // NewDockerImage returns a new Image interface type after setting up
@@ -42,15 +43,16 @@ func (i *dockerImage) IntendedDockerReference() string {
 }
 
 // Manifest is like ImageSource.GetManifest, but the result is cached; it is OK to call this however often you need.
-func (i *dockerImage) Manifest() ([]byte, error) {
+func (i *dockerImage) Manifest() ([]byte, string, error) {
 	if i.cachedManifest == nil {
-		m, err := i.src.GetManifest()
+		m, mt, err := i.src.GetManifest()
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		i.cachedManifest = m
+		i.cachedManifestMIMEType = mt
 	}
-	return i.cachedManifest, nil
+	return i.cachedManifest, i.cachedManifestMIMEType, nil
 }
 
 // Signatures is like ImageSource.GetSignatures, but the result is cached; it is OK to call this however often you need.
@@ -172,7 +174,7 @@ func sanitize(s string) string {
 }
 
 func (i *dockerImage) getSchema1Manifest() (manifest, error) {
-	manblob, err := i.Manifest()
+	manblob, _, err := i.Manifest()
 	if err != nil {
 		return nil, err
 	}

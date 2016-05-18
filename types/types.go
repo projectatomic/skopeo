@@ -38,7 +38,7 @@ type ImageSource interface {
 	IntendedDockerReference() string
 	// GetManifest returns the image's manifest.  It may use a remote (= slow) service.
 	// FIXME? This should also return a MIME type if known, to differentiate between schema versions.
-	GetManifest() ([]byte, error)
+	GetManifest() ([]byte, string, error)
 	// Note: Calling GetLayer() may have ordering dependencies WRT other methods of this type. FIXME: How does this work with (docker save) on stdin?
 	GetLayer(digest string) (io.ReadCloser, error)
 	// GetSignatures returns the image's signatures.  It may use a remote (= slow) service.
@@ -65,7 +65,7 @@ type Image interface {
 	IntendedDockerReference() string
 	// Manifest is like ImageSource.GetManifest, but the result is cached; it is OK to call this however often you need.
 	// FIXME? This should also return a MIME type if known, to differentiate between schema versions.
-	Manifest() ([]byte, error)
+	Manifest() ([]byte, string, error)
 	// Signatures is like ImageSource.GetSignatures, but the result is cached; it is OK to call this however often you need.
 	Signatures() ([][]byte, error)
 	Layers(layers ...string) error // configure download directory? Call it DownloadLayers?

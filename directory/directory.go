@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/projectatomic/skopeo/docker/utils"
 	"github.com/projectatomic/skopeo/types"
 )
 
@@ -84,8 +85,13 @@ func (s *dirImageSource) IntendedDockerReference() string {
 	return ""
 }
 
-func (s *dirImageSource) GetManifest() ([]byte, error) {
-	return ioutil.ReadFile(manifestPath(s.dir))
+func (s *dirImageSource) GetManifest() ([]byte, string, error) {
+	m, err := ioutil.ReadFile(manifestPath(s.dir))
+	if err != nil {
+		return nil, "", err
+	}
+	mimeType := utils.GuessManifestMIMEType(m)
+	return m, mimeType, nil
 }
 
 func (s *dirImageSource) GetLayer(digest string) (io.ReadCloser, error) {

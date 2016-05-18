@@ -49,10 +49,10 @@ func (d *dockerImageDestination) PutManifest(manifest []byte) error {
 	}
 	url := fmt.Sprintf(manifestURL, d.ref.RemoteName(), digest)
 
-	headers := map[string]string{}
+	headers := map[string][]string{}
 	mimeType := utils.GuessManifestMIMEType(manifest)
 	if mimeType != "" {
-		headers["Content-Type"] = mimeType
+		headers["Content-Type"] = []string{mimeType}
 	}
 	res, err := d.c.makeRequest("PUT", url, headers, bytes.NewReader(manifest))
 	if err != nil {
@@ -89,7 +89,9 @@ func (d *dockerImageDestination) PutLayer(digest string, stream io.Reader) error
 	uploadURL := fmt.Sprintf(blobUploadURL, d.ref.RemoteName(), digest)
 	logrus.Debugf("Uploading %s", uploadURL)
 	// FIXME: Set Content-Length?
-	res, err = d.c.makeRequest("POST", uploadURL, map[string]string{"Content-Type": "application/octet-stream"}, stream)
+	headers := map[string][]string{}
+	headers["Content-Type"] = []string{"application/octet-stream"}
+	res, err = d.c.makeRequest("POST", uploadURL, headers, stream)
 	if err != nil {
 		return err
 	}
