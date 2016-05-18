@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/projectatomic/skopeo/docker/utils"
 	"github.com/projectatomic/skopeo/reference"
 	"github.com/projectatomic/skopeo/types"
 )
@@ -55,24 +56,26 @@ func (s *dockerImageSource) IntendedDockerReference() string {
 	return fmt.Sprintf("%s:%s", s.ref.Name(), s.tag)
 }
 
-func (s *dockerImageSource) GetManifest() ([]byte, error) {
-	url := fmt.Sprintf(manifestURL, s.ref.RemoteName(), s.tag)
+func (s *dockerImageSource) GetManifest() ([]byte, string, error) {
 	// TODO(runcom) set manifest version header! schema1 for now - then schema2 etc etc and v1
 	// TODO(runcom) NO, switch on the resulter manifest like Docker is doing
-	res, err := s.c.makeRequest("GET", url, nil, nil)
+	url := fmt.Sprintf(manifestURL, s.ref.RemoteName(), s.tag)
+	headers := map[string][]string{}
+	headers["Accept"] = append(headers["Accept"], utils.GetManifestMIMETypes()...)
+	res, err := s.c.makeRequest("GET", url, headers, nil)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer res.Body.Close()
 	manblob, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if res.StatusCode != http.StatusOK {
-		return nil, errFetchManifest{res.StatusCode, manblob}
+		return nil, "", errFetchManifest{res.StatusCode, manblob}
 	}
 	// We might validate manblob against the Docker-Content-Digest header here to protect against transport errors.
-	return manblob, nil
+	return manblob, res.Header.Get("Content-Type"), nil
 }
 
 func (s *dockerImageSource) GetLayer(digest string) (io.ReadCloser, error) {

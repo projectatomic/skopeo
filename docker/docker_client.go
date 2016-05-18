@@ -78,7 +78,7 @@ func newDockerClient(refHostname, certPath string, tlsVerify bool) (*dockerClien
 	}, nil
 }
 
-func (c *dockerClient) makeRequest(method, url string, headers map[string]string, stream io.Reader) (*http.Response, error) {
+func (c *dockerClient) makeRequest(method, url string, headers map[string][]string, stream io.Reader) (*http.Response, error) {
 	if c.scheme == "" {
 		pr, err := c.ping()
 		if err != nil {
@@ -95,7 +95,9 @@ func (c *dockerClient) makeRequest(method, url string, headers map[string]string
 	}
 	req.Header.Set("Docker-Distribution-API-Version", "registry/2.0")
 	for n, h := range headers {
-		req.Header.Add(n, h)
+		for _, hh := range h {
+			req.Header.Add(n, hh)
+		}
 	}
 	if c.wwwAuthenticate != "" {
 		if err := c.setupRequestAuth(req); err != nil {

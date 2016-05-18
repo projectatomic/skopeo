@@ -7,10 +7,12 @@ import (
 	"io/ioutil"
 	"net/http"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/projectatomic/skopeo/directory"
+	"github.com/projectatomic/skopeo/docker/utils"
 	"github.com/projectatomic/skopeo/types"
 )
 
@@ -19,9 +21,10 @@ var (
 )
 
 type dockerImage struct {
-	src              *dockerImageSource
-	cachedManifest   []byte   // Private cache for Manifest(); nil if not yet known.
-	cachedSignatures [][]byte // Private cache for Signatures(); nil if not yet known.
+	src                    *dockerImageSource
+	cachedManifest         []byte // Private cache for Manifest(); nil if not yet known.
+	cachedManifestMIMEType string
+	cachedSignatures       [][]byte // Private cache for Signatures(); nil if not yet known.
 }
 
 // NewDockerImage returns a new Image interface type after setting up
@@ -42,15 +45,16 @@ func (i *dockerImage) IntendedDockerReference() string {
 }
 
 // Manifest is like ImageSource.GetManifest, but the result is cached; it is OK to call this however often you need.
-func (i *dockerImage) Manifest() ([]byte, error) {
+func (i *dockerImage) Manifest() ([]byte, string, error) {
 	if i.cachedManifest == nil {
-		m, err := i.src.GetManifest()
+		m, mt, err := i.src.GetManifest()
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		i.cachedManifest = m
+		i.cachedManifestMIMEType = mt
 	}
-	return i.cachedManifest, nil
+	return i.cachedManifest, i.cachedManifestMIMEType, nil
 }
 
 // Signatures is like ImageSource.GetSignatures, but the result is cached; it is OK to call this however often you need.
@@ -142,6 +146,16 @@ type manifest interface {
 	GetLayers() []string
 }
 
+type manifestList struct {
+	Manifests []struct {
+		Digest   string `json:"digest"`
+		Platform struct {
+			Architecture string `json:"architecture"`
+			Os           string `json:"os"`
+		}
+	} `json:"manifests"`
+}
+
 type manifestSchema1 struct {
 	Name     string
 	Tag      string
@@ -172,9 +186,38 @@ func sanitize(s string) string {
 }
 
 func (i *dockerImage) getSchema1Manifest() (manifest, error) {
-	manblob, err := i.Manifest()
+	manblob, ct, err := i.Manifest()
 	if err != nil {
 		return nil, err
+	}
+	switch ct {
+	case utils.V2ListMIMEType:
+		var digest string
+		ml := &manifestList{}
+		if err := json.Unmarshal(manblob, ml); err != nil {
+			return nil, err
+		}
+		// TODO(provide a flag/arg to select which os/arch to use)
+		for _, m := range ml.Manifests {
+			if m.Platform.Architecture == runtime.GOARCH && m.Platform.Os == runtime.GOOS {
+				digest = m.Digest
+				break
+			}
+		}
+		if digest == "" {
+			return nil, errors.New("no supported platform found in manifest list")
+		}
+		url := fmt.Sprintf(manifestURL, i.src.ref.RemoteName(), digest)
+		// just Accept v2s1 by not providing Accept headers here
+		res, err := i.src.c.makeRequest("GET", url, nil, nil)
+		if err != nil {
+			return nil, err
+		}
+		defer res.Body.Close()
+		manblob, err = ioutil.ReadAll(res.Body)
+		if err != nil {
+			return nil, err
+		}
 	}
 	mschema1 := &manifestSchema1{}
 	if err := json.Unmarshal(manblob, mschema1); err != nil {
