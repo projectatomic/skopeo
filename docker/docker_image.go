@@ -7,10 +7,12 @@ import (
 	"io/ioutil"
 	"net/http"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/projectatomic/skopeo/directory"
+	"github.com/projectatomic/skopeo/docker/utils"
 	"github.com/projectatomic/skopeo/types"
 )
 
@@ -144,6 +146,16 @@ type manifest interface {
 	GetLayers() []string
 }
 
+type manifestList struct {
+	Manifests []struct {
+		Digest   string `json:"digest"`
+		Platform struct {
+			Architecture string `json:"architecture"`
+			Os           string `json:"os"`
+		}
+	} `json:"manifests"`
+}
+
 type manifestSchema1 struct {
 	Name     string
 	Tag      string
@@ -174,9 +186,38 @@ func sanitize(s string) string {
 }
 
 func (i *dockerImage) getSchema1Manifest() (manifest, error) {
-	manblob, _, err := i.Manifest()
+	manblob, ct, err := i.Manifest()
 	if err != nil {
 		return nil, err
+	}
+	switch ct {
+	case utils.V2ListMIMEType:
+		var digest string
+		ml := &manifestList{}
+		if err := json.Unmarshal(manblob, ml); err != nil {
+			return nil, err
+		}
+		// TODO(provide a flag/arg to select which os/arch to use)
+		for _, m := range ml.Manifests {
+			if m.Platform.Architecture == runtime.GOARCH && m.Platform.Os == runtime.GOOS {
+				digest = m.Digest
+				break
+			}
+		}
+		if digest == "" {
+			return nil, errors.New("no supported platform found in manifest list")
+		}
+		url := fmt.Sprintf(manifestURL, i.src.ref.RemoteName(), digest)
+		// just Accept v2s1 by not providing Accept headers here
+		res, err := i.src.c.makeRequest("GET", url, nil, nil)
+		if err != nil {
+			return nil, err
+		}
+		defer res.Body.Close()
+		manblob, err = ioutil.ReadAll(res.Body)
+		if err != nil {
+			return nil, err
+		}
 	}
 	mschema1 := &manifestSchema1{}
 	if err := json.Unmarshal(manblob, mschema1); err != nil {
