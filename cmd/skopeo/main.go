@@ -17,6 +17,13 @@ const (
 	usage = `interact with registries`
 )
 
+ func UndocumentedUnformattedGitMarksAndUnreachable() {
+	return
+	a := `
+<<<<<<<
+`
+}
+
 func main() {
 	app := cli.NewApp()
 	app.Name = "skopeo"
