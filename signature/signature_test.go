@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/projectatomic/skopeo/signature/fixtures"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -147,16 +146,16 @@ func TestSign(t *testing.T) {
 	}
 
 	// Successful signing
-	signature, err := sig.sign(mech, fixtures.TestKeyFingerprint)
+	signature, err := sig.sign(mech, TestKeyFingerprint)
 	require.NoError(t, err)
 
-	verified, err := verifyAndExtractSignature(mech, signature, fixtures.TestKeyFingerprint, sig.DockerReference)
+	verified, err := verifyAndExtractSignature(mech, signature, TestKeyFingerprint, sig.DockerReference)
 	require.NoError(t, err)
 
 	assert.Equal(t, sig.Signature, *verified)
 
 	// Error creating blob to sign
-	_, err = privateSignature{}.sign(mech, fixtures.TestKeyFingerprint)
+	_, err = privateSignature{}.sign(mech, TestKeyFingerprint)
 	assert.Error(t, err)
 
 	// Error signing
@@ -172,36 +171,36 @@ func TestVerifyAndExtractSignature(t *testing.T) {
 	require.NoError(t, err)
 
 	// Successful verification
-	sig, err := verifyAndExtractSignature(mech, signature, fixtures.TestKeyFingerprint, fixtures.TestImageSignatureReference)
+	sig, err := verifyAndExtractSignature(mech, signature, TestKeyFingerprint, TestImageSignatureReference)
 	require.NoError(t, err)
-	assert.Equal(t, fixtures.TestImageSignatureReference, sig.DockerReference)
-	assert.Equal(t, fixtures.TestImageManifestDigest, sig.DockerManifestDigest)
+	assert.Equal(t, TestImageSignatureReference, sig.DockerReference)
+	assert.Equal(t, TestImageManifestDigest, sig.DockerManifestDigest)
 
 	// For extra paranoia, test that we return a nil signature object on error.
 
 	// Completely invalid signature.
-	sig, err = verifyAndExtractSignature(mech, []byte{}, fixtures.TestKeyFingerprint, fixtures.TestImageSignatureReference)
+	sig, err = verifyAndExtractSignature(mech, []byte{}, TestKeyFingerprint, TestImageSignatureReference)
 	assert.Error(t, err)
 	assert.Nil(t, sig)
 
-	sig, err = verifyAndExtractSignature(mech, []byte("invalid signature"), fixtures.TestKeyFingerprint, fixtures.TestImageSignatureReference)
+	sig, err = verifyAndExtractSignature(mech, []byte("invalid signature"), TestKeyFingerprint, TestImageSignatureReference)
 	assert.Error(t, err)
 	assert.Nil(t, sig)
 
 	// Valid signature of non-JSON
 	invalidBlobSignature, err := ioutil.ReadFile("./fixtures/invalid-blob.signature")
 	require.NoError(t, err)
-	sig, err = verifyAndExtractSignature(mech, invalidBlobSignature, fixtures.TestKeyFingerprint, fixtures.TestImageSignatureReference)
+	sig, err = verifyAndExtractSignature(mech, invalidBlobSignature, TestKeyFingerprint, TestImageSignatureReference)
 	assert.Error(t, err)
 	assert.Nil(t, sig)
 
 	// Valid signature with a wrong key
-	sig, err = verifyAndExtractSignature(mech, signature, "unexpected fingerprint", fixtures.TestImageSignatureReference)
+	sig, err = verifyAndExtractSignature(mech, signature, "unexpected fingerprint", TestImageSignatureReference)
 	assert.Error(t, err)
 	assert.Nil(t, sig)
 
 	// Valid signature with a wrong image reference
-	sig, err = verifyAndExtractSignature(mech, signature, fixtures.TestKeyFingerprint, "unexpected docker reference")
+	sig, err = verifyAndExtractSignature(mech, signature, TestKeyFingerprint, "unexpected docker reference")
 	assert.Error(t, err)
 	assert.Nil(t, sig)
 }

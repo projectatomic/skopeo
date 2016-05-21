@@ -4,7 +4,6 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/projectatomic/skopeo/signature/fixtures"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -32,13 +31,13 @@ func TestGPGSigningMechanismSign(t *testing.T) {
 
 	// Successful signing
 	content := []byte("content")
-	signature, err := mech.Sign(content, fixtures.TestKeyFingerprint)
+	signature, err := mech.Sign(content, TestKeyFingerprint)
 	require.NoError(t, err)
 
 	signedContent, signingFingerprint, err := mech.Verify(signature)
 	require.NoError(t, err)
 	assert.EqualValues(t, content, signedContent)
-	assert.Equal(t, fixtures.TestKeyFingerprint, signingFingerprint)
+	assert.Equal(t, TestKeyFingerprint, signingFingerprint)
 
 	// Error signing
 	_, err = mech.Sign(content, "this fingerprint doesn't exist")
@@ -62,7 +61,7 @@ func TestGPGSigningMechanismVerify(t *testing.T) {
 	content, signingFingerprint, err := mech.Verify(signature)
 	require.NoError(t, err)
 	assert.Equal(t, []byte("This is not JSON\n"), content)
-	assert.Equal(t, fixtures.TestKeyFingerprint, signingFingerprint)
+	assert.Equal(t, TestKeyFingerprint, signingFingerprint)
 
 	// For extra paranoia, test that we return nil data on error.
 

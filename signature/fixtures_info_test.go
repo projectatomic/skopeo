@@ -1,4 +1,4 @@
-package fixtures
+package signature
 
 const (
 	// TestImageManifestDigest is the Docker manifest digest of "image.manifest.json"

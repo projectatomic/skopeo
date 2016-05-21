@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/go-check/check"
-	"github.com/projectatomic/skopeo/signature/fixtures"
 )
 
 const (
@@ -97,7 +96,7 @@ func (s *SigningSuite) TearDownTest(c *check.C) {
 }
 
 func (s *SigningSuite) TestSignVerifySmoke(c *check.C) {
-	manifestPath := "../signature/fixtures/image.manifest.json"
+	manifestPath := "fixtures/image.manifest.json"
 	dockerReference := "testing/smoketest"
 
 	sigOutput, err := ioutil.TempFile("", "sig")
@@ -111,5 +110,5 @@ func (s *SigningSuite) TestSignVerifySmoke(c *check.C) {
 	out, err = exec.Command(skopeoBinary, "standalone-verify", manifestPath,
 		dockerReference, s.fingerprint, sigOutput.Name()).CombinedOutput()
 	c.Assert(err, check.IsNil, check.Commentf("%s", out))
-	c.Assert(string(out), check.Equals, "Signature verified, digest "+fixtures.TestImageManifestDigest+"\n")
+	c.Assert(string(out), check.Equals, "Signature verified, digest "+TestImageManifestDigest+"\n")
 }
