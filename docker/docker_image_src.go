@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/projectatomic/skopeo/docker/utils"
 	"github.com/projectatomic/skopeo/reference"
 	"github.com/projectatomic/skopeo/types"
 )
@@ -55,6 +55,15 @@ func (s *dockerImageSource) IntendedDockerReference() string {
 	return fmt.Sprintf("%s:%s", s.ref.Name(), s.tag)
 }
 
+// ManifestMIMETypes returns a slice of supported MIME types
+func manifestMIMETypes() []string {
+	return []string{
+		utils.DockerV2Schema1MIMEType,
+		utils.DockerV2Schema2MIMEType,
+		utils.DockerV2ListMIMEType,
+	}
+}
+
 func (s *dockerImageSource) GetManifest() ([]byte, string, error) {
 	url := fmt.Sprintf(manifestURL, s.ref.RemoteName(), s.tag)
 	// TODO(runcom) set manifest version header! schema1 for now - then schema2 etc etc and v1
@@ -77,7 +86,6 @@ func (s *dockerImageSource) GetManifest() ([]byte, string, error) {
 
 func (s *dockerImageSource) GetLayer(digest string) (io.ReadCloser, error) {
 	url := fmt.Sprintf(blobsURL, s.ref.RemoteName(), digest)
-	logrus.Infof("Downloading %s", url)
 	res, err := s.c.makeRequest("GET", url, nil, nil)
 	if err != nil {
 		return nil, err

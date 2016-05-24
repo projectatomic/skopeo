@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/pkg/homedir"
 )
 
@@ -108,7 +107,6 @@ func (c *dockerClient) makeRequest(method, url string, headers map[string][]stri
 	if c.transport != nil {
 		client.Transport = c.transport
 	}
-	logrus.Debugf("%s %s", method, url)
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -293,12 +291,10 @@ func (c *dockerClient) ping() (*pingResponse, error) {
 	ping := func(scheme string) (*pingResponse, error) {
 		url := fmt.Sprintf(baseURL, scheme, c.registry)
 		resp, err := client.Get(url)
-		logrus.Debugf("Ping %s err %#v", url, err)
 		if err != nil {
 			return nil, err
 		}
 		defer resp.Body.Close()
-		logrus.Debugf("Ping %s status %d", scheme+"://"+c.registry+"/v2/", resp.StatusCode)
 		if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusUnauthorized {
 			return nil, fmt.Errorf("error pinging repository, response code %d", resp.StatusCode)
 		}
