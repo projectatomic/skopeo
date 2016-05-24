@@ -10,15 +10,6 @@ import (
 
 // FIXME: Should we just use docker/distribution and docker/docker implementations directly?
 
-// ManifestMIMETypes returns a slice of supported MIME types
-func ManifestMIMETypes() []string {
-	return []string{
-		DockerV2Schema1MIMEType,
-		DockerV2Schema2MIMEType,
-		DockerV2ListMIMEType,
-	}
-}
-
 const (
 	// DockerV2Schema1MIMEType MIME type represents Docker manifest schema 1
 	DockerV2Schema1MIMEType = "application/vnd.docker.distribution.manifest.v1+json"

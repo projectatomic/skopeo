@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/projectatomic/skopeo/docker/utils"
 	"github.com/projectatomic/skopeo/reference"
 	"github.com/projectatomic/skopeo/types"
@@ -61,11 +60,10 @@ func (d *dockerImageDestination) PutManifest(manifest []byte) error {
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusCreated {
 		body, err := ioutil.ReadAll(res.Body)
-		if err == nil {
-			logrus.Debugf("Error body %s", string(body))
+		if err != nil {
+			return err
 		}
-		logrus.Debugf("Error uploading manifest, status %d, %#v", res.StatusCode, res)
-		return fmt.Errorf("Error uploading manifest to %s, status %d", url, res.StatusCode)
+		return fmt.Errorf("Error uploading manifest to %s, status %d, %#v, %s", url, res.StatusCode, res, body)
 	}
 	return nil
 }
@@ -73,21 +71,18 @@ func (d *dockerImageDestination) PutManifest(manifest []byte) error {
 func (d *dockerImageDestination) PutLayer(digest string, stream io.Reader) error {
 	checkURL := fmt.Sprintf(blobsURL, d.ref.RemoteName(), digest)
 
-	logrus.Debugf("Checking %s", checkURL)
 	res, err := d.c.makeRequest("HEAD", checkURL, nil, nil)
 	if err != nil {
 		return err
 	}
 	defer res.Body.Close()
 	if res.StatusCode == http.StatusOK && res.Header.Get("Docker-Content-Digest") == digest {
-		logrus.Debugf("... already exists, not uploading")
+		// already exists, not uploading
 		return nil
 	}
-	logrus.Debugf("... failed, status %d", res.StatusCode)
 
 	// FIXME? Chunked upload, progress reporting, etc.
 	uploadURL := fmt.Sprintf(blobUploadURL, d.ref.RemoteName(), digest)
-	logrus.Debugf("Uploading %s", uploadURL)
 	// FIXME: Set Content-Length?
 	res, err = d.c.makeRequest("POST", uploadURL, map[string][]string{"Content-Type": {"application/octet-stream"}}, stream)
 	if err != nil {
@@ -95,7 +90,6 @@ func (d *dockerImageDestination) PutLayer(digest string, stream io.Reader) error
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusCreated {
-		logrus.Debugf("Error uploading, status %d", res.StatusCode)
 		return fmt.Errorf("Error uploading to %s, status %d", uploadURL, res.StatusCode)
 	}
 
