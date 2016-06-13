@@ -48,7 +48,12 @@ func (i *genericImage) IntendedDockerReference() string {
 // NOTE: It is essential for signature verification that Manifest returns the manifest from which LayerDigests is computed.
 func (i *genericImage) Manifest() ([]byte, error) {
 	if i.cachedManifest == nil {
-		m, _, err := i.src.GetManifest([]string{manifest.DockerV2Schema1MIMEType})
+		mts := []string{
+			manifest.OCIV1ImageManifestMIMEType,
+			manifest.DockerV2Schema2MIMEType,
+			manifest.DockerV2Schema1MIMEType,
+		}
+		m, _, err := i.src.GetManifest(mts)
 		if err != nil {
 			return nil, err
 		}
@@ -120,6 +125,24 @@ func (i *genericImage) DockerTar() ([]byte, error) {
 type genericManifest interface {
 	String() string
 	GetLayers() []string
+}
+
+type manifestSchema2 struct {
+	Config struct {
+		Digest string
+	}
+	Layers []struct {
+		// TODO(runcom): handle MediaType also for external URLs
+		Digest string `json:"digest"`
+	} `json:"layers"`
+}
+
+func (m *manifestSchema2) String() string {
+	return ""
+}
+
+func (m *manifestSchema2) GetLayers() []string {
+	return []string{}
 }
 
 type fsLayersSchema1 struct {
