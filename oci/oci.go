@@ -24,7 +24,7 @@ type ociImageDestination struct {
 	dir string
 }
 
-// NewDirImageDestination returns an ImageDestination for writing to an existing directory.
+// NewOCIImageDestination returns an ImageDestination for writing to an existing directory.
 func NewOCIImageDestination(dir string) types.ImageDestination {
 	return &ociImageDestination{dir: dir}
 }
@@ -35,6 +35,7 @@ func (d *ociImageDestination) CanonicalDockerReference() (string, error) {
 
 // TODO(runcom): manifest here it's just a image-spec/image.Descriptor and not bytes!!!
 func (d *ociImageDestination) PutManifest(manifest []byte) error {
+	// TODO(runcom) use manifests.Digest
 	digest := sha256.New()
 	_, err := digest.Write(manifest)
 	if err != nil {
