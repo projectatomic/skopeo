@@ -10,7 +10,6 @@ import (
 
 // FIXME: Should we just use docker/distribution and docker/docker implementations directly?
 
-// FIXME(runcom, mitr): should we havea mediatype pkg??
 const (
 	// DockerV2Schema1MIMEType MIME type represents Docker manifest schema 1
 	DockerV2Schema1MIMEType = "application/vnd.docker.distribution.manifest.v1+json"
@@ -25,12 +24,10 @@ const (
 	OCIV1ImageManifestMIMEType = "application/vnd.oci.image.manifest.v1+json"
 	// OCIV1ImageManifestListMIMEType TODO
 	OCIV1ImageManifestListMIMEType = "application/vnd.oci.image.manifest.list.v1+json"
-	// OCIV1ImageSerializationRootfsTarGzipMIMEType TODO)
+	// OCIV1ImageSerializationRootfsTarGzipMIMEType TODO(unimplemented)
 	OCIV1ImageSerializationRootfsTarGzipMIMEType = "application/vnd.oci.image.serialization.rootfs.tar.gzip"
 	// OCIV1ImageSerializationConfigMIMEType TODO
 	OCIV1ImageSerializationConfigMIMEType = "application/vnd.oci.image.serialization.config.v1+json"
-	// OCIV1ImageSerializationCombinedMIMEType TODO
-	OCIV1ImageSerializationCombinedMIMEType = "application/vnd.oci.image.serialization.combined.v1+json"
 )
 
 // GuessMIMEType guesses MIME type of a manifest and returns it _if it is recognized_, or "" if unknown or unrecognized.
@@ -48,7 +45,7 @@ func GuessMIMEType(manifest []byte) string {
 	}
 
 	switch meta.MediaType {
-	case DockerV2Schema2MIMEType, DockerV2ListMIMEType, OCIV1DescriptorMIMEType, OCIV1ImageManifestMIMEType, OCIV1ImageManifestListMIMEType, OCIV1ImageSerializationRootfsTarGzipMIMEType, OCIV1ImageSerializationConfigMIMEType, OCIV1ImageSerializationCombinedMIMEType: // A recognized type.
+	case DockerV2Schema2MIMEType, DockerV2ListMIMEType, OCIV1DescriptorMIMEType, OCIV1ImageManifestMIMEType, OCIV1ImageManifestListMIMEType, OCIV1ImageSerializationRootfsTarGzipMIMEType, OCIV1ImageSerializationConfigMIMEType: // A recognized type.
 		return meta.MediaType
 	}
 	// this is the only way the function can return DockerV2Schema1MIMEType, and recognizing that is essential for stripping the JWS signatures = computing the correct manifest digest.

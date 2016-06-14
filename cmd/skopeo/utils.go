@@ -75,7 +75,7 @@ func parseImageDestination(c *cli.Context, name string) (types.ImageDestination,
 	case strings.HasPrefix(name, directoryPrefix):
 		return directory.NewDirImageDestination(strings.TrimPrefix(name, directoryPrefix)), nil
 	case strings.HasPrefix(name, ociPrefix):
-		return oci.NewOCIImageDestination(strings.TrimPrefix(name, ociPrefix)), nil
+		return oci.NewOCIImageDestination(strings.TrimPrefix(name, ociPrefix))
 	}
 	return nil, fmt.Errorf("Unrecognized image reference %s", name)
 }

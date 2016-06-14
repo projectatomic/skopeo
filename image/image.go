@@ -127,14 +127,15 @@ type genericManifest interface {
 	GetLayers() []string
 }
 
+type descriptor struct {
+	MediaType string `json:"mediaType"`
+	Size      int64  `json:"size"`
+	Digest    string `json:"digest"`
+}
+
 type manifestSchema2 struct {
-	Config struct {
-		Digest string
-	}
-	Layers []struct {
-		// TODO(runcom): handle MediaType also for external URLs
-		Digest string `json:"digest"`
-	} `json:"layers"`
+	Config descriptor   `json:"config"`
+	Layers []descriptor `json:"layers"`
 }
 
 func (m *manifestSchema2) String() string {
@@ -142,7 +143,12 @@ func (m *manifestSchema2) String() string {
 }
 
 func (m *manifestSchema2) GetLayers() []string {
-	return []string{}
+	blobs := make([]string, len(m.Layers)+1)
+	for i, layer := range m.Layers {
+		blobs[i] = layer.Digest
+	}
+	blobs = append(blobs, m.Config.Digest)
+	return blobs
 }
 
 type fsLayersSchema1 struct {
