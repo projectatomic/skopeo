@@ -11,9 +11,16 @@ import (
 	"strings"
 
 	"github.com/projectatomic/skopeo/manifest"
-	"github.com/projectatomic/skopeo/reference"
 	"github.com/projectatomic/skopeo/types"
 )
+
+type ociManifest struct {
+	SchemaVersion int               `json:"schemaVersion"`
+	MediaType     string            `json:"mediaType"`
+	Config        descriptor        `json:"config"`
+	Layers        []descriptor      `json:"layers"`
+	Annotations   map[string]string `json:"annotations"`
+}
 
 type descriptor struct {
 	Digest    string `json:"digest"`
@@ -23,7 +30,6 @@ type descriptor struct {
 
 type ociImageDestination struct {
 	dir string
-	ref reference.Named
 	tag string
 }
 
@@ -51,30 +57,67 @@ func (d *ociImageDestination) CanonicalDockerReference() (string, error) {
 	return "", fmt.Errorf("Can not determine canonical Docker reference for an OCI image")
 }
 
+func createManifest(m []byte) ([]byte, string, error) {
+	om := ociManifest{}
+	mt := manifest.GuessMIMEType(m)
+	switch mt {
+	case manifest.DockerV2Schema1MIMEType:
+		// There a simple reason about not yet implementing this.
+		// OCI image-spec assure about backward compatibility with docker v2s2 but not v2s1
+		// generating a v2s2 is a migration docker does when upgrading to 1.10.3
+		// and I don't think we should bother about this now (I don't want to have migration code here in skopeo)
+		return nil, "", fmt.Errorf("not yet implemented")
+	case manifest.DockerV2Schema2MIMEType:
+		if err := json.Unmarshal(m, &om); err != nil {
+			return nil, "", err
+		}
+		om.MediaType = manifest.OCIV1ImageManifestMIMEType
+		b, err := json.Marshal(om)
+		if err != nil {
+			return nil, "", err
+		}
+		return b, om.MediaType, nil
+	case manifest.DockerV2ListMIMEType:
+		return nil, "", fmt.Errorf("not yet implemented")
+	case manifest.OCIV1ImageManifestListMIMEType:
+		return nil, "", fmt.Errorf("not yet implemented")
+	case manifest.OCIV1ImageManifestMIMEType:
+		return m, om.MediaType, nil
+	}
+	return nil, "", fmt.Errorf("Unrecognized manifest media type")
+}
+
 func (d *ociImageDestination) PutManifest(m []byte) error {
 	if err := d.ensureParentDirectoryExists("refs"); err != nil {
 		return err
 	}
-	// TODO(runcom):
-	// make a function to create an OCI manifest from a distribution one which comes here!!!
-	// convert the manifest to OCI v1 - beaware we can also receive a docker v2s1 manifest so we need to
-	// handle this! docker.io/library/busybox it's still on v2s1 for instance
-	digest, err := manifest.Digest(m)
+	var err error
+	defer func() {
+		if err != nil {
+			d.cleanup()
+		}
+	}()
+	// TODO(mitr, runcom): this breaks signatures entirely since at this point we're creating a new manifest
+	// and signatures don't apply anymore. Will fix.
+	ociMan, mt, err := createManifest(m)
+	if err != nil {
+		return err
+	}
+	digest, err := manifest.Digest(ociMan)
 	if err != nil {
 		return err
 	}
 	desc := descriptor{}
 	desc.Digest = digest
-	mt := manifest.GuessMIMEType(m)
 	// TODO(runcom): beaware and add support for OCI manifest list
 	desc.MediaType = mt
-	desc.Size = int64(len(m))
+	desc.Size = int64(len(ociMan))
 	data, err := json.Marshal(desc)
 	if err != nil {
 		return err
 	}
 
-	if err := ioutil.WriteFile(blobPath(d.dir, digest), m, 0644); err != nil {
+	if err := ioutil.WriteFile(blobPath(d.dir, digest), ociMan, 0644); err != nil {
 		return err
 	}
 	// TODO(runcom): ugly here?
@@ -88,6 +131,12 @@ func (d *ociImageDestination) PutBlob(digest string, stream io.Reader) error {
 	if err := d.ensureParentDirectoryExists("blobs"); err != nil {
 		return err
 	}
+	var err error
+	defer func() {
+		if err != nil {
+			d.cleanup()
+		}
+	}()
 	blob, err := os.Create(blobPath(d.dir, digest))
 	if err != nil {
 		return err
@@ -100,6 +149,10 @@ func (d *ociImageDestination) PutBlob(digest string, stream io.Reader) error {
 		return err
 	}
 	return nil
+}
+
+func (d *ociImageDestination) cleanup() {
+	os.RemoveAll(d.dir)
 }
 
 func (d *ociImageDestination) ensureParentDirectoryExists(parent string) error {

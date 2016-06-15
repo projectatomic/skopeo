@@ -45,7 +45,7 @@ func GuessMIMEType(manifest []byte) string {
 	}
 
 	switch meta.MediaType {
-	case DockerV2Schema2MIMEType, DockerV2ListMIMEType, OCIV1DescriptorMIMEType, OCIV1ImageManifestMIMEType, OCIV1ImageManifestListMIMEType, OCIV1ImageSerializationRootfsTarGzipMIMEType, OCIV1ImageSerializationConfigMIMEType: // A recognized type.
+	case DockerV2Schema2MIMEType, DockerV2ListMIMEType, OCIV1ImageManifestMIMEType, OCIV1ImageManifestListMIMEType: // A recognized type.
 		return meta.MediaType
 	}
 	// this is the only way the function can return DockerV2Schema1MIMEType, and recognizing that is essential for stripping the JWS signatures = computing the correct manifest digest.
