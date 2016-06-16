@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/codegangsta/cli"
 	"github.com/projectatomic/skopeo/directory"
 	"github.com/projectatomic/skopeo/docker"
 	"github.com/projectatomic/skopeo/image"
 	"github.com/projectatomic/skopeo/openshift"
 	"github.com/projectatomic/skopeo/types"
+	"github.com/urfave/cli"
 )
 
 const (
