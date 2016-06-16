@@ -1,10 +1,10 @@
-[![Build Status](https://travis-ci.org/codegangsta/cli.png?branch=master)](https://travis-ci.org/codegangsta/cli)
+[![Build Status](https://travis-ci.org/urfave/cli.png?branch=master)](https://travis-ci.org/urfave/cli)
 
 # cli.go
 cli.go is simple, fast, and fun package for building command line apps in Go. The goal is to enable developers to write fast and distributable command line applications in an expressive way.
 
 You can view the API docs here:
-http://godoc.org/github.com/codegangsta/cli
+http://godoc.org/github.com/urfave/cli
 
 ## Overview
 Command line apps are usually so tiny that there is absolutely no reason why your code should *not* be self-documenting. Things like generating help text and parsing command flags/options should not hinder productivity when writing a command line app.
@@ -16,7 +16,7 @@ Make sure you have a working Go environment (go 1.1 is *required*). [See the ins
 
 To install cli.go, simply run:
 ```
-$ go get github.com/codegangsta/cli
+$ go get github.com/urfave/cli
 ```
 
 Make sure your PATH includes to the `$GOPATH/bin` directory so your commands can be easily used:
@@ -32,7 +32,7 @@ package main
 
 import (
   "os"
-  "github.com/codegangsta/cli"
+  "github.com/urfave/cli"
 )
 
 func main() {
@@ -47,7 +47,7 @@ package main
 
 import (
   "os"
-  "github.com/codegangsta/cli"
+  "github.com/urfave/cli"
 )
 
 func main() {
@@ -74,7 +74,7 @@ package main
 
 import (
   "os"
-  "github.com/codegangsta/cli"
+  "github.com/urfave/cli"
 )
 
 func main() {
@@ -277,4 +277,4 @@ setting the PROG variable to the name of your program:
 
 
 ## About
-cli.go is written by none other than the [Code Gangsta](http://codegangsta.io)
+cli.go is written by none other than the [Code Gangsta](http://urfave.io)

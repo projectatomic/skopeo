@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
 	"github.com/projectatomic/skopeo/docker/utils"
 	"github.com/projectatomic/skopeo/signature"
+	"github.com/urfave/cli"
 )
 
 // FIXME: Also handle schema2, and put this elsewhere:
