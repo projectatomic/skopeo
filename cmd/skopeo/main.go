@@ -5,8 +5,8 @@ import (
 	"os"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
 	"github.com/projectatomic/skopeo/version"
+	"github.com/urfave/cli"
 )
 
 // gitCommit will be the hash that the binary was built from

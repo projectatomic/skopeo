@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
 	"github.com/projectatomic/skopeo/docker"
 	"github.com/projectatomic/skopeo/docker/utils"
+	"github.com/urfave/cli"
 )
 
 // inspectOutput is the output format of (skopeo inspect), primarily so that we can format it with a simple json.MarshalIndent.

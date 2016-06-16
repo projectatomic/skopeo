@@ -5,8 +5,8 @@ import (
 	"io/ioutil"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
 	"github.com/projectatomic/skopeo/signature"
+	"github.com/urfave/cli"
 )
 
 func standaloneSign(context *cli.Context) {
