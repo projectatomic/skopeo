@@ -40,6 +40,15 @@ RUN set -x \
 		< "$DRV1/contrib/boto_header_patch.diff" \
 	&& dnf -y update && dnf install -y m2crypto
 
+# TODO(runcom): prepopulate registries with images to test skopeo or install docker and push...
+# use bats also https://github.com/opencontainers/runc/pull/659/files but need to setup registries as well
+
+# install bats
+RUN cd /tmp \
+	&& git clone https://github.com/sstephenson/bats.git \
+	&& cd bats \
+	&& ./install.sh /usr/local
+
 ENV GOPATH /usr/share/gocode:/go
 ENV PATH $GOPATH/bin:/usr/share/gocode/bin:$PATH
 RUN go get github.com/golang/lint/golint
