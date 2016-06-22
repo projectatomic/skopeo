@@ -37,6 +37,7 @@ func startOpenshiftCluster(c *check.C) *openshiftCluster {
 	cluster.startRegistry()
 	cluster.ocLoginToProject()
 	cluster.dockerLogin()
+	cluster.relaxImageSignerPermissions()
 
 	return cluster
 }
@@ -162,6 +163,20 @@ func (c *openshiftCluster) dockerLogin() {
 	}`, base64.StdEncoding.EncodeToString([]byte("unused:"+out)))
 	err = ioutil.WriteFile(filepath.Join(dockerDir, "config.json"), []byte(configJSON), 0600)
 	c.c.Assert(err, check.IsNil)
+}
+
+// relaxImageSignerPermissions opens up the system:image-signer permissions so that
+// anyone can work with signatures
+// FIXME: This also allows anyone to DoS anyone else; this design is really not all
+// that workable, but it is the best we can do for now.
+func (c *openshiftCluster) relaxImageSignerPermissions() {
+	cmd := exec.Command("oadm", "policy", "add-cluster-role-to-group", "system:image-signer", "system:authenticated")
+	cmd.Dir = c.workingDir
+	cmd.Env = os.Environ()
+	cmd.Env = modifyEnviron(cmd.Env, "KUBECONFIG", "openshift.local.config/master/admin.kubeconfig")
+	out, err := cmd.CombinedOutput()
+	c.c.Assert(err, check.IsNil, check.Commentf("%s", string(out)))
+	c.c.Assert(string(out), check.Equals, "")
 }
 
 // tearDown stops the cluster services and deletes (only some!) of the state.
