@@ -104,7 +104,7 @@ To build `skopeo` you need at least Go 1.5 because it uses the latest `GO15VENDO
 ```sh
 $ cd $GOPATH/src
 $ mkdir -p github.com/projectatomic
-$ cd projectatomic
+$ cd github.com/projectatomic
 $ git clone https://github.com/projectatomic/skopeo
 $ cd skopeo && make binary
 ```
