@@ -13,7 +13,7 @@ import (
 // inspectOutput is the output format of (skopeo inspect), primarily so that we can format it with a simple json.MarshalIndent.
 type inspectOutput struct {
 	Name          string `json:",omitempty"`
-	Tag           string
+	Tag           string `json:",omitempty"`
 	Digest        string
 	RepoTags      []string
 	Created       time.Time

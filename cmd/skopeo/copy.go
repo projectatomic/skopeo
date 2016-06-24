@@ -26,7 +26,7 @@ func copyHandler(context *cli.Context) error {
 	}
 	signBy := context.String("sign-by")
 
-	m, err := src.Manifest()
+	manifest, err := src.Manifest()
 	if err != nil {
 		return fmt.Errorf("Error reading manifest: %v", err)
 	}
@@ -62,7 +62,7 @@ func copyHandler(context *cli.Context) error {
 			return fmt.Errorf("Error determining canonical Docker reference: %v", err)
 		}
 
-		newSig, err := signature.SignDockerManifest(m, dockerReference, mech, signBy)
+		newSig, err := signature.SignDockerManifest(manifest, dockerReference, mech, signBy)
 		if err != nil {
 			return fmt.Errorf("Error creating signature: %v", err)
 		}
@@ -74,7 +74,7 @@ func copyHandler(context *cli.Context) error {
 	}
 
 	// FIXME: We need to call PutManifest after PutBlob and PutSignatures. This seems ugly; move to a "set properties" + "commit" model?
-	if err := dest.PutManifest(m); err != nil {
+	if err := dest.PutManifest(manifest); err != nil {
 		return fmt.Errorf("Error writing manifest: %v", err)
 	}
 	return nil

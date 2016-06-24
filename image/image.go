@@ -238,7 +238,7 @@ func (i *genericImage) getParsedManifest() (genericManifest, error) {
 		}
 		return &v2s2, nil
 	default:
-		return nil, fmt.Errorf("Unable to unmarshal into %s", mt)
+		return nil, fmt.Errorf("unsupported manifest media type %s", mt)
 	}
 }
 

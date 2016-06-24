@@ -16,6 +16,8 @@ func TestGuessMIMEType(t *testing.T) {
 		path     string
 		mimeType string
 	}{
+		{"ociv1.manifest.json", OCIV1ImageManifestMIMEType},
+		{"ociv1list.manifest.json", OCIV1ImageManifestListMIMEType},
 		{"v2s2.manifest.json", DockerV2Schema2MIMEType},
 		{"v2list.manifest.json", DockerV2ListMIMEType},
 		{"v2s1.manifest.json", DockerV2Schema1MIMEType},

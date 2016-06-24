@@ -91,12 +91,6 @@ func (d *ociImageDestination) PutManifest(m []byte) error {
 	if err := d.ensureParentDirectoryExists("refs"); err != nil {
 		return err
 	}
-	var err error
-	defer func() {
-		if err != nil {
-			d.cleanup()
-		}
-	}()
 	// TODO(mitr, runcom): this breaks signatures entirely since at this point we're creating a new manifest
 	// and signatures don't apply anymore. Will fix.
 	ociMan, mt, err := createManifest(m)
@@ -131,12 +125,6 @@ func (d *ociImageDestination) PutBlob(digest string, stream io.Reader) error {
 	if err := d.ensureParentDirectoryExists("blobs"); err != nil {
 		return err
 	}
-	var err error
-	defer func() {
-		if err != nil {
-			d.cleanup()
-		}
-	}()
 	blob, err := os.Create(blobPath(d.dir, digest))
 	if err != nil {
 		return err
@@ -151,14 +139,10 @@ func (d *ociImageDestination) PutBlob(digest string, stream io.Reader) error {
 	return nil
 }
 
-func (d *ociImageDestination) cleanup() {
-	os.RemoveAll(d.dir)
-}
-
 func (d *ociImageDestination) ensureParentDirectoryExists(parent string) error {
 	path := filepath.Join(d.dir, parent)
 	if _, err := os.Stat(path); err != nil && os.IsNotExist(err) {
-		if err := os.MkdirAll(path, 0700); err != nil {
+		if err := os.MkdirAll(path, 0755); err != nil {
 			return err
 		}
 	}
