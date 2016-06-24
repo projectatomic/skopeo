@@ -79,7 +79,7 @@ func (s *dockerImageSource) GetManifest(mimetypes []string) ([]byte, string, err
 
 func (s *dockerImageSource) GetBlob(digest string) (io.ReadCloser, int64, error) {
 	url := fmt.Sprintf(blobsURL, s.ref.RemoteName(), digest)
-	logrus.Infof("Downloading %s", url)
+	logrus.Debugf("Downloading %s", url)
 	res, err := s.c.makeRequest("GET", url, nil, nil)
 	if err != nil {
 		return nil, 0, err
