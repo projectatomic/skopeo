@@ -75,6 +75,8 @@ type Image interface {
 }
 
 // ImageInspectInfo is a set of metadata describing Docker images, primarily their manifest and configuration.
+// The Tag field is a legacy field which is here just for the Docker v2s1 manifest. It won't be supported
+// for other manifest types.
 type ImageInspectInfo struct {
 	Tag           string
 	Created       time.Time
