@@ -66,7 +66,7 @@ func createManifest(m []byte) ([]byte, string, error) {
 		// OCI image-spec assure about backward compatibility with docker v2s2 but not v2s1
 		// generating a v2s2 is a migration docker does when upgrading to 1.10.3
 		// and I don't think we should bother about this now (I don't want to have migration code here in skopeo)
-		return nil, "", fmt.Errorf("not yet implemented")
+		return nil, "", fmt.Errorf("can't create OCI manifest from Docker V2 schema 1 manifest")
 	case manifest.DockerV2Schema2MIMEType:
 		if err := json.Unmarshal(m, &om); err != nil {
 			return nil, "", err
@@ -78,9 +78,9 @@ func createManifest(m []byte) ([]byte, string, error) {
 		}
 		return b, om.MediaType, nil
 	case manifest.DockerV2ListMIMEType:
-		return nil, "", fmt.Errorf("not yet implemented")
+		return nil, "", fmt.Errorf("can't create OCI manifest from Docker V2 schema 2 manifest list")
 	case manifest.OCIV1ImageManifestListMIMEType:
-		return nil, "", fmt.Errorf("not yet implemented")
+		return nil, "", fmt.Errorf("can't create OCI manifest from OCI manifest list")
 	case manifest.OCIV1ImageManifestMIMEType:
 		return m, om.MediaType, nil
 	}
