@@ -48,7 +48,7 @@ func VerifyDockerManifestSignature(unverifiedSignature, unverifiedManifest []byt
 				return err
 			}
 			if !matches {
-				return InvalidSignatureError{msg: fmt.Sprintf("Signature for docker digest %s does not match", signedDockerManifestDigest, signedDockerManifestDigest)}
+				return InvalidSignatureError{msg: fmt.Sprintf("Signature for docker digest %q does not match", signedDockerManifestDigest)}
 			}
 			return nil
 		},
