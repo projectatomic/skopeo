@@ -48,7 +48,12 @@ func (i *genericImage) IntendedDockerReference() string {
 // NOTE: It is essential for signature verification that Manifest returns the manifest from which LayerDigests is computed.
 func (i *genericImage) Manifest() ([]byte, error) {
 	if i.cachedManifest == nil {
-		m, _, err := i.src.GetManifest([]string{manifest.DockerV2Schema1MIMEType})
+		mts := []string{
+			manifest.OCIV1ImageManifestMIMEType,
+			manifest.DockerV2Schema2MIMEType,
+			manifest.DockerV2Schema1MIMEType,
+		}
+		m, _, err := i.src.GetManifest(mts)
 		if err != nil {
 			return nil, err
 		}
@@ -70,28 +75,49 @@ func (i *genericImage) Signatures() ([][]byte, error) {
 }
 
 func (i *genericImage) Inspect() (*types.ImageInspectInfo, error) {
-	// TODO(runcom): unused version param for now, default to docker v2-1
-	m, err := i.getSchema1Manifest()
+	m, err := i.getParsedManifest()
 	if err != nil {
 		return nil, err
 	}
-	ms1, ok := m.(*manifestSchema1)
-	if !ok {
-		return nil, fmt.Errorf("error retrivieng manifest schema1")
+	switch t := m.(type) {
+	case *manifestSchema1:
+		v1 := &v1Image{}
+		if err := json.Unmarshal([]byte(t.History[0].V1Compatibility), v1); err != nil {
+			return nil, err
+		}
+		return &types.ImageInspectInfo{
+			Tag:           t.Tag,
+			DockerVersion: v1.DockerVersion,
+			Created:       v1.Created,
+			Labels:        v1.Config.Labels,
+			Architecture:  v1.Architecture,
+			Os:            v1.OS,
+			Layers:        t.GetLayers(),
+		}, nil
+	case *manifestSchema2:
+		rawConfig, _, err := i.src.GetBlob(t.Config.Digest)
+		if err != nil {
+			return nil, err
+		}
+		defer rawConfig.Close()
+		config, err := ioutil.ReadAll(rawConfig)
+		if err != nil {
+			return nil, err
+		}
+		v1 := &v1Image{}
+		if err := json.Unmarshal(config, v1); err != nil {
+			return nil, err
+		}
+		return &types.ImageInspectInfo{
+			DockerVersion: v1.DockerVersion,
+			Created:       v1.Created,
+			Labels:        v1.Config.Labels,
+			Architecture:  v1.Architecture,
+			Os:            v1.OS,
+			Layers:        t.GetLayers(),
+		}, nil
 	}
-	v1 := &v1Image{}
-	if err := json.Unmarshal([]byte(ms1.History[0].V1Compatibility), v1); err != nil {
-		return nil, err
-	}
-	return &types.ImageInspectInfo{
-		Tag:           ms1.Tag,
-		DockerVersion: v1.DockerVersion,
-		Created:       v1.Created,
-		Labels:        v1.Config.Labels,
-		Architecture:  v1.Architecture,
-		Os:            v1.OS,
-		Layers:        ms1.GetLayers(),
-	}, nil
+	return nil, errors.New("error inspecting image")
 }
 
 type config struct {
@@ -120,6 +146,31 @@ func (i *genericImage) DockerTar() ([]byte, error) {
 type genericManifest interface {
 	String() string
 	GetLayers() []string
+}
+
+type descriptor struct {
+	MediaType string `json:"mediaType"`
+	Size      int64  `json:"size"`
+	Digest    string `json:"digest"`
+}
+
+type manifestSchema2 struct {
+	Config descriptor   `json:"config"`
+	Layers []descriptor `json:"layers"`
+}
+
+func (m *manifestSchema2) String() string {
+	// TODO: does it make sense to have string here?
+	return ""
+}
+
+func (m *manifestSchema2) GetLayers() []string {
+	blobs := []string{}
+	for _, layer := range m.Layers {
+		blobs = append(blobs, layer.Digest)
+	}
+	blobs = append(blobs, m.Config.Digest)
+	return blobs
 }
 
 type fsLayersSchema1 struct {
@@ -157,29 +208,40 @@ func sanitize(s string) string {
 // NOTE: The manifest may have been modified in the process; DO NOT reserialize and store the return value
 // if you want to preserve the original manifest; use the blob returned by Manifest() directly.
 // NOTE: It is essential for signature verification that the object is computed from the same manifest which is returned by Manifest().
-func (i *genericImage) getSchema1Manifest() (genericManifest, error) {
+func (i *genericImage) getParsedManifest() (genericManifest, error) {
 	manblob, err := i.Manifest()
 	if err != nil {
 		return nil, err
 	}
-	mschema1 := &manifestSchema1{}
-	if err := json.Unmarshal(manblob, mschema1); err != nil {
-		return nil, err
+	mt := manifest.GuessMIMEType(manblob)
+	switch mt {
+	case manifest.DockerV2Schema1MIMEType:
+		mschema1 := manifestSchema1{}
+		if err := json.Unmarshal(manblob, &mschema1); err != nil {
+			return nil, err
+		}
+		if err := fixManifestLayers(&mschema1); err != nil {
+			return nil, err
+		}
+		// TODO(runcom): verify manifest schema 1, 2 etc
+		//if len(m.FSLayers) != len(m.History) {
+		//return nil, fmt.Errorf("length of history not equal to number of layers for %q", ref.String())
+		//}
+		//if len(m.FSLayers) == 0 {
+		//return nil, fmt.Errorf("no FSLayers in manifest for %q", ref.String())
+		//}
+		return &mschema1, nil
+	case manifest.DockerV2Schema2MIMEType:
+		v2s2 := manifestSchema2{}
+		if err := json.Unmarshal(manblob, &v2s2); err != nil {
+			return nil, err
+		}
+		return &v2s2, nil
+	default:
+		return nil, fmt.Errorf("unsupported manifest media type %s", mt)
 	}
-	if err := fixManifestLayers(mschema1); err != nil {
-		return nil, err
-	}
-	// TODO(runcom): verify manifest schema 1, 2 etc
-	//if len(m.FSLayers) != len(m.History) {
-	//return nil, fmt.Errorf("length of history not equal to number of layers for %q", ref.String())
-	//}
-	//if len(m.FSLayers) == 0 {
-	//return nil, fmt.Errorf("no FSLayers in manifest for %q", ref.String())
-	//}
-	return mschema1, nil
 }
 
-// uniqueLayerDigests returns a list of layer digests referenced from a manifest.
 // The list will not contain duplicates; it is not intended to correspond to the "history" or "parent chain" of a Docker image.
 func uniqueLayerDigests(m genericManifest) []string {
 	var res []string
@@ -198,7 +260,7 @@ func uniqueLayerDigests(m genericManifest) []string {
 // The list will not contain duplicates; it is not intended to correspond to the "history" or "parent chain" of a Docker image.
 // NOTE: It is essential for signature verification that LayerDigests is computed from the same manifest which is returned by Manifest().
 func (i *genericImage) LayerDigests() ([]string, error) {
-	m, err := i.getSchema1Manifest()
+	m, err := i.getParsedManifest()
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +268,7 @@ func (i *genericImage) LayerDigests() ([]string, error) {
 }
 
 func (i *genericImage) LayersCommand(layers ...string) error {
-	m, err := i.getSchema1Manifest()
+	m, err := i.getParsedManifest()
 	if err != nil {
 		return err
 	}

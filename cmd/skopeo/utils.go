@@ -8,6 +8,7 @@ import (
 	"github.com/projectatomic/skopeo/directory"
 	"github.com/projectatomic/skopeo/docker"
 	"github.com/projectatomic/skopeo/image"
+	"github.com/projectatomic/skopeo/oci"
 	"github.com/projectatomic/skopeo/openshift"
 	"github.com/projectatomic/skopeo/types"
 	"github.com/urfave/cli"
@@ -20,6 +21,8 @@ const (
 	dockerPrefix = "docker://"
 	// directoryPrefix is the URL-like schema prefix used for local directories (for debugging)
 	directoryPrefix = "dir:"
+	// ociPrefix is the URL-like schema prefix used for OCI images.
+	ociPrefix = "oci:"
 )
 
 // ParseImage converts image URL-like string to an initialized handler for that image.
@@ -71,6 +74,8 @@ func parseImageDestination(c *cli.Context, name string) (types.ImageDestination,
 		return openshift.NewOpenshiftImageDestination(strings.TrimPrefix(name, atomicPrefix), certPath, tlsVerify)
 	case strings.HasPrefix(name, directoryPrefix):
 		return directory.NewDirImageDestination(strings.TrimPrefix(name, directoryPrefix)), nil
+	case strings.HasPrefix(name, ociPrefix):
+		return oci.NewOCIImageDestination(strings.TrimPrefix(name, ociPrefix))
 	}
 	return nil, fmt.Errorf("Unrecognized image reference %s", name)
 }

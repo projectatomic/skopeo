@@ -59,8 +59,6 @@ func (s *dockerImageSource) IntendedDockerReference() string {
 
 func (s *dockerImageSource) GetManifest(mimetypes []string) ([]byte, string, error) {
 	url := fmt.Sprintf(manifestURL, s.ref.RemoteName(), s.tag)
-	// TODO(runcom) set manifest version header! schema1 for now - then schema2 etc etc and v1
-	// TODO(runcom) NO, switch on the resulter manifest like Docker is doing
 	headers := make(map[string][]string)
 	headers["Accept"] = mimetypes
 	res, err := s.c.makeRequest("GET", url, headers, nil)
@@ -81,7 +79,7 @@ func (s *dockerImageSource) GetManifest(mimetypes []string) ([]byte, string, err
 
 func (s *dockerImageSource) GetBlob(digest string) (io.ReadCloser, int64, error) {
 	url := fmt.Sprintf(blobsURL, s.ref.RemoteName(), digest)
-	logrus.Infof("Downloading %s", url)
+	logrus.Debugf("Downloading %s", url)
 	res, err := s.c.makeRequest("GET", url, nil, nil)
 	if err != nil {
 		return nil, 0, err
