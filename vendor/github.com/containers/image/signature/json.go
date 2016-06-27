@@ -1,10 +1,8 @@
 package signature
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 )
 
 // jsonFormatError is returned when JSON does not match expected format.
@@ -64,28 +62,14 @@ func stringField(m map[string]interface{}, fieldName string) (string, error) {
 func paranoidUnmarshalJSONObject(data []byte, fieldResolver func(string) interface{}) error {
 	seenKeys := map[string]struct{}{}
 
-	dec := json.NewDecoder(bytes.NewReader(data))
-	t, err := dec.Token()
-	if err != nil {
+	// NOTE: This is a go 1.4 implementation, very much non-paranoid! The json.Unmarshal below
+	// already throws out duplicate keys.
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(data, &obj); err != nil {
 		return jsonFormatError(err.Error())
 	}
-	if t != json.Delim('{') {
-		return jsonFormatError(fmt.Sprintf("JSON object expected, got \"%s\"", t))
-	}
-	for {
-		t, err := dec.Token()
-		if err != nil {
-			return jsonFormatError(err.Error())
-		}
-		if t == json.Delim('}') {
-			break
-		}
 
-		key, ok := t.(string)
-		if !ok {
-			// Coverage: This should never happen, dec.Token() rejects non-string-literals in this state.
-			return jsonFormatError(fmt.Sprintf("Key string literal expected, got \"%s\"", t))
-		}
+	for key, valueJSON := range obj {
 		if _, ok := seenKeys[key]; ok {
 			return jsonFormatError(fmt.Sprintf("Duplicate key \"%s\"", key))
 		}
@@ -95,13 +79,9 @@ func paranoidUnmarshalJSONObject(data []byte, fieldResolver func(string) interfa
 		if valuePtr == nil {
 			return jsonFormatError(fmt.Sprintf("Unknown key \"%s\"", key))
 		}
-		// This works like json.Unmarshal, in particular it allows us to implement UnmarshalJSON to implement strict parsing of the field value.
-		if err := dec.Decode(valuePtr); err != nil {
+		if err := json.Unmarshal(valueJSON, valuePtr); err != nil {
 			return jsonFormatError(err.Error())
 		}
-	}
-	if _, err := dec.Token(); err != io.EOF {
-		return jsonFormatError("Unexpected data after JSON object")
 	}
 	return nil
 }
