@@ -9,7 +9,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/containers/image/manifest"
-	"github.com/containers/image/reference"
+	"github.com/containers/image/docker/reference"
 	"github.com/containers/image/types"
 )
 

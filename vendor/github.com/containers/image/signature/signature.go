@@ -12,8 +12,7 @@ import (
 )
 
 const (
-	signatureType      = "atomic container signature"
-	signatureCreatorID = "atomic " + version.Version
+	signatureType = "atomic container signature"
 )
 
 // InvalidSignatureError is returned when parsing an invalid signature.
@@ -41,7 +40,7 @@ var _ json.Marshaler = (*privateSignature)(nil)
 
 // MarshalJSON implements the json.Marshaler interface.
 func (s privateSignature) MarshalJSON() ([]byte, error) {
-	return s.marshalJSONWithVariables(time.Now().UTC().Unix(), signatureCreatorID)
+	return s.marshalJSONWithVariables(time.Now().UTC().Unix(), "atomic "+version.Version)
 }
 
 // Implementation of MarshalJSON, with a caller-chosen values of the variable items to help testing.

@@ -8,7 +8,8 @@ package signature
 
 // Policy defines requirements for considering a signature valid.
 type Policy struct {
-	// Default applies to any image which does not have a matching policy in Specific.
+	// Default applies to any image which does not have a matching policy in Specific,
+	// and to images with unspecified identity, e.g. local directories (dir:…).
 	Default PolicyRequirements `json:"default"`
 	// Specific applies to images matching scope, the map key.
 	// Scope is hostname[/zero/or/more/namespaces[/repository[:tag|@digest]]]; note that in order to be

@@ -6,7 +6,7 @@ rm -rf vendor/
 source 'hack/.vendor-helpers.sh'
 
 clone git github.com/urfave/cli v1.17.0
-clone git github.com/containers/image master
+clone git github.com/containers/image unidentified-images https://github.com/mtrmac/image
 clone git github.com/Sirupsen/logrus v0.10.0
 clone git github.com/go-check/check v1
 clone git github.com/stretchr/testify v1.1.3

@@ -3,7 +3,7 @@
 package signature
 
 import (
-	"github.com/containers/image/reference"
+	"github.com/containers/image/docker/reference"
 	"github.com/containers/image/types"
 )
 
@@ -20,8 +20,17 @@ func parseDockerReferences(s1, s2 string) (reference.Named, reference.Named, err
 	return r1, r2, nil
 }
 
+// parseImageAndDockerReference converts an image and a reference string into two parsed entities, failing on any error and handling unidentified images.
+func parseImageAndDockerReference(image types.Image, s2 string) (reference.Named, reference.Named, error) {
+	s1 := image.IntendedDockerReference()
+	if s1 == "" {
+		return nil, nil, PolicyRequirementError("Docker reference match attempted on an image with no known Docker reference identity")
+	}
+	return parseDockerReferences(s1, s2)
+}
+
 func (prm *prmMatchExact) matchesDockerReference(image types.Image, signatureDockerReference string) bool {
-	intended, signature, err := parseDockerReferences(image.IntendedDockerReference(), signatureDockerReference)
+	intended, signature, err := parseImageAndDockerReference(image, signatureDockerReference)
 	if err != nil {
 		return false
 	}
@@ -33,7 +42,7 @@ func (prm *prmMatchExact) matchesDockerReference(image types.Image, signatureDoc
 }
 
 func (prm *prmMatchRepository) matchesDockerReference(image types.Image, signatureDockerReference string) bool {
-	intended, signature, err := parseDockerReferences(image.IntendedDockerReference(), signatureDockerReference)
+	intended, signature, err := parseImageAndDockerReference(image, signatureDockerReference)
 	if err != nil {
 		return false
 	}

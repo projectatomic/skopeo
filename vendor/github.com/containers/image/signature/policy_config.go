@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/containers/image/reference"
+	"github.com/containers/image/docker/reference"
 )
 
 // InvalidPolicyFormatError is returned when parsing an invalid policy configuration.

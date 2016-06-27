@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"github.com/Sirupsen/logrus"
-	distreference "github.com/docker/distribution/reference"
-	"github.com/containers/image/reference"
+	"github.com/containers/image/docker/reference"
 	"github.com/containers/image/types"
+	distreference "github.com/docker/distribution/reference"
 )
 
 // PolicyRequirementError is an explanatory text for rejecting a signature or an image.
@@ -71,7 +71,8 @@ type PolicyRequirement interface {
 // The type is public, but its implementation is private.
 type PolicyReferenceMatch interface {
 	// matchesDockerReference decides whether a specific image identity is accepted for an image
-	// (or, usually, for the image's IntendedDockerReference()),
+	// (or, usually, for the image's IntendedDockerReference()).  Note that
+	// image.IntendedDockerReference() may be "".
 	matchesDockerReference(image types.Image, signatureDockerReference string) bool
 }
 
@@ -155,6 +156,9 @@ func fullyExpandedDockerReference(ref reference.Named) (string, error) {
 // requirementsForImage selects the appropriate requirements for image.
 func (pc *PolicyContext) requirementsForImage(image types.Image) (PolicyRequirements, error) {
 	imageIdentity := image.IntendedDockerReference()
+	if imageIdentity == "" {
+		return pc.Policy.Default, nil
+	}
 	// We don't technically need to parse it first in order to match the full name:tag,
 	// but do so anyway to ensure that the intended identity really does follow that
 	// format, or at least that it is not demonstrably wrong.
