@@ -76,7 +76,7 @@ func (pr *prSignedBy) isSignatureAuthorAccepted(image types.Image, sig []byte) (
 			return nil
 		},
 		validateSignedDockerManifestDigest: func(digest string) error {
-			m, err := image.Manifest()
+			m, _, err := image.Manifest()
 			if err != nil {
 				return err
 			}

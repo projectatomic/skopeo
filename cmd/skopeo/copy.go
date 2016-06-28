@@ -26,12 +26,12 @@ func copyHandler(context *cli.Context) error {
 	}
 	signBy := context.String("sign-by")
 
-	manifest, err := src.Manifest()
+	manifest, _, err := src.Manifest()
 	if err != nil {
 		return fmt.Errorf("Error reading manifest: %v", err)
 	}
 
-	layers, err := src.LayerDigests()
+	layers, err := src.BlobDigests()
 	if err != nil {
 		return fmt.Errorf("Error parsing manifest: %v", err)
 	}

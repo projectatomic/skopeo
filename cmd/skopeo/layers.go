@@ -21,7 +21,7 @@ var layersCmd = cli.Command{
 		src := image.FromSource(rawSource)
 		layers := c.Args().Tail()
 		if len(layers) == 0 {
-			ls, err := src.LayerDigests()
+			ls, err := src.BlobDigests()
 			if err != nil {
 				return err
 			}
@@ -32,7 +32,7 @@ var layersCmd = cli.Command{
 			return err
 		}
 		dest := directory.NewDirImageDestination(tmpDir)
-		manifest, err := src.Manifest()
+		manifest, _, err := src.Manifest()
 		if err != nil {
 			return err
 		}

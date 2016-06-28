@@ -44,19 +44,21 @@ type Image interface {
 	// May be "" if unknown.
 	IntendedDockerReference() string
 	// Manifest is like ImageSource.GetManifest, but the result is cached; it is OK to call this however often you need.
-	// NOTE: It is essential for signature verification that Manifest returns the manifest from which LayerDigests is computed.
-	Manifest() ([]byte, error)
+	// NOTE: It is essential for signature verification that Manifest returns the manifest from which BlobDigests is computed.
+	Manifest() ([]byte, string, error)
 	// Signatures is like ImageSource.GetSignatures, but the result is cached; it is OK to call this however often you need.
 	Signatures() ([][]byte, error)
-	// LayerDigests returns a list of layer digests referenced by this image.
+	// BlobDigests returns a list of blob digests referenced by this image.
 	// The list will not contain duplicates; it is not intended to correspond to the "history" or "parent chain" of a Docker image.
-	// NOTE: It is essential for signature verification that LayerDigests is computed from the same manifest which is returned by Manifest().
-	LayerDigests() ([]string, error)
+	// NOTE: It is essential for signature verification that BlobDigests is computed from the same manifest which is returned by Manifest().
+	BlobDigests() ([]string, error)
 	// Inspect returns various information for (skopeo inspect) parsed from the manifest and configuration.
 	Inspect() (*ImageInspectInfo, error)
 }
 
 // ImageInspectInfo is a set of metadata describing Docker images, primarily their manifest and configuration.
+// The Tag field is a legacy field which is here just for the Docker v2s1 manifest. It won't be supported
+// for other manifest types.
 type ImageInspectInfo struct {
 	Tag           string
 	Created       time.Time
