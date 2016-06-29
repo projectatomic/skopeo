@@ -14,6 +14,12 @@ const (
 	privateRegistryURL2 = "127.0.0.1:5002"
 	privateRegistryURL3 = "127.0.0.1:5003"
 	privateRegistryURL4 = "127.0.0.1:5004"
+
+	busyboxLatestDigest = "sha256:65ce39ce3eb0997074a460adfb568d0b9f0f6a4392d97b6035630c9d7bf92402"
+)
+
+var (
+	localDockerBusybox = fmt.Sprintf("docker://%s/busybox@%s", privateRegistryURL1, busyboxLatestDigest)
 )
 
 func Test(t *testing.T) {
@@ -49,6 +55,10 @@ func (s *SkopeoSuite) SetUpTest(c *check.C) {
 	s.regV2Shema1 = setupRegistryV2At(c, privateRegistryURL2, false, true)
 	s.regV1WithAuth = setupRegistryV1At(c, privateRegistryURL3, true) // not used
 	s.regV2WithAuth = setupRegistryV2At(c, privateRegistryURL4, true, false)
+
+	// TODO(upload with a tag as soon as we can instead of relying on an hardcoded digest)
+	cmd := exec.Command(skopeoBinary, "copy", "dir:images/busybox-latest", "docker://"+s.regV2.url+"/busybox")
+	c.Assert(cmd.Run(), check.IsNil)
 }
 
 func (s *SkopeoSuite) TearDownTest(c *check.C) {
