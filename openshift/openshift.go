@@ -287,6 +287,12 @@ func (d *openshiftImageDestination) CanonicalDockerReference() (string, error) {
 	return d.client.canonicalDockerReference(), nil
 }
 
+func (d *openshiftImageDestination) SupportedImageDestinationMIMEType() []string {
+	return []string{
+		manifest.DockerV2Schema1MIMEType,
+	}
+}
+
 func (d *openshiftImageDestination) PutManifest(m []byte) error {
 	// Note: This does absolutely no kind/version checking or conversions.
 	manifestDigest, err := manifest.Digest(m)

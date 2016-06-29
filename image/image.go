@@ -27,14 +27,15 @@ var (
 // may not be a `genericImage` directly. However, most users of `types.Image`
 // do not care, and those who care about `skopeo/docker.Image` know they do.
 type genericImage struct {
-	src              types.ImageSource
-	cachedManifest   []byte   // Private cache for Manifest(); nil if not yet known.
-	cachedSignatures [][]byte // Private cache for Signatures(); nil if not yet known.
+	src                    types.ImageSource
+	cachedManifest         []byte   // Private cache for Manifest(); nil if not yet known.
+	cachedSignatures       [][]byte // Private cache for Signatures(); nil if not yet known.
+	supportedDestMIMETypes []string
 }
 
 // FromSource returns a types.Image implementation for source.
-func FromSource(src types.ImageSource) types.Image {
-	return &genericImage{src: src}
+func FromSource(src types.ImageSource, s []string) types.Image {
+	return &genericImage{src: src, supportedDestMIMETypes: s}
 }
 
 // IntendedDockerReference returns the full, unambiguous, Docker reference for this image, _as specified by the user_
@@ -48,12 +49,7 @@ func (i *genericImage) IntendedDockerReference() string {
 // NOTE: It is essential for signature verification that Manifest returns the manifest from which LayerDigests is computed.
 func (i *genericImage) Manifest() ([]byte, error) {
 	if i.cachedManifest == nil {
-		mts := []string{
-			manifest.OCIV1ImageManifestMIMEType,
-			manifest.DockerV2Schema2MIMEType,
-			manifest.DockerV2Schema1MIMEType,
-		}
-		m, _, err := i.src.GetManifest(mts)
+		m, _, err := i.src.GetManifest(i.supportedDestMIMETypes)
 		if err != nil {
 			return nil, err
 		}

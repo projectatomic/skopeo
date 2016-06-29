@@ -33,6 +33,12 @@ type ociImageDestination struct {
 	tag string
 }
 
+func (d *ociImageDestination) SupportedImageDestinationMIMEType() []string {
+	return []string{
+		manifest.OCIV1ImageManifestMIMEType,
+	}
+}
+
 var refRegexp = regexp.MustCompile(`^([A-Za-z0-9._-]+)+$`)
 
 // NewOCIImageDestination returns an ImageDestination for writing to an existing directory.

@@ -18,7 +18,7 @@ func dirImageMock(dir, intendedDockerReference string) types.Image {
 	return image.FromSource(&dirImageSourceMock{
 		ImageSource:             directory.NewDirImageSource(dir),
 		intendedDockerReference: intendedDockerReference,
-	})
+	}, nil)
 }
 
 // dirImageSourceMock inherits dirImageSource, but overrides its IntendedDockerReference method.

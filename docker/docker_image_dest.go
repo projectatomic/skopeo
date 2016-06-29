@@ -19,6 +19,15 @@ type dockerImageDestination struct {
 	c   *dockerClient
 }
 
+func (d *dockerImageDestination) SupportedImageDestinationMIMEType() []string {
+	return []string{
+		// TODO(runcom): we'll add OCI and v2s2 as part of another PR here
+		manifest.OCIV1ImageManifestMIMEType,
+		manifest.DockerV2Schema2MIMEType,
+		manifest.DockerV2Schema1MIMEType,
+	}
+}
+
 // NewDockerImageDestination creates a new ImageDestination for the specified image and connection specification.
 func NewDockerImageDestination(img, certPath string, tlsVerify bool) (types.ImageDestination, error) {
 	ref, tag, err := parseDockerImageName(img)

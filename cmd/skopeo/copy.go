@@ -18,13 +18,13 @@ func copyHandler(context *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("Error initializing %s: %v", context.Args()[0], err)
 	}
-	src := image.FromSource(rawSource)
 
 	dest, err := parseImageDestination(context, context.Args()[1])
 	if err != nil {
 		return fmt.Errorf("Error initializing %s: %v", context.Args()[1], err)
 	}
 	signBy := context.String("sign-by")
+	src := image.FromSource(rawSource, dest.SupportedImageDestinationMIMEType())
 
 	manifest, err := src.Manifest()
 	if err != nil {

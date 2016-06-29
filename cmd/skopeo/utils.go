@@ -39,7 +39,7 @@ func parseImage(c *cli.Context) (types.Image, error) {
 		//
 	case strings.HasPrefix(imgName, directoryPrefix):
 		src := directory.NewDirImageSource(strings.TrimPrefix(imgName, directoryPrefix))
-		return image.FromSource(src), nil
+		return image.FromSource(src, nil), nil
 	}
 	return nil, errors.New("no valid prefix provided")
 }

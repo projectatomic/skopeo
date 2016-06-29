@@ -47,6 +47,7 @@ type ImageDestination interface {
 	// Note: Calling PutBlob() and other methods may have ordering dependencies WRT other methods of this type. FIXME: Figure out and document.
 	PutBlob(digest string, stream io.Reader) error
 	PutSignatures(signatures [][]byte) error
+	SupportedImageDestinationMIMEType() []string
 }
 
 // Image is the primary API for inspecting properties of images.

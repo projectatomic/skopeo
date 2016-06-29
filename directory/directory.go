@@ -11,6 +11,10 @@ import (
 	"github.com/projectatomic/skopeo/types"
 )
 
+func (d *dirImageDestination) SupportedImageDestinationMIMEType() []string {
+	return nil
+}
+
 // manifestPath returns a path for the manifest within a directory using our conventions.
 func manifestPath(dir string) string {
 	return filepath.Join(dir, "manifest.json")
