@@ -11,10 +11,13 @@ import (
 )
 
 func init() {
-	check.Suite(&CopySuite{})
+	check.Suite(&CopySuite{
+		ss: &SkopeoSuite{},
+	})
 }
 
 type CopySuite struct {
+	ss      *SkopeoSuite
 	cluster *openshiftCluster
 }
 
@@ -38,6 +41,14 @@ func (s *CopySuite) SetUpSuite(c *check.C) {
 	}
 }
 
+func (s *CopySuite) SetUpTest(c *check.C) {
+	s.ss.SetUpTest(c)
+}
+
+func (s *CopySuite) TearDownTest(c *check.C) {
+	s.ss.TearDownTest(c)
+}
+
 func (s *CopySuite) TearDownSuite(c *check.C) {
 	if s.cluster != nil {
 		s.cluster.tearDown()
@@ -53,9 +64,8 @@ func (s *CopySuite) TestCopySimple(c *check.C) {
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(dir2)
 
-	// FIXME: It would be nice to use one of the local Docker registries instead of neeeding an Internet connection.
 	// "pull": docker: → dir:
-	assertSkopeoSucceeds(c, "", "copy", "docker://busybox:latest", "dir:"+dir1)
+	assertSkopeoSucceeds(c, "", "copy", localDockerBusybox, "dir:"+dir1)
 	// "push": dir: → atomic:
 	assertSkopeoSucceeds(c, "", "--debug", "copy", "dir:"+dir1, "atomic:myns/unsigned:unsigned")
 	// The result of pushing and pulling is an unmodified image.
@@ -75,11 +85,10 @@ func (s *CopySuite) TestCopyStreaming(c *check.C) {
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(dir2)
 
-	// FIXME: It would be nice to use one of the local Docker registries instead of neeeding an Internet connection.
 	// streaming: docker: → atomic:
-	assertSkopeoSucceeds(c, "", "--debug", "copy", "docker://busybox:1-glibc", "atomic:myns/unsigned:streaming")
+	assertSkopeoSucceeds(c, "", "--debug", "copy", localDockerBusybox, "atomic:myns/unsigned:streaming")
 	// Compare (copies of) the original and the copy:
-	assertSkopeoSucceeds(c, "", "copy", "docker://busybox:1-glibc", "dir:"+dir1)
+	assertSkopeoSucceeds(c, "", "copy", localDockerBusybox, "dir:"+dir1)
 	assertSkopeoSucceeds(c, "", "copy", "atomic:myns/unsigned:streaming", "dir:"+dir2)
 	// The manifests will have different JWS signatures; so, compare the manifests by digests, which
 	// strips the signatures, and remove them, comparing the rest file by file.
