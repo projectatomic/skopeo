@@ -27,6 +27,12 @@ type inspectOutput struct {
 var inspectCmd = cli.Command{
 	Name:  "inspect",
 	Usage: "inspect images on a registry",
+	Description: "the image is specified in this form: \"{prefix}{image}\", " +
+		"supported prefixes are:\n" +
+		"     * docker:// — docker image reference\n" +
+		"     * atomic:   — atomic registry reference\n" +
+		"     * dir:      — local directories (for debugging)\n" +
+		"   e.g. docker://fedora",
 	Flags: []cli.Flag{
 		cli.BoolFlag{
 			Name:  "raw",
