@@ -1,0 +1,84 @@
+hash: e54f43709b9d96e2e1d943b4b220174e797609164cae72b1827f8f0d50df69c4
+updated: 2016-07-01T09:41:24.326294034+02:00
+imports:
+- name: github.com/cloudfoundry-incubator/candiedyaml
+  version: 99c3df83b51532e3615f851d8c2dbb638f5313bf
+- name: github.com/containers/image
+  version: c703326038d30c3422168dd9a1a5afaf51740331
+  subpackages:
+  - directory
+  - docker
+  - image
+  - manifest
+  - openshift
+  - signature
+  - types
+  - docker/reference
+  - version
+- name: github.com/docker/distribution
+  version: cd27f179f2c10c5d300e6d09025b538c475b0d51
+  subpackages:
+  - reference
+  - digest
+- name: github.com/docker/docker
+  version: 906eacd586853e9e79ea2bd5df7e13ba8a28cd60
+  subpackages:
+  - pkg/homedir
+- name: github.com/docker/libtrust
+  version: c8d2b36d60a84f3fa7d5e5e355be64f0fbe0b481
+- name: github.com/ghodss/yaml
+  version: aa0c862057666179de291b67d9f093d12b5a8473
+- name: github.com/go-check/check
+  version: 4f90aeace3a26ad7021961c297b22c42160c7b25
+- name: github.com/golang/glog
+  version: 44145f04b68cf362d9c4df2182967c2275eaefed
+- name: github.com/imdario/mergo
+  version: 50d4dbd4eb0e84778abe37cefef140271d96fade
+- name: github.com/mtrmac/gpgme
+  version: 7486dcd030936581e863bb69602ef411920d7fc9
+- name: github.com/opencontainers/runc
+  version: 629e35666d31f743090452416c8df207d9fdbd34
+  subpackages:
+  - libcontainer/user
+- name: github.com/Sirupsen/logrus
+  version: 4b6ea7319e214d98c938f12692336f7ca9348d6b
+- name: github.com/urfave/cli
+  version: 1efa31f08b9333f1bd4882d61f9d668a70cd902e
+- name: golang.org/x/net
+  version: 62685c2d7ca23c807425dca88b11a3e2323dab41
+  subpackages:
+  - context
+  - context/ctxhttp
+  - html
+  - html/atom
+  - http2
+  - http2/hpack
+  - internal/timeseries
+  - proxy
+  - trace
+  - websocket
+- name: golang.org/x/sys
+  version: 62bee037599929a6e9146f29d10dd5208c43507d
+  subpackages:
+  - unix
+- name: k8s.io/kubernetes
+  version: 34244efd22f57fd652bd1c3de19ab94e2f0d02d0
+  subpackages:
+  - pkg/util/errors
+  - pkg/util/homedir
+  - pkg/util/net
+  - pkg/util/sets
+testImports:
+- name: github.com/davecgh/go-spew
+  version: 5215b55f46b2b919f50a1df0eaa5886afe4e3b3d
+  subpackages:
+  - spew
+- name: github.com/pmezard/go-difflib
+  version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
+  subpackages:
+  - difflib
+- name: github.com/stretchr/testify
+  version: f390dcf405f7b83c997eac1b06768bb9f44dec18
+  subpackages:
+  - assert
+  - require

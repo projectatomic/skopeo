@@ -1,4 +1,4 @@
-.PHONY: all binary build clean install install-binary shell test-integration
+.PHONY: all binary build clean install install-binary shell test-integration update-deps
 
 export GO15VENDOREXPERIMENT=1
 
@@ -66,6 +66,12 @@ test-integration: build-container
 test-unit: build-container
 	# Just call (make test unit-local) here instead of worrying about environment differences, e.g. GO15VENDOREXPERIMENT.
 	$(DOCKER_RUN_DOCKER) make test-unit-local
+
+update-deps:
+	glide update --strip-vcs --strip-vendor --update-vendored --delete
+	glide-vc --only-code --no-tests
+	# see http://sed.sourceforge.net/sed1line.txt
+	for f in $$(find vendor -type f); do sed -i -e :a -e '/^\n*$$/{$$d;N;ba' -e '}' $$f; done
 
 validate: build-container
 	$(DOCKER_RUN_DOCKER) hack/make.sh validate-git-marks validate-gofmt validate-lint validate-vet

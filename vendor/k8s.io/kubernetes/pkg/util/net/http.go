@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright 2016 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,8 +23,12 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
+
+	"github.com/golang/glog"
+	"golang.org/x/net/http2"
 )
 
 // IsProbableEOF returns true if the given error resembles a connection termination
@@ -52,17 +56,34 @@ func IsProbableEOF(err error) bool {
 
 var defaultTransport = http.DefaultTransport.(*http.Transport)
 
-// SetTransportDefaults applies the defaults from http.DefaultTransport
+// SetOldTransportDefaults applies the defaults from http.DefaultTransport
 // for the Proxy, Dial, and TLSHandshakeTimeout fields if unset
-func SetTransportDefaults(t *http.Transport) *http.Transport {
-	if t.Proxy == nil {
-		t.Proxy = defaultTransport.Proxy
+func SetOldTransportDefaults(t *http.Transport) *http.Transport {
+	if t.Proxy == nil || isDefault(t.Proxy) {
+		// http.ProxyFromEnvironment doesn't respect CIDRs and that makes it impossible to exclude things like pod and service IPs from proxy settings
+		// ProxierWithNoProxyCIDR allows CIDR rules in NO_PROXY
+		t.Proxy = NewProxierWithNoProxyCIDR(http.ProxyFromEnvironment)
 	}
 	if t.Dial == nil {
 		t.Dial = defaultTransport.Dial
 	}
 	if t.TLSHandshakeTimeout == 0 {
 		t.TLSHandshakeTimeout = defaultTransport.TLSHandshakeTimeout
+	}
+	return t
+}
+
+// SetTransportDefaults applies the defaults from http.DefaultTransport
+// for the Proxy, Dial, and TLSHandshakeTimeout fields if unset
+func SetTransportDefaults(t *http.Transport) *http.Transport {
+	t = SetOldTransportDefaults(t)
+	// Allow clients to disable http2 if needed.
+	if s := os.Getenv("DISABLE_HTTP2"); len(s) > 0 {
+		glog.Infof("HTTP2 has been explicitly disabled")
+	} else {
+		if err := http2.ConfigureTransport(t); err != nil {
+			glog.Warningf("Transport failed http2 configuration: %v", err)
+		}
 	}
 	return t
 }
@@ -150,6 +171,65 @@ func GetClientIP(req *http.Request) net.IP {
 	}
 
 	// Fallback to Remote Address in request, which will give the correct client IP when there is no proxy.
-	ip := net.ParseIP(req.RemoteAddr)
-	return ip
+	// Remote Address in Go's HTTP server is in the form host:port so we need to split that first.
+	host, _, err := net.SplitHostPort(req.RemoteAddr)
+	if err == nil {
+		return net.ParseIP(host)
+	}
+
+	// Fallback if Remote Address was just IP.
+	return net.ParseIP(req.RemoteAddr)
+}
+
+var defaultProxyFuncPointer = fmt.Sprintf("%p", http.ProxyFromEnvironment)
+
+// isDefault checks to see if the transportProxierFunc is pointing to the default one
+func isDefault(transportProxier func(*http.Request) (*url.URL, error)) bool {
+	transportProxierPointer := fmt.Sprintf("%p", transportProxier)
+	return transportProxierPointer == defaultProxyFuncPointer
+}
+
+// NewProxierWithNoProxyCIDR constructs a Proxier function that respects CIDRs in NO_PROXY and delegates if
+// no matching CIDRs are found
+func NewProxierWithNoProxyCIDR(delegate func(req *http.Request) (*url.URL, error)) func(req *http.Request) (*url.URL, error) {
+	// we wrap the default method, so we only need to perform our check if the NO_PROXY envvar has a CIDR in it
+	noProxyEnv := os.Getenv("NO_PROXY")
+	noProxyRules := strings.Split(noProxyEnv, ",")
+
+	cidrs := []*net.IPNet{}
+	for _, noProxyRule := range noProxyRules {
+		_, cidr, _ := net.ParseCIDR(noProxyRule)
+		if cidr != nil {
+			cidrs = append(cidrs, cidr)
+		}
+	}
+
+	if len(cidrs) == 0 {
+		return delegate
+	}
+
+	return func(req *http.Request) (*url.URL, error) {
+		host := req.URL.Host
+		// for some urls, the Host is already the host, not the host:port
+		if net.ParseIP(host) == nil {
+			var err error
+			host, _, err = net.SplitHostPort(req.URL.Host)
+			if err != nil {
+				return delegate(req)
+			}
+		}
+
+		ip := net.ParseIP(host)
+		if ip == nil {
+			return delegate(req)
+		}
+
+		for _, cidr := range cidrs {
+			if cidr.Contains(ip) {
+				return nil, nil
+			}
+		}
+
+		return delegate(req)
+	}
 }
