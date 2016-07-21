@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -104,7 +105,7 @@ func (c *dockerClient) makeRequest(method, url string, headers map[string][]stri
 // makeRequestToResolvedURL creates and executes a http.Request with the specified parameters, adding authentication and TLS options for the Docker client.
 // makeRequest should generally be preferred.
 func (c *dockerClient) makeRequestToResolvedURL(method, url string, headers map[string][]string, stream io.Reader) (*http.Response, error) {
-	req, err := http.NewRequest(method, url, stream)
+	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -119,6 +120,15 @@ func (c *dockerClient) makeRequestToResolvedURL(method, url string, headers map[
 			return nil, err
 		}
 	}
+	// if the request needs a body from "stream" we set this after we setup authentication
+	// because setupRequestAuth tries the request looking for a Bearer token on Docker Hub
+	// and setting this early will result in the body  being read by client.Do(req) in setupRequestAuth
+	// trying the request in setupRequestAuth doesn't need a body eventually
+	// so we set this here.
+	if stream != nil {
+		req.Body = ioutil.NopCloser(stream)
+	}
+
 	logrus.Debugf("%s %s", method, url)
 	res, err := c.client.Do(req)
 	if err != nil {
@@ -146,20 +156,21 @@ func (c *dockerClient) setupRequestAuth(req *http.Request) error {
 			// no need for bearer? wtf?
 			return nil
 		}
-		tokens = strings.Split(hdr, " ")
-		tokens = strings.Split(tokens[1], ",")
-		var realm, service, scope string
-		for _, token := range tokens {
-			if strings.HasPrefix(token, "realm") {
-				realm = strings.Trim(token[len("realm="):], "\"")
-			}
-			if strings.HasPrefix(token, "service") {
-				service = strings.Trim(token[len("service="):], "\"")
-			}
-			if strings.HasPrefix(token, "scope") {
-				scope = strings.Trim(token[len("scope="):], "\"")
-			}
+		re := regexp.MustCompile(`^Bearer realm="(.*)",service="(.*)",scope="(.*)"$`)
+		regres := re.FindStringSubmatch(hdr)
+		if regres == nil {
+			return fmt.Errorf("no valid bearer header found: %s", hdr)
 		}
+
+		// 4 comes from https://golang.org/pkg/regexp/#Regexp.FindStringSubmatch
+		// because the first element in regres is the hdr itself
+		if len(regres) != 4 {
+			return fmt.Errorf("no valid bearer header found: %s", hdr)
+		}
+
+		realm := regres[1]
+		service := regres[2]
+		scope := regres[3]
 
 		if realm == "" {
 			return fmt.Errorf("missing realm in bearer auth challenge")

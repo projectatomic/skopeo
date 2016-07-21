@@ -82,7 +82,7 @@ func (d *dockerImageDestination) PutBlob(digest string, stream io.Reader) error 
 	if err != nil {
 		return err
 	}
-	defer res.Body.Close()
+	res.Body.Close()
 	if res.StatusCode == http.StatusOK && res.Header.Get("Docker-Content-Digest") == digest {
 		logrus.Debugf("... already exists, not uploading")
 		return nil
@@ -96,7 +96,7 @@ func (d *dockerImageDestination) PutBlob(digest string, stream io.Reader) error 
 	if err != nil {
 		return err
 	}
-	defer res.Body.Close()
+	res.Body.Close()
 	if res.StatusCode != http.StatusAccepted {
 		logrus.Debugf("Error initiating layer upload, response %#v", *res)
 		return fmt.Errorf("Error initiating layer upload to %s, status %d", uploadURL, res.StatusCode)
@@ -115,7 +115,7 @@ func (d *dockerImageDestination) PutBlob(digest string, stream io.Reader) error 
 	if err != nil {
 		return err
 	}
-	defer res.Body.Close()
+	res.Body.Close()
 	if res.StatusCode != http.StatusCreated {
 		logrus.Debugf("Error uploading layer, response %#v", *res)
 		return fmt.Errorf("Error uploading layer to %s, status %d", uploadLocation, res.StatusCode)
