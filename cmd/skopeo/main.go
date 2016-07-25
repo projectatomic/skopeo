@@ -16,6 +16,7 @@ var gitCommit = ""
 // createApp returns a cli.App to be run or tested.
 func createApp() *cli.App {
 	app := cli.NewApp()
+	app.EnableBashCompletion = true
 	app.Name = "skopeo"
 	if gitCommit != "" {
 		app.Version = fmt.Sprintf("%s commit: %s", version.Version, gitCommit)
