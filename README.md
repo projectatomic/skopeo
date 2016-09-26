@@ -47,7 +47,7 @@ $ skopeo inspect docker://docker.io/fedora:rawhide | jq '.Digest'
 
 Copying images
 -
-`skopeo` can copy container images between various storage mechansism,
+`skopeo` can copy container images between various storage mechanism,
 e.g. Docker registries (including the Docker Hub), the Atomic Registry,
 and local directories:
 
