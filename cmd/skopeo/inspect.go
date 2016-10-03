@@ -7,6 +7,7 @@ import (
 
 	"github.com/containers/image/docker"
 	"github.com/containers/image/manifest"
+	"github.com/docker/docker/reference"
 	"github.com/urfave/cli"
 )
 
@@ -56,9 +57,13 @@ var inspectCmd = cli.Command{
 		if err != nil {
 			return err
 		}
+		var tag string
+		if tagged, ok := img.Reference().DockerReference().(reference.NamedTagged); ok {
+			tag = tagged.Tag()
+		}
 		outputData := inspectOutput{
 			Name: "", // Possibly overridden for a docker.Image.
-			Tag:  imgInspect.Tag,
+			Tag:  tag,
 			// Digest is set below.
 			RepoTags:      []string{}, // Possibly overriden for a docker.Image.
 			Created:       imgInspect.Created,
