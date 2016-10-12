@@ -3,8 +3,10 @@ package image
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"runtime"
 
+	"github.com/containers/image/manifest"
 	"github.com/containers/image/types"
 )
 
@@ -48,5 +50,14 @@ func manifestSchema2FromManifestList(src types.ImageSource, manblob []byte) (gen
 	if err != nil {
 		return nil, err
 	}
+
+	matches, err := manifest.MatchesDigest(manblob, targetManifestDigest)
+	if err != nil {
+		return nil, fmt.Errorf("Error computing manifest digest: %v", err)
+	}
+	if !matches {
+		return nil, fmt.Errorf("Manifest image does not match selected manifest digest %s", targetManifestDigest)
+	}
+
 	return manifestInstanceFromBlob(src, manblob, mt)
 }

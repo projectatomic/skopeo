@@ -99,6 +99,9 @@ type BlobInfo struct {
 // This is primarily useful for copying images around; for examining their properties, Image (below)
 // is usually more useful.
 // Each ImageSource should eventually be closed by calling Close().
+//
+// WARNING: Various methods which return an object identified by digest generally do not
+// validate that the returned data actually matches that digest; this is the caller’s responsibility.
 type ImageSource interface {
 	// Reference returns the reference used to set up this source, _as specified by the user_
 	// (not as the image itself, or its underlying storage, claims).  This can be used e.g. to determine which public keys are trusted for this image.
@@ -181,14 +184,23 @@ type Image interface {
 	// Note that Reference may return nil in the return value of UpdatedImage!
 	UnparsedImage
 	// ConfigInfo returns a complete BlobInfo for the separate config object, or a BlobInfo{Digest:""} if there isn't a separate object.
+	// Note that the config object may not exist in the underlying storage in the return value of UpdatedImage! Use ConfigBlob() below.
 	ConfigInfo() BlobInfo
+	// ConfigBlob returns the blob described by ConfigInfo, iff ConfigInfo().Digest != ""; nil otherwise.
+	// The result is cached; it is OK to call this however often you need.
+	ConfigBlob() ([]byte, error)
 	// LayerInfos returns a list of BlobInfos of layers referenced by this image, in order (the root layer first, and then successive layered layers).
 	// The Digest field is guaranteed to be provided; Size may be -1.
 	// WARNING: The list may contain duplicates, and they are semantically relevant.
 	LayerInfos() []BlobInfo
 	// Inspect returns various information for (skopeo inspect) parsed from the manifest and configuration.
 	Inspect() (*ImageInspectInfo, error)
+	// UpdatedImageNeedsLayerDiffIDs returns true iff UpdatedImage(options) needs InformationOnly.LayerDiffIDs.
+	// This is a horribly specific interface, but computing InformationOnly.LayerDiffIDs can be very expensive to compute
+	// (most importantly it forces us to download the full layers even if they are already present at the destination).
+	UpdatedImageNeedsLayerDiffIDs(options ManifestUpdateOptions) bool
 	// UpdatedImage returns a types.Image modified according to options.
+	// Everything in options.InformationOnly should be provided, other fields should be set only if a modification is desired.
 	// This does not change the state of the original Image object.
 	UpdatedImage(options ManifestUpdateOptions) (Image, error)
 	// IsMultiImage returns true if the image's manifest is a list of images, false otherwise.
@@ -197,7 +209,14 @@ type Image interface {
 
 // ManifestUpdateOptions is a way to pass named optional arguments to Image.UpdatedManifest
 type ManifestUpdateOptions struct {
-	LayerInfos []BlobInfo // Complete BlobInfos (size+digest) which should replace the originals, in order (the root layer first, and then successive layered layers)
+	LayerInfos       []BlobInfo // Complete BlobInfos (size+digest) which should replace the originals, in order (the root layer first, and then successive layered layers)
+	ManifestMIMEType string
+	// The values below are NOT requests to modify the image; they provide optional context which may or may not be used.
+	InformationOnly struct {
+		Destination  ImageDestination // and yes, UpdatedManifest may write to Destination (see the schema2 → schema1 conversion logic in image/docker_schema2.go)
+		LayerInfos   []BlobInfo       // Complete BlobInfos (size+digest) which have been uploaded, in order (the root layer first, and then successive layered layers)
+		LayerDiffIDs []string         // Digest values for the _uncompressed_ contents of the blobs which have been uploaded, in the same order.
+	}
 }
 
 // ImageInspectInfo is a set of metadata describing Docker images, primarily their manifest and configuration.

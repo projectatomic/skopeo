@@ -1,6 +1,12 @@
 package image
 
-import "github.com/containers/image/types"
+import (
+	"fmt"
+
+	"github.com/containers/image/docker/reference"
+	"github.com/containers/image/manifest"
+	"github.com/containers/image/types"
+)
 
 // UnparsedImage implements types.UnparsedImage .
 type UnparsedImage struct {
@@ -41,6 +47,23 @@ func (i *UnparsedImage) Manifest() ([]byte, string, error) {
 		if err != nil {
 			return nil, "", err
 		}
+
+		// ImageSource.GetManifest does not do digest verification, but we do;
+		// this immediately protects also any user of types.Image.
+		ref := i.Reference().DockerReference()
+		if ref != nil {
+			if canonical, ok := ref.(reference.Canonical); ok {
+				digest := canonical.Digest().String()
+				matches, err := manifest.MatchesDigest(m, digest)
+				if err != nil {
+					return nil, "", fmt.Errorf("Error computing manifest digest: %v", err)
+				}
+				if !matches {
+					return nil, "", fmt.Errorf("Manifest does not match provided manifest digest %s", digest)
+				}
+			}
+		}
+
 		i.cachedManifest = m
 		i.cachedManifestMIMEType = mt
 	}

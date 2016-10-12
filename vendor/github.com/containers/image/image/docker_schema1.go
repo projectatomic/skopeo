@@ -1,11 +1,16 @@
 package image
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
+	"time"
 
+	"github.com/containers/image/docker/reference"
 	"github.com/containers/image/manifest"
 	"github.com/containers/image/types"
 )
@@ -18,15 +23,30 @@ type fsLayersSchema1 struct {
 	BlobSum string `json:"blobSum"`
 }
 
+type historySchema1 struct {
+	V1Compatibility string `json:"v1Compatibility"`
+}
+
+// historySchema1 is a string containing this.  It is similar to v1Image but not the same, in particular note the ThrowAway field.
+type v1Compatibility struct {
+	ID              string    `json:"id"`
+	Parent          string    `json:"parent,omitempty"`
+	Comment         string    `json:"comment,omitempty"`
+	Created         time.Time `json:"created"`
+	ContainerConfig struct {
+		Cmd []string
+	} `json:"container_config,omitempty"`
+	Author    string `json:"author,omitempty"`
+	ThrowAway bool   `json:"throwaway,omitempty"`
+}
+
 type manifestSchema1 struct {
-	Name         string            `json:"name"`
-	Tag          string            `json:"tag"`
-	Architecture string            `json:"architecture"`
-	FSLayers     []fsLayersSchema1 `json:"fsLayers"`
-	History      []struct {
-		V1Compatibility string `json:"v1Compatibility"`
-	} `json:"history"`
-	SchemaVersion int `json:"schemaVersion"`
+	Name          string            `json:"name"`
+	Tag           string            `json:"tag"`
+	Architecture  string            `json:"architecture"`
+	FSLayers      []fsLayersSchema1 `json:"fsLayers"`
+	History       []historySchema1  `json:"history"`
+	SchemaVersion int               `json:"schemaVersion"`
 }
 
 func manifestSchema1FromManifest(manifest []byte) (genericManifest, error) {
@@ -47,6 +67,25 @@ func manifestSchema1FromManifest(manifest []byte) (genericManifest, error) {
 	return mschema1, nil
 }
 
+// manifestSchema1FromComponents builds a new manifestSchema1 from the supplied data.
+func manifestSchema1FromComponents(ref reference.Named, fsLayers []fsLayersSchema1, history []historySchema1, architecture string) genericManifest {
+	var name, tag string
+	if ref != nil { // Well, what to do if it _is_ nil? Most consumers actually don't use these fields nowadays, so we might as well try not supplying them.
+		name = ref.Name()
+		if tagged, ok := ref.(reference.NamedTagged); ok {
+			tag = tagged.Tag()
+		}
+	}
+	return &manifestSchema1{
+		Name:          name,
+		Tag:           tag,
+		Architecture:  architecture,
+		FSLayers:      fsLayers,
+		History:       history,
+		SchemaVersion: 1,
+	}
+}
+
 func (m *manifestSchema1) serialize() ([]byte, error) {
 	// docker/distribution requires a signature even if the incoming data uses the nominally unsigned DockerV2Schema1MediaType.
 	unsigned, err := json.Marshal(*m)
@@ -61,8 +100,15 @@ func (m *manifestSchema1) manifestMIMEType() string {
 }
 
 // ConfigInfo returns a complete BlobInfo for the separate config object, or a BlobInfo{Digest:""} if there isn't a separate object.
+// Note that the config object may not exist in the underlying storage in the return value of UpdatedImage! Use ConfigBlob() below.
 func (m *manifestSchema1) ConfigInfo() types.BlobInfo {
 	return types.BlobInfo{}
+}
+
+// ConfigBlob returns the blob described by ConfigInfo, iff ConfigInfo().Digest != ""; nil otherwise.
+// The result is cached; it is OK to call this however often you need.
+func (m *manifestSchema1) ConfigBlob() ([]byte, error) {
+	return nil, nil
 }
 
 // LayerInfos returns a list of BlobInfos of layers referenced by this image, in order (the root layer first, and then successive layered layers).
@@ -76,17 +122,9 @@ func (m *manifestSchema1) LayerInfos() []types.BlobInfo {
 	return layers
 }
 
-func (m *manifestSchema1) config() ([]byte, error) {
-	return []byte(m.History[0].V1Compatibility), nil
-}
-
 func (m *manifestSchema1) imageInspectInfo() (*types.ImageInspectInfo, error) {
 	v1 := &v1Image{}
-	config, err := m.config()
-	if err != nil {
-		return nil, err
-	}
-	if err := json.Unmarshal(config, v1); err != nil {
+	if err := json.Unmarshal([]byte(m.History[0].V1Compatibility), v1); err != nil {
 		return nil, err
 	}
 	return &types.ImageInspectInfo{
@@ -97,6 +135,13 @@ func (m *manifestSchema1) imageInspectInfo() (*types.ImageInspectInfo, error) {
 		Architecture:  v1.Architecture,
 		Os:            v1.OS,
 	}, nil
+}
+
+// UpdatedImageNeedsLayerDiffIDs returns true iff UpdatedImage(options) needs InformationOnly.LayerDiffIDs.
+// This is a horribly specific interface, but computing InformationOnly.LayerDiffIDs can be very expensive to compute
+// (most importantly it forces us to download the full layers even if they are already present at the destination).
+func (m *manifestSchema1) UpdatedImageNeedsLayerDiffIDs(options types.ManifestUpdateOptions) bool {
+	return options.ManifestMIMEType == manifest.DockerV2Schema2MediaType
 }
 
 // UpdatedImage returns a types.Image modified according to options.
@@ -115,6 +160,18 @@ func (m *manifestSchema1) UpdatedImage(options types.ManifestUpdateOptions) (typ
 			copy.FSLayers[(len(options.LayerInfos)-1)-i].BlobSum = info.Digest
 		}
 	}
+
+	switch options.ManifestMIMEType {
+	case "": // No conversion, OK
+	case manifest.DockerV2Schema1MediaType, manifest.DockerV2Schema1SignedMediaType:
+	// We have 2 MIME types for schema 1, which are basically equivalent (even the un-"Signed" MIME type will be rejected if there isn’t a signature; so,
+	// handle conversions between them by doing nothing.
+	case manifest.DockerV2Schema2MediaType:
+		return copy.convertToManifestSchema2(options.InformationOnly.LayerInfos, options.InformationOnly.LayerDiffIDs)
+	default:
+		return nil, fmt.Errorf("Conversion of image manifest from %s to %s is not implemented", manifest.DockerV2Schema1SignedMediaType, options.ManifestMIMEType)
+	}
+
 	return memoryImageFromManifest(&copy), nil
 }
 
@@ -174,4 +231,96 @@ func validateV1ID(id string) error {
 		return fmt.Errorf("image ID %q is invalid", id)
 	}
 	return nil
+}
+
+// Based on github.com/docker/docker/distribution/pull_v2.go
+func (m *manifestSchema1) convertToManifestSchema2(uploadedLayerInfos []types.BlobInfo, layerDiffIDs []string) (types.Image, error) {
+	if len(m.History) == 0 {
+		// What would this even mean?! Anyhow, the rest of the code depends on fsLayers[0] and history[0] existing.
+		return nil, fmt.Errorf("Cannot convert an image with 0 history entries to %s", manifest.DockerV2Schema2MediaType)
+	}
+	if len(m.History) != len(m.FSLayers) {
+		return nil, fmt.Errorf("Inconsistent schema 1 manifest: %d history entries, %d fsLayers entries", len(m.History), len(m.FSLayers))
+	}
+	if len(uploadedLayerInfos) != len(m.FSLayers) {
+		return nil, fmt.Errorf("Internal error: uploaded %d blobs, but schema1 manifest has %d fsLayers", len(uploadedLayerInfos), len(m.FSLayers))
+	}
+	if len(layerDiffIDs) != len(m.FSLayers) {
+		return nil, fmt.Errorf("Internal error: collected %d DiffID values, but schema1 manifest has %d fsLayers", len(layerDiffIDs), len(m.FSLayers))
+	}
+
+	rootFS := rootFS{
+		Type:      "layers",
+		DiffIDs:   []string{},
+		BaseLayer: "",
+	}
+	var layers []descriptor
+	history := make([]imageHistory, len(m.History))
+	for v1Index := len(m.History) - 1; v1Index >= 0; v1Index-- {
+		v2Index := (len(m.History) - 1) - v1Index
+
+		var v1compat v1Compatibility
+		if err := json.Unmarshal([]byte(m.History[v1Index].V1Compatibility), &v1compat); err != nil {
+			return nil, fmt.Errorf("Error decoding history entry %d: %v", v1Index, err)
+		}
+		history[v2Index] = imageHistory{
+			Created:    v1compat.Created,
+			Author:     v1compat.Author,
+			CreatedBy:  strings.Join(v1compat.ContainerConfig.Cmd, " "),
+			Comment:    v1compat.Comment,
+			EmptyLayer: v1compat.ThrowAway,
+		}
+
+		if !v1compat.ThrowAway {
+			layers = append(layers, descriptor{
+				MediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip",
+				Size:      uploadedLayerInfos[v2Index].Size,
+				Digest:    m.FSLayers[v1Index].BlobSum,
+			})
+			rootFS.DiffIDs = append(rootFS.DiffIDs, layerDiffIDs[v2Index])
+		}
+	}
+	configJSON, err := configJSONFromV1Config([]byte(m.History[0].V1Compatibility), rootFS, history)
+	if err != nil {
+		return nil, err
+	}
+	configHash := sha256.Sum256(configJSON)
+	configDescriptor := descriptor{
+		MediaType: "application/vnd.docker.container.image.v1+json",
+		Size:      int64(len(configJSON)),
+		Digest:    "sha256:" + hex.EncodeToString(configHash[:]),
+	}
+
+	m2 := manifestSchema2FromComponents(configDescriptor, configJSON, layers)
+	return memoryImageFromManifest(m2), nil
+}
+
+func configJSONFromV1Config(v1ConfigJSON []byte, rootFS rootFS, history []imageHistory) ([]byte, error) {
+	// github.com/docker/docker/image/v1/imagev1.go:MakeConfigFromV1Config unmarshals and re-marshals the input if docker_version is < 1.8.3 to remove blank fields;
+	// we don't do that here. FIXME? Should we? AFAICT it would only affect the digest value of the schema2 manifest, and we don't particularly need that to be
+	// a consistently reproducible value.
+
+	// Preserve everything we don't specifically know about.
+	// (This must be a *json.RawMessage, even though *[]byte is fairly redundant, because only *RawMessage implements json.Marshaler.)
+	rawContents := map[string]*json.RawMessage{}
+	if err := json.Unmarshal(v1ConfigJSON, &rawContents); err != nil { // We have already unmarshaled it before, using a more detailed schema?!
+		return nil, err
+	}
+
+	delete(rawContents, "id")
+	delete(rawContents, "parent")
+	delete(rawContents, "Size")
+	delete(rawContents, "parent_id")
+	delete(rawContents, "layer_id")
+	delete(rawContents, "throwaway")
+
+	updates := map[string]interface{}{"rootfs": rootFS, "history": history}
+	for field, value := range updates {
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			return nil, err
+		}
+		rawContents[field] = (*json.RawMessage)(&encoded)
+	}
+	return json.Marshal(rawContents)
 }
