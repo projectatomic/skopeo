@@ -199,7 +199,7 @@ func (s *CopySuite) TestCopySignatures(c *check.C) {
 	assertSkopeoFails(c, ".*Source image rejected: Running image docker://busybox:latest is rejected by policy.*",
 		"--policy", policy, "copy", "docker://busybox:latest", dirDest)
 
-	// type: insecureAcceptAnything
+	// type: accept
 	assertSkopeoSucceeds(c, "", "--policy", policy, "copy", "docker://openshift/hello-openshift", dirDest)
 
 	// type: signedBy
@@ -256,7 +256,7 @@ func (s *CopySuite) TestCopyDirSignatures(c *check.C) {
 	assertSkopeoSucceeds(c, "", "copy", "docker://estesp/busybox:s390x", topDirDest+"/dir2")
 
 	// Sign the images. By coping fom a topDirDest/dirN, also test that non-/restricted paths
-	// use the dir:"" default of insecureAcceptAnything.
+	// use the dir:"" default of accept.
 	// (For signing, we must push to atomic: to get a Docker identity to use in the signature.)
 	assertSkopeoSucceeds(c, "", "--tls-verify=false", "--policy", policy, "copy", "--sign-by", "personal@example.com", topDirDest+"/dir1", "atomic:localhost:5000/myns/personal:dirstaging")
 	assertSkopeoSucceeds(c, "", "--tls-verify=false", "--policy", policy, "copy", "--sign-by", "official@example.com", topDirDest+"/dir2", "atomic:localhost:5000/myns/official:dirstaging")
