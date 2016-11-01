@@ -133,6 +133,33 @@ Verify a signature using local files, digest will be printed on success.
 
 **Note:** If you do use this, make sure that the image can not be changed at the source location between the times of its verification and use.
 
+## skopeo add-signature
+**skopeo add-signature** [**--reference=**_signing-reference_] _image-reference key-fingerprint_
+
+Add an additional signature to an image in its current location.  If only one
+signature is needed, using `skopeo copy --sign-by` instead to publish and sign
+an image in a single step is recommended over using `skopeo copy` followed by
+`skopeo add-signature`.
+
+  _reference_ A reference to the image
+
+  _key-fingerprint_ Key identity to use for signing
+
+  **--reference** Add a signature for the specified reference, instead of the image's default.
+
+## skopeo verify-signature
+**skopeo verify-signature** [**--reference=**_verify-reference_] _image-reference key-fingerprint_
+
+Verify a signature on an image now.  Its digest will be printed on success.
+
+  _reference_ A reference expected to identify the image
+
+  _key-fingerprint_ Expected identity of the signing key
+
+  **--reference** Verify a signature for the specified reference, instead of the image's default.
+
+**Note:** If you do use this, make sure that the image can not be changed at the specified location between the times of its verification and use.
+
 ## skopeo help
 show help for `skopeo`
 
