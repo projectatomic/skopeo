@@ -386,7 +386,7 @@ func (pr *prSignedBy) UnmarshalJSON(data []byte) error {
 		return InvalidPolicyFormatError(fmt.Sprintf("Unexpected policy requirement type \"%s\"", tmp.Type))
 	}
 	if signedIdentity == nil {
-		tmp.SignedIdentity = NewPRMMatchExact()
+		tmp.SignedIdentity = NewPRMMatchRepoDigestOrExact()
 	} else {
 		si, err := newPolicyReferenceMatchFromJSON(signedIdentity)
 		if err != nil {
@@ -501,7 +501,7 @@ func (pr *prSignedBaseLayer) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// newPolicyRequirementFromJSON parses JSON data into a PolicyReferenceMatch implementation.
+// newPolicyReferenceMatchFromJSON parses JSON data into a PolicyReferenceMatch implementation.
 func newPolicyReferenceMatchFromJSON(data []byte) (PolicyReferenceMatch, error) {
 	var typeField prmCommon
 	if err := json.Unmarshal(data, &typeField); err != nil {
@@ -511,6 +511,8 @@ func newPolicyReferenceMatchFromJSON(data []byte) (PolicyReferenceMatch, error) 
 	switch typeField.Type {
 	case prmTypeMatchExact:
 		res = &prmMatchExact{}
+	case prmTypeMatchRepoDigestOrExact:
+		res = &prmMatchRepoDigestOrExact{}
 	case prmTypeMatchRepository:
 		res = &prmMatchRepository{}
 	case prmTypeExactReference:
@@ -558,6 +560,41 @@ func (prm *prmMatchExact) UnmarshalJSON(data []byte) error {
 		return InvalidPolicyFormatError(fmt.Sprintf("Unexpected policy requirement type \"%s\"", tmp.Type))
 	}
 	*prm = *newPRMMatchExact()
+	return nil
+}
+
+// newPRMMatchRepoDigestOrExact is NewPRMMatchRepoDigestOrExact, except it resturns the private type.
+func newPRMMatchRepoDigestOrExact() *prmMatchRepoDigestOrExact {
+	return &prmMatchRepoDigestOrExact{prmCommon{Type: prmTypeMatchRepoDigestOrExact}}
+}
+
+// NewPRMMatchRepoDigestOrExact returns a new "matchRepoDigestOrExact" PolicyReferenceMatch.
+func NewPRMMatchRepoDigestOrExact() PolicyReferenceMatch {
+	return newPRMMatchRepoDigestOrExact()
+}
+
+// Compile-time check that prmMatchRepoDigestOrExact implements json.Unmarshaler.
+var _ json.Unmarshaler = (*prmMatchRepoDigestOrExact)(nil)
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (prm *prmMatchRepoDigestOrExact) UnmarshalJSON(data []byte) error {
+	*prm = prmMatchRepoDigestOrExact{}
+	var tmp prmMatchRepoDigestOrExact
+	if err := paranoidUnmarshalJSONObject(data, func(key string) interface{} {
+		switch key {
+		case "type":
+			return &tmp.Type
+		default:
+			return nil
+		}
+	}); err != nil {
+		return err
+	}
+
+	if tmp.Type != prmTypeMatchRepoDigestOrExact {
+		return InvalidPolicyFormatError(fmt.Sprintf("Unexpected policy requirement type \"%s\"", tmp.Type))
+	}
+	*prm = *newPRMMatchRepoDigestOrExact()
 	return nil
 }
 

@@ -203,6 +203,8 @@ func (s *openshiftImageSource) GetTargetManifest(digest string) ([]byte, string,
 	return s.docker.GetTargetManifest(digest)
 }
 
+// GetManifest returns the image's manifest along with its MIME type (which may be empty when it can't be determined but the manifest is available).
+// It may use a remote (= slow) service.
 func (s *openshiftImageSource) GetManifest() ([]byte, string, error) {
 	if err := s.ensureImageIsResolved(); err != nil {
 		return nil, "", err

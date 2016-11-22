@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/containers/image/docker/reference"
 	"github.com/containers/image/manifest"
 	"github.com/containers/image/types"
 	"github.com/docker/engine-api/client"
@@ -21,7 +22,8 @@ import (
 )
 
 type daemonImageDestination struct {
-	ref daemonReference
+	ref            daemonReference
+	namedTaggedRef reference.NamedTagged // Strictly speaking redundant with ref above; having the field makes it structurally impossible for later users to fail.
 	// For talking to imageLoadGoroutine
 	goroutineCancel context.CancelFunc
 	statusChannel   <-chan error
@@ -33,7 +35,14 @@ type daemonImageDestination struct {
 
 // newImageDestination returns a types.ImageDestination for the specified image reference.
 func newImageDestination(systemCtx *types.SystemContext, ref daemonReference) (types.ImageDestination, error) {
-	// FIXME: Do something with ref
+	if ref.ref == nil {
+		return nil, fmt.Errorf("Invalid destination docker-daemon:%s: a destination must be a name:tag", ref.StringWithinTransport())
+	}
+	namedTaggedRef, ok := ref.ref.(reference.NamedTagged)
+	if !ok {
+		return nil, fmt.Errorf("Invalid destination docker-daemon:%s: a destination must be a name:tag", ref.StringWithinTransport())
+	}
+
 	c, err := client.NewClient(client.DefaultDockerHost, "1.22", nil, nil) // FIXME: overridable host
 	if err != nil {
 		return nil, fmt.Errorf("Error initializing docker engine client: %v", err)
@@ -48,6 +57,7 @@ func newImageDestination(systemCtx *types.SystemContext, ref daemonReference) (t
 
 	return &daemonImageDestination{
 		ref:             ref,
+		namedTaggedRef:  namedTaggedRef,
 		goroutineCancel: goroutineCancel,
 		statusChannel:   statusChannel,
 		writer:          writer,
@@ -105,7 +115,7 @@ func (d *daemonImageDestination) Reference() types.ImageReference {
 // If an empty slice or nil it's returned, then any mime type can be tried to upload
 func (d *daemonImageDestination) SupportedManifestMIMETypes() []string {
 	return []string{
-		manifest.DockerV2Schema2MediaType, // FIXME: Handle others.
+		manifest.DockerV2Schema2MediaType, // We rely on the types.Image.UpdatedImage schema conversion capabilities.
 	}
 }
 
@@ -128,7 +138,7 @@ func (d *daemonImageDestination) ShouldCompressLayers() bool {
 // If stream.Read() at any time, ESPECIALLY at end of input, returns an error, PutBlob MUST 1) fail, and 2) delete any data stored so far.
 func (d *daemonImageDestination) PutBlob(stream io.Reader, inputInfo types.BlobInfo) (types.BlobInfo, error) {
 	if inputInfo.Digest == "" {
-		return types.BlobInfo{}, fmt.Errorf("Can not stream a blob with unknown digest to docker-daemon:")
+		return types.BlobInfo{}, fmt.Errorf(`"Can not stream a blob with unknown digest to "docker-daemon:"`)
 	}
 
 	if inputInfo.Size == -1 { // Ouch, we need to stream the blob into a temporary file just to determine the size.
@@ -167,7 +177,6 @@ func (d *daemonImageDestination) PutManifest(m []byte) error {
 		return fmt.Errorf("Error parsing manifest: %v", err)
 	}
 	if man.SchemaVersion != 2 || man.MediaType != manifest.DockerV2Schema2MediaType {
-		// FIXME FIXME: Teach copy.go about this.
 		return fmt.Errorf("Unsupported manifest type, need a Docker schema 2 manifest")
 	}
 
@@ -175,9 +184,28 @@ func (d *daemonImageDestination) PutManifest(m []byte) error {
 	for _, l := range man.Layers {
 		layerPaths = append(layerPaths, l.Digest)
 	}
+
+	// For github.com/docker/docker consumers, this works just as well as
+	//   refString := d.namedTaggedRef.String()  [i.e. d.ref.ref.String()]
+	// because when reading the RepoTags strings, github.com/docker/docker/reference
+	// normalizes both of them to the same value.
+	//
+	// Doing it this way to include the normalized-out `docker.io[/library]` does make
+	// a difference for github.com/projectatomic/docker consumers, with the
+	// “Add --add-registry and --block-registry options to docker daemon” patch.
+	// These consumers treat reference strings which include a hostname and reference
+	// strings without a hostname differently.
+	//
+	// Using the host name here is more explicit about the intent, and it has the same
+	// effect as (docker pull) in projectatomic/docker, which tags the result using
+	// a hostname-qualified reference.
+	// See https://github.com/containers/image/issues/72 for a more detailed
+	// analysis and explanation.
+	refString := fmt.Sprintf("%s:%s", d.namedTaggedRef.FullName(), d.namedTaggedRef.Tag())
+
 	items := []manifestItem{{
 		Config:       man.Config.Digest,
-		RepoTags:     []string{string(d.ref)}, // FIXME: Only if ref is a NamedTagged
+		RepoTags:     []string{refString},
 		Layers:       layerPaths,
 		Parent:       "",
 		LayerSources: nil,

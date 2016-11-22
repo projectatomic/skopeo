@@ -41,7 +41,7 @@ type schema2Manifest struct {
 
 // Based on github.com/docker/docker/image/image.go
 // MOST CONTENT OMITTED AS UNNECESSARY
-type image struct {
+type dockerImage struct {
 	RootFS *rootFS `json:"rootfs,omitempty"`
 }
 

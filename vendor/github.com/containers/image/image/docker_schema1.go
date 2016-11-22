@@ -54,16 +54,19 @@ func manifestSchema1FromManifest(manifest []byte) (genericManifest, error) {
 	if err := json.Unmarshal(manifest, mschema1); err != nil {
 		return nil, err
 	}
+	if mschema1.SchemaVersion != 1 {
+		return nil, fmt.Errorf("unsupported schema version %d", mschema1.SchemaVersion)
+	}
+	if len(mschema1.FSLayers) != len(mschema1.History) {
+		return nil, errors.New("length of history not equal to number of layers")
+	}
+	if len(mschema1.FSLayers) == 0 {
+		return nil, errors.New("no FSLayers in manifest")
+	}
+
 	if err := fixManifestLayers(mschema1); err != nil {
 		return nil, err
 	}
-	// TODO(runcom): verify manifest schema 1, 2 etc
-	//if len(m.FSLayers) != len(m.History) {
-	//return nil, fmt.Errorf("length of history not equal to number of layers for %q", ref.String())
-	//}
-	//if len(m.FSLayers) == 0 {
-	//return nil, fmt.Errorf("no FSLayers in manifest for %q", ref.String())
-	//}
 	return mschema1, nil
 }
 
@@ -201,7 +204,7 @@ func fixManifestLayers(manifest *manifestSchema1) error {
 		}
 	}
 	if imgs[len(imgs)-1].Parent != "" {
-		return errors.New("Invalid parent ID in the base layer of the image.")
+		return errors.New("Invalid parent ID in the base layer of the image")
 	}
 	// check general duplicates to error instead of a deadlock
 	idmap := make(map[string]struct{})
@@ -220,7 +223,7 @@ func fixManifestLayers(manifest *manifestSchema1) error {
 			manifest.FSLayers = append(manifest.FSLayers[:i], manifest.FSLayers[i+1:]...)
 			manifest.History = append(manifest.History[:i], manifest.History[i+1:]...)
 		} else if imgs[i].Parent != imgs[i+1].ID {
-			return fmt.Errorf("Invalid parent ID. Expected %v, got %v.", imgs[i+1].ID, imgs[i].Parent)
+			return fmt.Errorf("Invalid parent ID. Expected %v, got %v", imgs[i+1].ID, imgs[i].Parent)
 		}
 	}
 	return nil

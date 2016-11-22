@@ -67,6 +67,8 @@ func simplifyContentType(contentType string) string {
 	return mimeType
 }
 
+// GetManifest returns the image's manifest along with its MIME type (which may be empty when it can't be determined but the manifest is available).
+// It may use a remote (= slow) service.
 func (s *dockerImageSource) GetManifest() ([]byte, string, error) {
 	err := s.ensureManifestIsLoaded()
 	if err != nil {
@@ -244,7 +246,7 @@ func deleteImage(ctx *types.SystemContext, ref dockerReference) error {
 	switch get.StatusCode {
 	case http.StatusOK:
 	case http.StatusNotFound:
-		return fmt.Errorf("Unable to delete %v. Image may not exist or is not stored with a v2 Schema in a v2 registry.", ref.ref)
+		return fmt.Errorf("Unable to delete %v. Image may not exist or is not stored with a v2 Schema in a v2 registry", ref.ref)
 	default:
 		return fmt.Errorf("Failed to delete %v: %s (%v)", ref.ref, manifestBody, get.Status)
 	}

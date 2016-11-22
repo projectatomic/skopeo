@@ -116,14 +116,21 @@ type prmCommon struct {
 type prmTypeIdentifier string
 
 const (
-	prmTypeMatchExact      prmTypeIdentifier = "matchExact"
-	prmTypeMatchRepository prmTypeIdentifier = "matchRepository"
-	prmTypeExactReference  prmTypeIdentifier = "exactReference"
-	prmTypeExactRepository prmTypeIdentifier = "exactRepository"
+	prmTypeMatchExact             prmTypeIdentifier = "matchExact"
+	prmTypeMatchRepoDigestOrExact prmTypeIdentifier = "matchRepoDigestOrExact"
+	prmTypeMatchRepository        prmTypeIdentifier = "matchRepository"
+	prmTypeExactReference         prmTypeIdentifier = "exactReference"
+	prmTypeExactRepository        prmTypeIdentifier = "exactRepository"
 )
 
 // prmMatchExact is a PolicyReferenceMatch with type = prmMatchExact: the two references must match exactly.
 type prmMatchExact struct {
+	prmCommon
+}
+
+// prmMatchRepoDigestOrExact is a PolicyReferenceMatch with type = prmMatchExactOrDigest: the two references must match exactly,
+// except that digest references are also accepted if the repository name matches (regardless of tag/digest) and the signature applies to the referenced digest
+type prmMatchRepoDigestOrExact struct {
 	prmCommon
 }
 

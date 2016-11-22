@@ -1,14 +1,13 @@
 package image
 
 import (
-	"errors"
-	"fmt"
 	"time"
 
 	"github.com/docker/engine-api/types/strslice"
 
 	"github.com/containers/image/manifest"
 	"github.com/containers/image/types"
+	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 type config struct {
@@ -86,14 +85,23 @@ func manifestInstanceFromBlob(src types.ImageSource, manblob []byte, mt string) 
 	// need to happen within the ImageSource.
 	case manifest.DockerV2Schema1MediaType, manifest.DockerV2Schema1SignedMediaType, "application/json":
 		return manifestSchema1FromManifest(manblob)
-	case manifest.DockerV2Schema2MediaType:
+	case manifest.DockerV2Schema2MediaType, imgspecv1.MediaTypeImageManifest:
+		// FIXME: OCI v1 is compatible with Docker Schema2, "docker_schema2.go" is good enough for reading images, but this will
+		// need to be modified for write support due to differing MIME types.
 		return manifestSchema2FromManifest(src, manblob)
 	case manifest.DockerV2ListMediaType:
 		return manifestSchema2FromManifestList(src, manblob)
-	case "":
-		return nil, errors.New("could not guess manifest media type")
 	default:
-		return nil, fmt.Errorf("unsupported manifest media type %s", mt)
+		// If it's not a recognized manifest media type, or we have failed determining the type, we'll try one last time
+		// to deserialize using v2s1 as per https://github.com/docker/distribution/blob/master/manifests.go#L108
+		// and https://github.com/docker/distribution/blob/master/manifest/schema1/manifest.go#L50
+		//
+		// Crane registries can also return "text/plain", or pretty much anything else depending on a file extension “recognized” in the tag.
+		// This makes no real sense, but it happens
+		// because requests for manifests are
+		// redirected to a content distribution
+		// network which is configured that way. See https://bugzilla.redhat.com/show_bug.cgi?id=1389442
+		return manifestSchema1FromManifest(manblob)
 	}
 }
 

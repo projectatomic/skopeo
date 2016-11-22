@@ -7,14 +7,18 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/containers/image/types"
 	"github.com/docker/docker/pkg/homedir"
+	"github.com/docker/go-connections/sockets"
+	"github.com/docker/go-connections/tlsconfig"
 )
 
 const (
@@ -45,6 +49,38 @@ type dockerClient struct {
 	signatureBase   signatureStorageBase
 }
 
+// this is cloned from docker/go-connections because upstream docker has changed
+// it and make deps here fails otherwise.
+// We'll drop this once we upgrade to docker 1.13.x deps.
+func serverDefault() *tls.Config {
+	return &tls.Config{
+		// Avoid fallback to SSL protocols < TLS1.0
+		MinVersion:               tls.VersionTLS10,
+		PreferServerCipherSuites: true,
+		CipherSuites:             tlsconfig.DefaultServerAcceptedCiphers,
+	}
+}
+
+func newTransport() *http.Transport {
+	direct := &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+		DualStack: true,
+	}
+	tr := &http.Transport{
+		Proxy:               http.ProxyFromEnvironment,
+		Dial:                direct.Dial,
+		TLSHandshakeTimeout: 10 * time.Second,
+		// TODO(dmcgowan): Call close idle connections when complete and use keep alive
+		DisableKeepAlives: true,
+	}
+	proxyDialer, err := sockets.DialerFromEnvironment(direct)
+	if err == nil {
+		tr.Dial = proxyDialer.Dial
+	}
+	return tr
+}
+
 // newDockerClient returns a new dockerClient instance for refHostname (a host a specified in the Docker image reference, not canonicalized to dockerRegistry)
 // “write” specifies whether the client will be used for "write" access (in particular passed to lookaside.go:toplevelFromSection)
 func newDockerClient(ctx *types.SystemContext, ref dockerReference, write bool) (*dockerClient, error) {
@@ -56,7 +92,7 @@ func newDockerClient(ctx *types.SystemContext, ref dockerReference, write bool) 
 	if err != nil {
 		return nil, err
 	}
-	var tr *http.Transport
+	tr := newTransport()
 	if ctx != nil && (ctx.DockerCertPath != "" || ctx.DockerInsecureSkipTLSVerify) {
 		tlsc := &tls.Config{}
 
@@ -68,14 +104,12 @@ func newDockerClient(ctx *types.SystemContext, ref dockerReference, write bool) 
 			tlsc.Certificates = append(tlsc.Certificates, cert)
 		}
 		tlsc.InsecureSkipVerify = ctx.DockerInsecureSkipTLSVerify
-		tr = &http.Transport{
-			TLSClientConfig: tlsc,
-		}
+		tr.TLSClientConfig = tlsc
 	}
-	client := &http.Client{}
-	if tr != nil {
-		client.Transport = tr
+	if tr.TLSClientConfig == nil {
+		tr.TLSClientConfig = serverDefault()
 	}
+	client := &http.Client{Transport: tr}
 
 	sigBase, err := configuredSignatureStorageBase(ctx, ref, write)
 	if err != nil {
@@ -210,8 +244,9 @@ func (c *dockerClient) getBearerToken(realm, service, scope string) (string, err
 	if c.username != "" && c.password != "" {
 		authReq.SetBasicAuth(c.username, c.password)
 	}
-	// insecure for now to contact the external token service
-	tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	tr := newTransport()
+	// TODO(runcom): insecure for now to contact the external token service
+	tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	client := &http.Client{Transport: tr}
 	res, err := client.Do(authReq)
 	if err != nil {

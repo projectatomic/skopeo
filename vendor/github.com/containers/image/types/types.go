@@ -108,7 +108,7 @@ type ImageSource interface {
 	Reference() ImageReference
 	// Close removes resources associated with an initialized ImageSource, if any.
 	Close()
-	// GetManifest returns the image's manifest along with its MIME type. The empty string is returned if the MIME type is unknown.
+	// GetManifest returns the image's manifest along with its MIME type (which may be empty when it can't be determined but the manifest is available).
 	// It may use a remote (= slow) service.
 	GetManifest() ([]byte, string, error)
 	// GetTargetManifest returns an image's manifest given a digest. This is mainly used to retrieve a single image's manifest
