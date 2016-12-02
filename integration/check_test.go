@@ -26,10 +26,8 @@ func init() {
 }
 
 type SkopeoSuite struct {
-	regV1         *testRegistryV1
 	regV2         *testRegistryV2
 	regV2Shema1   *testRegistryV2
-	regV1WithAuth *testRegistryV1 // does v1 support auth?
 	regV2WithAuth *testRegistryV2
 }
 
@@ -45,15 +43,12 @@ func (s *SkopeoSuite) SetUpTest(c *check.C) {
 	_, err := exec.LookPath(skopeoBinary)
 	c.Assert(err, check.IsNil)
 
-	s.regV1 = setupRegistryV1At(c, privateRegistryURL0, false) // TODO:(runcom)
 	s.regV2 = setupRegistryV2At(c, privateRegistryURL1, false, false)
 	s.regV2Shema1 = setupRegistryV2At(c, privateRegistryURL2, false, true)
-	s.regV1WithAuth = setupRegistryV1At(c, privateRegistryURL3, true) // not used
 	s.regV2WithAuth = setupRegistryV2At(c, privateRegistryURL4, true, false)
 }
 
 func (s *SkopeoSuite) TearDownTest(c *check.C) {
-	// not checking V1 registries now...
 	if s.regV2 != nil {
 		s.regV2.Close()
 	}

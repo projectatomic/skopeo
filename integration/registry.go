@@ -13,22 +13,9 @@ import (
 )
 
 const (
-	binaryV1        = "docker-registry"
 	binaryV2        = "registry-v2"
 	binaryV2Schema1 = "registry-v2-schema1"
 )
-
-type testRegistryV1 struct {
-	cmd *exec.Cmd
-	url string
-	dir string
-}
-
-func setupRegistryV1At(c *check.C, url string, auth bool) *testRegistryV1 {
-	return &testRegistryV1{
-		url: url,
-	}
-}
 
 type testRegistryV2 struct {
 	cmd      *exec.Cmd
