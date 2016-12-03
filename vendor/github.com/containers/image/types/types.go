@@ -270,8 +270,11 @@ type SystemContext struct {
 	RegistriesDirPath string
 
 	// === docker.Transport overrides ===
-	DockerCertPath              string // If not "", a directory containing "cert.pem" and "key.pem" used when talking to a Docker Registry
-	DockerInsecureSkipTLSVerify bool   // Allow contacting docker registries over HTTP, or HTTPS with failed TLS verification. Note that this does not affect other TLS connections.
+	// If not "", a directory containing a CA certificate (ending with ".crt"),
+	// a client certificate (ending with ".cert") and a client ceritificate key
+	// (ending with ".key") used when talking to a Docker Registry.
+	DockerCertPath              string
+	DockerInsecureSkipTLSVerify bool // Allow contacting docker registries over HTTP, or HTTPS with failed TLS verification. Note that this does not affect other TLS connections.
 	// if nil, the library tries to parse ~/.docker/config.json to retrieve credentials
 	DockerAuthConfig *DockerAuthConfig
 	// if not "", an User-Agent header is added to each request when contacting a registry.
