@@ -16,7 +16,7 @@ clone git github.com/pmezard/go-difflib master
 # docker deps from https://github.com/docker/docker/blob/v1.11.2/hack/vendor.sh
 clone git github.com/docker/docker v1.12.1
 clone git github.com/docker/engine-api 4eca04ae18f4f93f40196a17b9aa6e11262a7269
-clone git github.com/docker/go-connections v0.2.0
+clone git github.com/docker/go-connections 4ccf312bf1d35e5dbda654e57a9be4c3f3cd0366
 clone git github.com/vbatts/tar-split v0.9.11
 clone git github.com/gorilla/context 14f550f51a
 clone git github.com/gorilla/mux e444e69cbd
