@@ -30,6 +30,10 @@ func createApp() *cli.App {
 			Name:  "debug",
 			Usage: "enable debug output",
 		},
+		cli.BoolFlag{
+			Name:  "insecure-policy",
+			Usage: "run the tool without any policy check",
+		},
 		cli.StringFlag{
 			Name:  "cert-path",
 			Value: "",
@@ -80,7 +84,9 @@ func getPolicyContext(c *cli.Context) (*signature.PolicyContext, error) {
 	policyPath := c.GlobalString("policy")
 	var policy *signature.Policy // This could be cached across calls, if we had an application context.
 	var err error
-	if policyPath == "" {
+	if c.GlobalBool("insecure-policy") {
+		policy = &signature.Policy{Default: []signature.PolicyRequirement{signature.NewPRInsecureAcceptAnything()}}
+	} else if policyPath == "" {
 		policy, err = signature.DefaultPolicy(nil)
 	} else {
 		policy, err = signature.NewPolicyFromFile(policyPath)
