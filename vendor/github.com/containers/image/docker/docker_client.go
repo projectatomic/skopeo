@@ -103,11 +103,47 @@ func newDockerClient(ctx *types.SystemContext, ref dockerReference, write bool) 
 		tlsc := &tls.Config{}
 
 		if ctx.DockerCertPath != "" {
-			cert, err := tls.LoadX509KeyPair(filepath.Join(ctx.DockerCertPath, "cert.pem"), filepath.Join(ctx.DockerCertPath, "key.pem"))
-			if err != nil {
-				return nil, fmt.Errorf("Error loading x509 key pair: %s", err)
+			fs, err := ioutil.ReadDir(ctx.DockerCertPath)
+			if err != nil && !os.IsNotExist(err) {
+				return nil, err
 			}
-			tlsc.Certificates = append(tlsc.Certificates, cert)
+
+			for _, f := range fs {
+				if strings.HasSuffix(f.Name(), ".crt") {
+					systemPool, err := tlsconfig.SystemCertPool()
+					if err != nil {
+						return nil, fmt.Errorf("unable to get system cert pool: %v", err)
+					}
+					tlsc.RootCAs = systemPool
+					logrus.Debugf("crt: %s", filepath.Join(ctx.DockerCertPath, f.Name()))
+					data, err := ioutil.ReadFile(filepath.Join(ctx.DockerCertPath, f.Name()))
+					if err != nil {
+						return nil, err
+					}
+					tlsc.RootCAs.AppendCertsFromPEM(data)
+				}
+				if strings.HasSuffix(f.Name(), ".cert") {
+					certName := f.Name()
+					keyName := certName[:len(certName)-5] + ".key"
+					logrus.Debugf("cert: %s", filepath.Join(ctx.DockerCertPath, f.Name()))
+					if !hasFile(fs, keyName) {
+						return nil, fmt.Errorf("Missing key %s for client certificate %s. Note that CA certificates should use the extension .crt.", keyName, certName)
+					}
+					cert, err := tls.LoadX509KeyPair(filepath.Join(ctx.DockerCertPath, certName), filepath.Join(ctx.DockerCertPath, keyName))
+					if err != nil {
+						return nil, err
+					}
+					tlsc.Certificates = append(tlsc.Certificates, cert)
+				}
+				if strings.HasSuffix(f.Name(), ".key") {
+					keyName := f.Name()
+					certName := keyName[:len(keyName)-4] + ".cert"
+					logrus.Debugf("key: %s", filepath.Join(ctx.DockerCertPath, f.Name()))
+					if !hasFile(fs, certName) {
+						return nil, fmt.Errorf("Missing client certificate %s for key %s", certName, keyName)
+					}
+				}
+			}
 		}
 		tlsc.InsecureSkipVerify = ctx.DockerInsecureSkipTLSVerify
 		tr.TLSClientConfig = tlsc
@@ -130,6 +166,15 @@ func newDockerClient(ctx *types.SystemContext, ref dockerReference, write bool) 
 		client:        client,
 		signatureBase: sigBase,
 	}, nil
+}
+
+func hasFile(files []os.FileInfo, name string) bool {
+	for _, f := range files {
+		if f.Name() == name {
+			return true
+		}
+	}
+	return false
 }
 
 // makeRequest creates and executes a http.Request with the specified parameters, adding authentication and TLS options for the Docker client.
