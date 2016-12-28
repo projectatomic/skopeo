@@ -151,6 +151,43 @@ func (s *CopySuite) TestCopySimple(c *check.C) {
 	c.Assert(err, check.IsNil)
 }
 
+// Make sure that docker-archive is identical to docker.
+func (s *CopySuite) TestCopyArchive(c *check.C) {
+	ar1, err := ioutil.TempDir("", "ar-1")
+	c.Assert(err, check.IsNil)
+	defer os.RemoveAll(ar1)
+	ar2, err := ioutil.TempDir("", "ar-2")
+	c.Assert(err, check.IsNil)
+	defer os.RemoveAll(ar2)
+	dir1, err := ioutil.TempDir("", "copy-1")
+	c.Assert(err, check.IsNil)
+	defer os.RemoveAll(dir1)
+	dir2, err := ioutil.TempDir("", "copy-2")
+	c.Assert(err, check.IsNil)
+	defer os.RemoveAll(dir2)
+
+	// FIXME: It would be nice to use one of the local Docker registries instead of neeeding an Internet connection.
+	// "pull": docker: → docker-archive:
+	assertSkopeoSucceeds(c, "", "copy", "docker://busybox", "docker-archive:"+ar1+"/archive.tar:busybox")
+	// "copy": docker-archive: → dir:
+	assertSkopeoSucceeds(c, "", "copy", "docker-archive:"+ar1+"/archive.tar", "dir:"+dir1)
+	// "pull": docker: → dir:
+	assertSkopeoSucceeds(c, "", "copy", "docker://busybox", "dir:"+dir2)
+	out := combinedOutputOfCommand(c, "diff", "-urN", dir1, dir2)
+	c.Assert(out, check.Equals, "")
+
+	// docker-archive -> OCI image layout
+	ociDest := "busybox-latest"
+	defer os.RemoveAll(ociDest)
+	assertSkopeoSucceeds(c, "", "copy", "docker-archive:"+ar1+"/archive.tar", "oci:"+ociDest)
+	_, err = os.Stat(ociDest)
+	c.Assert(err, check.IsNil)
+
+	// OCI image layout -> docker-archive
+	assertSkopeoSucceeds(c, "", "copy", "oci:"+ociDest, "docker-archive:"+ar2+"/archive.tar")
+	c.Assert(err, check.IsNil)
+}
+
 // Streaming (skopeo copy)
 func (s *CopySuite) TestCopyStreaming(c *check.C) {
 	dir1, err := ioutil.TempDir("", "streaming-1")
