@@ -9,7 +9,6 @@ CONTAINERSSYSCONFIGDIR=${DESTDIR}/etc/containers
 REGISTRIESDDIR=${CONTAINERSSYSCONFIGDIR}/registries.d
 SIGSTOREDIR=${DESTDIR}/var/lib/atomic/sigstore
 BASHINSTALLDIR=${PREFIX}/share/bash-completion/completions
-GO_MD2MAN ?= /usr/bin/go-md2man
 
 ifeq ($(DEBUG), 1)
   override GOGCFLAGS += -N -l
@@ -66,7 +65,7 @@ build-container:
 	docker build ${DOCKER_BUILD_ARGS} -t "$(DOCKER_IMAGE)" .
 
 docs/%.1: docs/%.1.md
-	$(GO_MD2MAN) -in $< -out $@.tmp && touch $@.tmp && mv $@.tmp $@
+	docker run -i --rm skopeobuildimage go-md2man -in /dev/stdin -out /dev/stdout < $< > $@.tmp && touch $@.tmp && mv $@.tmp $@
 
 .PHONY: docs
 docs: $(MANPAGES_MD:%.md=%)

@@ -103,10 +103,6 @@ you'll get an error. You can fix this by either logging in (via `docker login`) 
 
 Building
 -
-To build the manual you will need go-md2man.
-```sh
-$ sudo apt-get install go-md2man
-```
 To build the `skopeo` binary you need at least Go 1.5 because it uses the latest `GO15VENDOREXPERIMENT` flag. Also, make sure to clone the repository in your `GOPATH` - otherwise compilation fails.  
 ```sh
 $ git clone https://github.com/projectatomic/skopeo $GOPATH/src/github.com/projectatomic/skopeo
