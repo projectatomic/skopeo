@@ -18,9 +18,9 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/imdario/mergo"
 	"github.com/pkg/errors"
-	utilerrors "k8s.io/kubernetes/pkg/util/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/kubernetes/pkg/util/homedir"
-	utilnet "k8s.io/kubernetes/pkg/util/net"
 )
 
 // restTLSClientConfig is a modified copy of k8s.io/kubernets/pkg/client/restclient.TLSClientConfig.

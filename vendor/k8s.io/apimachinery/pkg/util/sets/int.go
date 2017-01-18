@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright 2017 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,50 +23,50 @@ import (
 	"sort"
 )
 
-// sets.String is a set of strings, implemented via map[string]struct{} for minimal memory consumption.
-type String map[string]Empty
+// sets.Int is a set of ints, implemented via map[int]struct{} for minimal memory consumption.
+type Int map[int]Empty
 
-// New creates a String from a list of values.
-func NewString(items ...string) String {
-	ss := String{}
+// New creates a Int from a list of values.
+func NewInt(items ...int) Int {
+	ss := Int{}
 	ss.Insert(items...)
 	return ss
 }
 
-// StringKeySet creates a String from a keys of a map[string](? extends interface{}).
+// IntKeySet creates a Int from a keys of a map[int](? extends interface{}).
 // If the value passed in is not actually a map, this will panic.
-func StringKeySet(theMap interface{}) String {
+func IntKeySet(theMap interface{}) Int {
 	v := reflect.ValueOf(theMap)
-	ret := String{}
+	ret := Int{}
 
 	for _, keyValue := range v.MapKeys() {
-		ret.Insert(keyValue.Interface().(string))
+		ret.Insert(keyValue.Interface().(int))
 	}
 	return ret
 }
 
 // Insert adds items to the set.
-func (s String) Insert(items ...string) {
+func (s Int) Insert(items ...int) {
 	for _, item := range items {
 		s[item] = Empty{}
 	}
 }
 
 // Delete removes all items from the set.
-func (s String) Delete(items ...string) {
+func (s Int) Delete(items ...int) {
 	for _, item := range items {
 		delete(s, item)
 	}
 }
 
 // Has returns true if and only if item is contained in the set.
-func (s String) Has(item string) bool {
+func (s Int) Has(item int) bool {
 	_, contained := s[item]
 	return contained
 }
 
 // HasAll returns true if and only if all items are contained in the set.
-func (s String) HasAll(items ...string) bool {
+func (s Int) HasAll(items ...int) bool {
 	for _, item := range items {
 		if !s.Has(item) {
 			return false
@@ -76,7 +76,7 @@ func (s String) HasAll(items ...string) bool {
 }
 
 // HasAny returns true if any items are contained in the set.
-func (s String) HasAny(items ...string) bool {
+func (s Int) HasAny(items ...int) bool {
 	for _, item := range items {
 		if s.Has(item) {
 			return true
@@ -91,8 +91,8 @@ func (s String) HasAny(items ...string) bool {
 // s2 = {a1, a2, a4, a5}
 // s1.Difference(s2) = {a3}
 // s2.Difference(s1) = {a4, a5}
-func (s String) Difference(s2 String) String {
-	result := NewString()
+func (s Int) Difference(s2 Int) Int {
+	result := NewInt()
 	for key := range s {
 		if !s2.Has(key) {
 			result.Insert(key)
@@ -107,8 +107,8 @@ func (s String) Difference(s2 String) String {
 // s2 = {a3, a4}
 // s1.Union(s2) = {a1, a2, a3, a4}
 // s2.Union(s1) = {a1, a2, a3, a4}
-func (s1 String) Union(s2 String) String {
-	result := NewString()
+func (s1 Int) Union(s2 Int) Int {
+	result := NewInt()
 	for key := range s1 {
 		result.Insert(key)
 	}
@@ -123,9 +123,9 @@ func (s1 String) Union(s2 String) String {
 // s1 = {a1, a2}
 // s2 = {a2, a3}
 // s1.Intersection(s2) = {a2}
-func (s1 String) Intersection(s2 String) String {
-	var walk, other String
-	result := NewString()
+func (s1 Int) Intersection(s2 Int) Int {
+	var walk, other Int
+	result := NewInt()
 	if s1.Len() < s2.Len() {
 		walk = s1
 		other = s2
@@ -142,7 +142,7 @@ func (s1 String) Intersection(s2 String) String {
 }
 
 // IsSuperset returns true if and only if s1 is a superset of s2.
-func (s1 String) IsSuperset(s2 String) bool {
+func (s1 Int) IsSuperset(s2 Int) bool {
 	for item := range s2 {
 		if !s1.Has(item) {
 			return false
@@ -154,41 +154,50 @@ func (s1 String) IsSuperset(s2 String) bool {
 // Equal returns true if and only if s1 is equal (as a set) to s2.
 // Two sets are equal if their membership is identical.
 // (In practice, this means same elements, order doesn't matter)
-func (s1 String) Equal(s2 String) bool {
+func (s1 Int) Equal(s2 Int) bool {
 	return len(s1) == len(s2) && s1.IsSuperset(s2)
 }
 
-type sortableSliceOfString []string
+type sortableSliceOfInt []int
 
-func (s sortableSliceOfString) Len() int           { return len(s) }
-func (s sortableSliceOfString) Less(i, j int) bool { return lessString(s[i], s[j]) }
-func (s sortableSliceOfString) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s sortableSliceOfInt) Len() int           { return len(s) }
+func (s sortableSliceOfInt) Less(i, j int) bool { return lessInt(s[i], s[j]) }
+func (s sortableSliceOfInt) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
-// List returns the contents as a sorted string slice.
-func (s String) List() []string {
-	res := make(sortableSliceOfString, 0, len(s))
+// List returns the contents as a sorted int slice.
+func (s Int) List() []int {
+	res := make(sortableSliceOfInt, 0, len(s))
 	for key := range s {
 		res = append(res, key)
 	}
 	sort.Sort(res)
-	return []string(res)
+	return []int(res)
+}
+
+// UnsortedList returns the slice with contents in random order.
+func (s Int) UnsortedList() []int {
+	res := make([]int, 0, len(s))
+	for key := range s {
+		res = append(res, key)
+	}
+	return res
 }
 
 // Returns a single element from the set.
-func (s String) PopAny() (string, bool) {
+func (s Int) PopAny() (int, bool) {
 	for key := range s {
 		s.Delete(key)
 		return key, true
 	}
-	var zeroValue string
+	var zeroValue int
 	return zeroValue, false
 }
 
 // Len returns the size of the set.
-func (s String) Len() int {
+func (s Int) Len() int {
 	return len(s)
 }
 
-func lessString(lhs, rhs string) bool {
+func lessInt(lhs, rhs int) bool {
 	return lhs < rhs
 }

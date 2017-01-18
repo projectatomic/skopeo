@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright 2017 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,50 +23,50 @@ import (
 	"sort"
 )
 
-// sets.Byte is a set of bytes, implemented via map[byte]struct{} for minimal memory consumption.
-type Byte map[byte]Empty
+// sets.String is a set of strings, implemented via map[string]struct{} for minimal memory consumption.
+type String map[string]Empty
 
-// New creates a Byte from a list of values.
-func NewByte(items ...byte) Byte {
-	ss := Byte{}
+// New creates a String from a list of values.
+func NewString(items ...string) String {
+	ss := String{}
 	ss.Insert(items...)
 	return ss
 }
 
-// ByteKeySet creates a Byte from a keys of a map[byte](? extends interface{}).
+// StringKeySet creates a String from a keys of a map[string](? extends interface{}).
 // If the value passed in is not actually a map, this will panic.
-func ByteKeySet(theMap interface{}) Byte {
+func StringKeySet(theMap interface{}) String {
 	v := reflect.ValueOf(theMap)
-	ret := Byte{}
+	ret := String{}
 
 	for _, keyValue := range v.MapKeys() {
-		ret.Insert(keyValue.Interface().(byte))
+		ret.Insert(keyValue.Interface().(string))
 	}
 	return ret
 }
 
 // Insert adds items to the set.
-func (s Byte) Insert(items ...byte) {
+func (s String) Insert(items ...string) {
 	for _, item := range items {
 		s[item] = Empty{}
 	}
 }
 
 // Delete removes all items from the set.
-func (s Byte) Delete(items ...byte) {
+func (s String) Delete(items ...string) {
 	for _, item := range items {
 		delete(s, item)
 	}
 }
 
 // Has returns true if and only if item is contained in the set.
-func (s Byte) Has(item byte) bool {
+func (s String) Has(item string) bool {
 	_, contained := s[item]
 	return contained
 }
 
 // HasAll returns true if and only if all items are contained in the set.
-func (s Byte) HasAll(items ...byte) bool {
+func (s String) HasAll(items ...string) bool {
 	for _, item := range items {
 		if !s.Has(item) {
 			return false
@@ -76,7 +76,7 @@ func (s Byte) HasAll(items ...byte) bool {
 }
 
 // HasAny returns true if any items are contained in the set.
-func (s Byte) HasAny(items ...byte) bool {
+func (s String) HasAny(items ...string) bool {
 	for _, item := range items {
 		if s.Has(item) {
 			return true
@@ -91,8 +91,8 @@ func (s Byte) HasAny(items ...byte) bool {
 // s2 = {a1, a2, a4, a5}
 // s1.Difference(s2) = {a3}
 // s2.Difference(s1) = {a4, a5}
-func (s Byte) Difference(s2 Byte) Byte {
-	result := NewByte()
+func (s String) Difference(s2 String) String {
+	result := NewString()
 	for key := range s {
 		if !s2.Has(key) {
 			result.Insert(key)
@@ -107,8 +107,8 @@ func (s Byte) Difference(s2 Byte) Byte {
 // s2 = {a3, a4}
 // s1.Union(s2) = {a1, a2, a3, a4}
 // s2.Union(s1) = {a1, a2, a3, a4}
-func (s1 Byte) Union(s2 Byte) Byte {
-	result := NewByte()
+func (s1 String) Union(s2 String) String {
+	result := NewString()
 	for key := range s1 {
 		result.Insert(key)
 	}
@@ -123,9 +123,9 @@ func (s1 Byte) Union(s2 Byte) Byte {
 // s1 = {a1, a2}
 // s2 = {a2, a3}
 // s1.Intersection(s2) = {a2}
-func (s1 Byte) Intersection(s2 Byte) Byte {
-	var walk, other Byte
-	result := NewByte()
+func (s1 String) Intersection(s2 String) String {
+	var walk, other String
+	result := NewString()
 	if s1.Len() < s2.Len() {
 		walk = s1
 		other = s2
@@ -142,7 +142,7 @@ func (s1 Byte) Intersection(s2 Byte) Byte {
 }
 
 // IsSuperset returns true if and only if s1 is a superset of s2.
-func (s1 Byte) IsSuperset(s2 Byte) bool {
+func (s1 String) IsSuperset(s2 String) bool {
 	for item := range s2 {
 		if !s1.Has(item) {
 			return false
@@ -154,41 +154,50 @@ func (s1 Byte) IsSuperset(s2 Byte) bool {
 // Equal returns true if and only if s1 is equal (as a set) to s2.
 // Two sets are equal if their membership is identical.
 // (In practice, this means same elements, order doesn't matter)
-func (s1 Byte) Equal(s2 Byte) bool {
+func (s1 String) Equal(s2 String) bool {
 	return len(s1) == len(s2) && s1.IsSuperset(s2)
 }
 
-type sortableSliceOfByte []byte
+type sortableSliceOfString []string
 
-func (s sortableSliceOfByte) Len() int           { return len(s) }
-func (s sortableSliceOfByte) Less(i, j int) bool { return lessByte(s[i], s[j]) }
-func (s sortableSliceOfByte) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s sortableSliceOfString) Len() int           { return len(s) }
+func (s sortableSliceOfString) Less(i, j int) bool { return lessString(s[i], s[j]) }
+func (s sortableSliceOfString) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
-// List returns the contents as a sorted byte slice.
-func (s Byte) List() []byte {
-	res := make(sortableSliceOfByte, 0, len(s))
+// List returns the contents as a sorted string slice.
+func (s String) List() []string {
+	res := make(sortableSliceOfString, 0, len(s))
 	for key := range s {
 		res = append(res, key)
 	}
 	sort.Sort(res)
-	return []byte(res)
+	return []string(res)
+}
+
+// UnsortedList returns the slice with contents in random order.
+func (s String) UnsortedList() []string {
+	res := make([]string, 0, len(s))
+	for key := range s {
+		res = append(res, key)
+	}
+	return res
 }
 
 // Returns a single element from the set.
-func (s Byte) PopAny() (byte, bool) {
+func (s String) PopAny() (string, bool) {
 	for key := range s {
 		s.Delete(key)
 		return key, true
 	}
-	var zeroValue byte
+	var zeroValue string
 	return zeroValue, false
 }
 
 // Len returns the size of the set.
-func (s Byte) Len() int {
+func (s String) Len() int {
 	return len(s)
 }
 
-func lessByte(lhs, rhs byte) bool {
+func lessString(lhs, rhs string) bool {
 	return lhs < rhs
 }

@@ -8,7 +8,7 @@ package devicemapper
 #include <linux/fs.h>   // FIXME: present only for BLKGETSIZE64, maybe we can remove it?
 
 // FIXME: Can't we find a way to do the logging in pure Go?
-extern void DevmapperLogCallback(int level, char *file, int line, int dm_errno_or_class, char *str);
+extern void StorageDevmapperLogCallback(int level, char *file, int line, int dm_errno_or_class, char *str);
 
 static void	log_cb(int level, const char *file, int line, int dm_errno_or_class, const char *f, ...)
 {
@@ -19,7 +19,7 @@ static void	log_cb(int level, const char *file, int line, int dm_errno_or_class,
   vsnprintf(buffer, 256, f, ap);
   va_end(ap);
 
-  DevmapperLogCallback(level, (char *)file, line, dm_errno_or_class, buffer);
+  StorageDevmapperLogCallback(level, (char *)file, line, dm_errno_or_class, buffer);
 }
 
 static void	log_with_errno_init()
