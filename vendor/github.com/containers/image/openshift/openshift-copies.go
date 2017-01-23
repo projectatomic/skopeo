@@ -13,14 +13,14 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/imdario/mergo"
 	"github.com/pkg/errors"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	utilnet "k8s.io/apimachinery/pkg/util/net"
-	"k8s.io/kubernetes/pkg/util/homedir"
+	"golang.org/x/net/http2"
+	"k8s.io/client-go/pkg/util/homedir"
 )
 
 // restTLSClientConfig is a modified copy of k8s.io/kubernets/pkg/client/restclient.TLSClientConfig.
@@ -450,6 +450,55 @@ func (config *directClientConfig) getCluster() clientcmdCluster {
 	return mergedClusterInfo
 }
 
+// aggregateErr is a modified copy of k8s.io/apimachinery/pkg/util/errors.aggregate.
+// This helper implements the error and Errors interfaces.  Keeping it private
+// prevents people from making an aggregate of 0 errors, which is not
+// an error, but does satisfy the error interface.
+type aggregateErr []error
+
+// newAggregate is a modified copy of k8s.io/apimachinery/pkg/util/errors.NewAggregate.
+// NewAggregate converts a slice of errors into an Aggregate interface, which
+// is itself an implementation of the error interface.  If the slice is empty,
+// this returns nil.
+// It will check if any of the element of input error list is nil, to avoid
+// nil pointer panic when call Error().
+func newAggregate(errlist []error) error {
+	if len(errlist) == 0 {
+		return nil
+	}
+	// In case of input error list contains nil
+	var errs []error
+	for _, e := range errlist {
+		if e != nil {
+			errs = append(errs, e)
+		}
+	}
+	if len(errs) == 0 {
+		return nil
+	}
+	return aggregateErr(errs)
+}
+
+// Error is a modified copy of k8s.io/apimachinery/pkg/util/errors.aggregate.Error.
+// Error is part of the error interface.
+func (agg aggregateErr) Error() string {
+	if len(agg) == 0 {
+		// This should never happen, really.
+		return ""
+	}
+	if len(agg) == 1 {
+		return agg[0].Error()
+	}
+	result := fmt.Sprintf("[%s", agg[0].Error())
+	for i := 1; i < len(agg); i++ {
+		result += fmt.Sprintf(", %s", agg[i].Error())
+	}
+	result += "]"
+	return result
+}
+
+// REMOVED: aggregateErr.Errors
+
 // errConfigurationInvalid is a modified? copy of k8s.io/kubernetes/pkg/client/unversioned/clientcmd.errConfigurationInvalid.
 // errConfigurationInvalid is a set of errors indicating the configuration is invalid.
 type errConfigurationInvalid []error
@@ -470,7 +519,7 @@ func newErrConfigurationInvalid(errs []error) error {
 
 // Error implements the error interface
 func (e errConfigurationInvalid) Error() string {
-	return fmt.Sprintf("invalid configuration: %v", utilerrors.NewAggregate(e).Error())
+	return fmt.Sprintf("invalid configuration: %v", newAggregate(e).Error())
 }
 
 // clientConfigLoadingRules is a modified copy of k8s.io/kubernetes/pkg/client/unversioned/clientcmd.ClientConfigLoadingRules
@@ -550,7 +599,7 @@ func (rules *clientConfigLoadingRules) Load() (*clientcmdConfig, error) {
 		errlist = append(errlist, err)
 	}
 
-	return config, utilerrors.NewAggregate(errlist)
+	return config, newAggregate(errlist)
 }
 
 // loadFromFile is a modified copy of k8s.io/kubernetes/pkg/client/unversioned/clientcmd.LoadFromFile
@@ -799,6 +848,52 @@ func transportNew(config *restConfig) (http.RoundTripper, error) {
 	return rt, nil
 }
 
+// newProxierWithNoProxyCIDR is a modified copy of k8s.io/apimachinery/pkg/util/net.NewProxierWithNoProxyCIDR.
+// NewProxierWithNoProxyCIDR constructs a Proxier function that respects CIDRs in NO_PROXY and delegates if
+// no matching CIDRs are found
+func newProxierWithNoProxyCIDR(delegate func(req *http.Request) (*url.URL, error)) func(req *http.Request) (*url.URL, error) {
+	// we wrap the default method, so we only need to perform our check if the NO_PROXY envvar has a CIDR in it
+	noProxyEnv := os.Getenv("NO_PROXY")
+	noProxyRules := strings.Split(noProxyEnv, ",")
+
+	cidrs := []*net.IPNet{}
+	for _, noProxyRule := range noProxyRules {
+		_, cidr, _ := net.ParseCIDR(noProxyRule)
+		if cidr != nil {
+			cidrs = append(cidrs, cidr)
+		}
+	}
+
+	if len(cidrs) == 0 {
+		return delegate
+	}
+
+	return func(req *http.Request) (*url.URL, error) {
+		host := req.URL.Host
+		// for some urls, the Host is already the host, not the host:port
+		if net.ParseIP(host) == nil {
+			var err error
+			host, _, err = net.SplitHostPort(req.URL.Host)
+			if err != nil {
+				return delegate(req)
+			}
+		}
+
+		ip := net.ParseIP(host)
+		if ip == nil {
+			return delegate(req)
+		}
+
+		for _, cidr := range cidrs {
+			if cidr.Contains(ip) {
+				return nil, nil
+			}
+		}
+
+		return delegate(req)
+	}
+}
+
 // tlsCacheGet is a modified copy of k8s.io/kubernetes/pkg/client/transport.tlsTransportCache.get.
 func tlsCacheGet(config *restConfig) (http.RoundTripper, error) {
 	// REMOVED: any actual caching
@@ -813,15 +908,23 @@ func tlsCacheGet(config *restConfig) (http.RoundTripper, error) {
 		return http.DefaultTransport, nil
 	}
 
-	return utilnet.SetTransportDefaults(&http.Transport{ // FIXME??
-		Proxy:               http.ProxyFromEnvironment,
+	// REMOVED: Call to k8s.io/apimachinery/pkg/util/net.SetTransportDefaults; instead of the generic machinery and conditionals, hard-coded the result here.
+	t := &http.Transport{
+		// http.ProxyFromEnvironment doesn't respect CIDRs and that makes it impossible to exclude things like pod and service IPs from proxy settings
+		// ProxierWithNoProxyCIDR allows CIDR rules in NO_PROXY
+		Proxy:               newProxierWithNoProxyCIDR(http.ProxyFromEnvironment),
 		TLSHandshakeTimeout: 10 * time.Second,
 		TLSClientConfig:     tlsConfig,
 		Dial: (&net.Dialer{
 			Timeout:   30 * time.Second,
 			KeepAlive: 30 * time.Second,
 		}).Dial,
-	}), nil
+	}
+	// Allow clients to disable http2 if needed.
+	if s := os.Getenv("DISABLE_HTTP2"); len(s) == 0 {
+		_ = http2.ConfigureTransport(t)
+	}
+	return t, nil
 }
 
 // tlsConfigFor is a modified copy of k8s.io/kubernetes/pkg/client/transport.TLSConfigFor.
