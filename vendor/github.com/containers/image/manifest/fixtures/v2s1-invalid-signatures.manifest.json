@@ -1,0 +1,11 @@
+{
+   "schemaVersion": 1,
+   "name": "mitr/buxybox",
+   "tag": "latest",
+   "architecture": "amd64",
+   "fsLayers": [
+   ],
+   "history": [
+   ],
+   "signatures": 1
+}

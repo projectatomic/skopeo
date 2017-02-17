@@ -1,0 +1,96 @@
+{
+    "default": [
+        {
+            "type": "reject"
+        }
+    ],
+    "transports": {
+        "dir": {
+            "": [
+                {
+                    "type": "insecureAcceptAnything"
+                }
+            ]
+        },
+        "docker": {
+            "example.com/playground": [
+                {
+                    "type": "insecureAcceptAnything"
+                }
+            ],
+            "example.com/production": [
+                {
+                    "type": "signedBy",
+                    "keyType": "GPGKeys",
+                    "keyPath": "/keys/employee-gpg-keyring"
+                }
+            ],
+            "example.com/hardened": [
+                {
+                    "type": "signedBy",
+                    "keyType": "GPGKeys",
+                    "keyPath": "/keys/employee-gpg-keyring",
+                    "signedIdentity": {
+                        "type": "matchRepository"
+                    }
+                },
+                {
+                    "type": "signedBy",
+                    "keyType": "signedByGPGKeys",
+                    "keyPath": "/keys/public-key-signing-gpg-keyring",
+                    "signedIdentity": {
+                        "type": "matchExact"
+                    }
+                },
+                {
+                    "type": "signedBaseLayer",
+                    "baseLayerIdentity": {
+                        "type": "exactRepository",
+                        "dockerRepository": "registry.access.redhat.com/rhel7/rhel"
+                    }
+                }
+            ],
+            "example.com/hardened-x509": [
+                {
+                    "type": "signedBy",
+                    "keyType": "X509Certificates",
+                    "keyPath": "/keys/employee-cert-file",
+                    "signedIdentity": {
+                        "type": "matchRepository"
+                    }
+                },
+                {
+                    "type": "signedBy",
+                    "keyType": "signedByX509CAs",
+                    "keyPath": "/keys/public-key-signing-ca-file"
+                }
+            ],
+            "registry.access.redhat.com": [
+                {
+                    "type": "signedBy",
+                    "keyType": "signedByGPGKeys",
+                    "keyPath": "/keys/RH-key-signing-key-gpg-keyring",
+                    "signedIdentity": {
+                        "type": "matchRepoDigestOrExact"
+                    }
+                }
+            ],
+            "bogus/key-data-example": [
+                {
+                    "type": "signedBy",
+                    "keyType": "signedByGPGKeys",
+                    "keyData": "bm9uc2Vuc2U="
+                }
+            ],
+            "bogus/signed-identity-example": [
+                {
+                    "type": "signedBaseLayer",
+                    "baseLayerIdentity": {
+                        "type": "exactReference",
+                        "dockerReference": "registry.access.redhat.com/rhel7/rhel:latest"
+                    }
+                }
+            ]
+        }
+    }
+}

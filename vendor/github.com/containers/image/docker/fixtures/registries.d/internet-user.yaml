@@ -1,0 +1,12 @@
+default-docker:
+    sigstore: file:///mnt/companywide/signatures/for/other/repositories
+docker:
+    docker.io/contoso:
+        sigstore: https://sigstore.contoso.com/fordocker
+    docker.io/centos:
+        sigstore: https://sigstore.centos.org/
+    docker.io/centos/mybetaprooduct:
+        sigstore: http://localhost:9999/mybetaWIP/sigstore
+        sigstore-staging: file:///srv/mybetaWIP/sigstore
+    docker.io/centos/mybetaproduct:latest:
+        sigstore: https://sigstore.centos.org/
