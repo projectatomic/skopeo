@@ -47,12 +47,12 @@ all: binary docs
 # Then do the build and the output (skopeo) should appear in current dir
 binary: cmd/skopeo
 	docker build ${DOCKER_BUILD_ARGS} -f Dockerfile.build -t skopeobuildimage .
-	docker run --rm --security-opt label:disable -v $$(pwd):/src/github.com/projectatomic/skopeo \
+	docker run --rm --security-opt label:disable -v $$(pwd):/go/src/github.com/projectatomic/skopeo \
 		skopeobuildimage make binary-local $(if $(DEBUG),DEBUG=$(DEBUG))
 
 binary-static: cmd/skopeo
 	docker build ${DOCKER_BUILD_ARGS} -f Dockerfile.build -t skopeobuildimage .
-	docker run --rm --security-opt label:disable -v $$(pwd):/src/github.com/projectatomic/skopeo \
+	docker run --rm --security-opt label:disable -v $$(pwd):/go/src/github.com/projectatomic/skopeo \
 		skopeobuildimage make binary-local-static $(if $(DEBUG),DEBUG=$(DEBUG))
 
 # Build w/o using Docker containers
@@ -89,7 +89,7 @@ install-completions:
 	install -m 644 -D completions/bash/skopeo ${BASHINSTALLDIR}/skopeo
 
 shell: build-container
-	$(DOCKER_RUN_DOCKER) bash
+	$(DOCKER_FLAGS) -v $$(pwd):/go/src/github.com/projectatomic/skopeo "$(DOCKER_IMAGE)" bash
 
 check: validate test-unit test-integration
 
