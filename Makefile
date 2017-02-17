@@ -111,4 +111,9 @@ validate-local:
 	hack/make.sh validate-git-marks validate-gofmt validate-lint validate-vet
 
 test-unit-local:
+	# First run our own tests.
 	go test -tags "$(BUILDTAGS)" $$(go list -tags "$(BUILDTAGS)" -e ./... | grep -v '^github\.com/projectatomic/skopeo/\(integration\|vendor/.*\)$$')
+	# containers/image is a special case -- we _want_ to run its unit tests
+	# here to make sure our vendored packages work with it (and
+	# containers/image doesn't vendor anything).
+	go test -tags "$(BUILDTAGS)" $$(go list -tags "$(BUILDTAGS)" -e ./... | grep '^github\.com/projectatomic/skopeo/vendor/github\.com/containers/image/.*$$')
