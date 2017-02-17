@@ -1,0 +1,18 @@
+---
+  language: go
+  sudo: required
+  notifications:
+    email: false
+  go:
+    - 1.7
+  install: make deps
+  script: make .gitvalidation && make validate && make test && make test-skopeo
+  dist: trusty
+  os:
+    - linux
+  addons:
+    apt:
+      packages:
+        - btrfs-tools
+        - libdevmapper-dev
+        - libgpgme11-dev

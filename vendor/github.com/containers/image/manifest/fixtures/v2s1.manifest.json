@@ -1,0 +1,44 @@
+{
+   "schemaVersion": 1,
+   "name": "mitr/buxybox",
+   "tag": "latest",
+   "architecture": "amd64",
+   "fsLayers": [
+      {
+         "blobSum": "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef"
+      },
+      {
+         "blobSum": "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef"
+      },
+      {
+         "blobSum": "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef"
+      }
+   ],
+   "history": [
+      {
+         "v1Compatibility": "{\"id\":\"f1b5eb0a1215f663765d509b6cdf3841bc2bcff0922346abb943d1342d469a97\",\"parent\":\"594075be8d003f784074cc639d970d1fa091a8197850baaae5052c01564ac535\",\"created\":\"2016-03-03T11:29:44.222098366Z\",\"container\":\"c0924f5b281a1992127d0afc065e59548ded8880b08aea4debd56d4497acb17a\",\"container_config\":{\"Hostname\":\"56f0fe1dfc95\",\"Domainname\":\"\",\"User\":\"\",\"AttachStdin\":false,\"AttachStdout\":false,\"AttachStderr\":false,\"ExposedPorts\":null,\"PublishService\":\"\",\"Tty\":false,\"OpenStdin\":false,\"StdinOnce\":false,\"Env\":null,\"Cmd\":[\"/bin/sh\",\"-c\",\"#(nop) LABEL Checksum=4fef81d30f31f9213c642881357e6662846a0f884c2366c13ebad807b4031368  ./tests/test-images/Dockerfile.2\"],\"Image\":\"594075be8d003f784074cc639d970d1fa091a8197850baaae5052c01564ac535\",\"Volumes\":null,\"VolumeDriver\":\"\",\"WorkingDir\":\"\",\"Entrypoint\":null,\"NetworkDisabled\":false,\"MacAddress\":\"\",\"OnBuild\":null,\"Labels\":{\"Checksum\":\"4fef81d30f31f9213c642881357e6662846a0f884c2366c13ebad807b4031368  ./tests/test-images/Dockerfile.2\",\"Name\":\"atomic-test-2\"}},\"docker_version\":\"1.8.2-fc22\",\"author\":\"\\\"William Temple \\u003cwtemple at redhat dot com\\u003e\\\"\",\"config\":{\"Hostname\":\"56f0fe1dfc95\",\"Domainname\":\"\",\"User\":\"\",\"AttachStdin\":false,\"AttachStdout\":false,\"AttachStderr\":false,\"ExposedPorts\":null,\"PublishService\":\"\",\"Tty\":false,\"OpenStdin\":false,\"StdinOnce\":false,\"Env\":null,\"Cmd\":null,\"Image\":\"594075be8d003f784074cc639d970d1fa091a8197850baaae5052c01564ac535\",\"Volumes\":null,\"VolumeDriver\":\"\",\"WorkingDir\":\"\",\"Entrypoint\":null,\"NetworkDisabled\":false,\"MacAddress\":\"\",\"OnBuild\":null,\"Labels\":{\"Checksum\":\"4fef81d30f31f9213c642881357e6662846a0f884c2366c13ebad807b4031368  ./tests/test-images/Dockerfile.2\",\"Name\":\"atomic-test-2\"}},\"architecture\":\"amd64\",\"os\":\"linux\",\"Size\":0}\n"
+      },
+      {
+         "v1Compatibility": "{\"id\":\"594075be8d003f784074cc639d970d1fa091a8197850baaae5052c01564ac535\",\"parent\":\"03dfa1cd1abe452bc2b69b8eb2362fa6beebc20893e65437906318954f6276d4\",\"created\":\"2016-03-03T11:29:38.563048924Z\",\"container\":\"fd4cf54dcd239fbae9bdade9db48e41880b436d27cb5313f60952a46ab04deff\",\"container_config\":{\"Hostname\":\"56f0fe1dfc95\",\"Domainname\":\"\",\"User\":\"\",\"AttachStdin\":false,\"AttachStdout\":false,\"AttachStderr\":false,\"ExposedPorts\":null,\"PublishService\":\"\",\"Tty\":false,\"OpenStdin\":false,\"StdinOnce\":false,\"Env\":null,\"Cmd\":[\"/bin/sh\",\"-c\",\"#(nop) LABEL Name=atomic-test-2\"],\"Image\":\"03dfa1cd1abe452bc2b69b8eb2362fa6beebc20893e65437906318954f6276d4\",\"Volumes\":null,\"VolumeDriver\":\"\",\"WorkingDir\":\"\",\"Entrypoint\":null,\"NetworkDisabled\":false,\"MacAddress\":\"\",\"OnBuild\":null,\"Labels\":{\"Name\":\"atomic-test-2\"}},\"docker_version\":\"1.8.2-fc22\",\"author\":\"\\\"William Temple \\u003cwtemple at redhat dot com\\u003e\\\"\",\"config\":{\"Hostname\":\"56f0fe1dfc95\",\"Domainname\":\"\",\"User\":\"\",\"AttachStdin\":false,\"AttachStdout\":false,\"AttachStderr\":false,\"ExposedPorts\":null,\"PublishService\":\"\",\"Tty\":false,\"OpenStdin\":false,\"StdinOnce\":false,\"Env\":null,\"Cmd\":null,\"Image\":\"03dfa1cd1abe452bc2b69b8eb2362fa6beebc20893e65437906318954f6276d4\",\"Volumes\":null,\"VolumeDriver\":\"\",\"WorkingDir\":\"\",\"Entrypoint\":null,\"NetworkDisabled\":false,\"MacAddress\":\"\",\"OnBuild\":null,\"Labels\":{\"Name\":\"atomic-test-2\"}},\"architecture\":\"amd64\",\"os\":\"linux\",\"Size\":0}\n"
+      },
+      {
+         "v1Compatibility": "{\"id\":\"03dfa1cd1abe452bc2b69b8eb2362fa6beebc20893e65437906318954f6276d4\",\"created\":\"2016-03-03T11:29:32.948089874Z\",\"container\":\"56f0fe1dfc95755dd6cda10f7215c9937a8d9c6348d079c581a261fd4c2f3a5f\",\"container_config\":{\"Hostname\":\"56f0fe1dfc95\",\"Domainname\":\"\",\"User\":\"\",\"AttachStdin\":false,\"AttachStdout\":false,\"AttachStderr\":false,\"ExposedPorts\":null,\"PublishService\":\"\",\"Tty\":false,\"OpenStdin\":false,\"StdinOnce\":false,\"Env\":null,\"Cmd\":[\"/bin/sh\",\"-c\",\"#(nop) MAINTAINER \\\"William Temple \\u003cwtemple at redhat dot com\\u003e\\\"\"],\"Image\":\"\",\"Volumes\":null,\"VolumeDriver\":\"\",\"WorkingDir\":\"\",\"Entrypoint\":null,\"NetworkDisabled\":false,\"MacAddress\":\"\",\"OnBuild\":null,\"Labels\":null},\"docker_version\":\"1.8.2-fc22\",\"author\":\"\\\"William Temple \\u003cwtemple at redhat dot com\\u003e\\\"\",\"config\":{\"Hostname\":\"56f0fe1dfc95\",\"Domainname\":\"\",\"User\":\"\",\"AttachStdin\":false,\"AttachStdout\":false,\"AttachStderr\":false,\"ExposedPorts\":null,\"PublishService\":\"\",\"Tty\":false,\"OpenStdin\":false,\"StdinOnce\":false,\"Env\":null,\"Cmd\":null,\"Image\":\"\",\"Volumes\":null,\"VolumeDriver\":\"\",\"WorkingDir\":\"\",\"Entrypoint\":null,\"NetworkDisabled\":false,\"MacAddress\":\"\",\"OnBuild\":null,\"Labels\":null},\"architecture\":\"amd64\",\"os\":\"linux\",\"Size\":0}\n"
+      }
+   ],
+   "signatures": [
+      {
+         "header": {
+            "jwk": {
+               "crv": "P-256",
+               "kid": "OZ45:U3IG:TDOI:PMBD:NGP2:LDIW:II2U:PSBI:MMCZ:YZUP:TUUO:XPZT",
+               "kty": "EC",
+               "x": "ReC5c0J9tgXSdUL4_xzEt5RsD8kFt2wWSgJcpAcOQx8",
+               "y": "3sBGEqQ3ZMeqPKwQBAadN2toOUEASha18xa0WwsDF-M"
+            },
+            "alg": "ES256"
+         },
+         "signature": "dV1paJ3Ck1Ph4FcEhg_frjqxdlGdI6-ywRamk6CvMOcaOEUdCWCpCPQeBQpD2N6tGjkoG1BbstkFNflllfenCw",
+         "protected": "eyJmb3JtYXRMZW5ndGgiOjU0NzgsImZvcm1hdFRhaWwiOiJDbjAiLCJ0aW1lIjoiMjAxNi0wNC0xOFQyMDo1NDo0MloifQ"
+      }
+   ]
+}

@@ -1,0 +1,14 @@
+docker:
+    example.com:
+        sigstore: https://sigstore.example.com
+    registry.test.example.com:
+        sigstore: http://registry.test.example.com/sigstore
+    registry.test.example.com:8888:
+        sigstore: http://registry.test.example.com:8889/sigstore
+        sigstore-staging: https://registry.test.example.com:8889/sigstore/specialAPIserverWhichDoesntExist
+    localhost:
+        sigstore: file:///home/mitr/mydevelopment1
+    localhost:8080:
+        sigstore: file:///home/mitr/mydevelopment2
+    localhost/invalid/url/test:
+        sigstore: ":emptyscheme"
