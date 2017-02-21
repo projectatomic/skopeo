@@ -374,9 +374,7 @@ func uniqMcs(catRange uint32) string {
 			continue
 		} else {
 			if c1 > c2 {
-				t := c1
-				c1 = c2
-				c2 = t
+				c1, c2 = c2, c1
 			}
 		}
 		mcs = fmt.Sprintf("s0:c%d,c%d", c1, c2)
@@ -498,7 +496,7 @@ func badPrefix(fpath string) error {
 
 	for _, prefix := range badprefixes {
 		if fpath == prefix || strings.HasPrefix(fpath, fmt.Sprintf("%s/", prefix)) {
-			return fmt.Errorf("Relabeling content in %s is not allowed.", prefix)
+			return fmt.Errorf("relabeling content in %s is not allowed", prefix)
 		}
 	}
 	return nil
@@ -538,14 +536,14 @@ func DupSecOpt(src string) []string {
 		con["level"] == "" {
 		return nil
 	}
-	return []string{"label=user:" + con["user"],
-		"label=role:" + con["role"],
-		"label=type:" + con["type"],
-		"label=level:" + con["level"]}
+	return []string{"user:" + con["user"],
+		"role:" + con["role"],
+		"type:" + con["type"],
+		"level:" + con["level"]}
 }
 
 // DisableSecOpt returns a security opt that can be used to disabling SELinux
 // labeling support for future container processes
 func DisableSecOpt() []string {
-	return []string{"label=disable"}
+	return []string{"disable"}
 }

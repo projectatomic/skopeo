@@ -21,7 +21,7 @@ type applyLayerResponse struct {
 	LayerSize int64 `json:"layerSize"`
 }
 
-// applyLayer is the entry-point for docker-applylayer on re-exec. This is not
+// applyLayer is the entry-point for storage-applylayer on re-exec. This is not
 // used on Windows as it does not support chroot, hence no point sandboxing
 // through chroot and rexec.
 func applyLayer() {
@@ -49,7 +49,7 @@ func applyLayer() {
 		fatal(err)
 	}
 
-	if tmpDir, err = ioutil.TempDir("/", "temp-docker-extract"); err != nil {
+	if tmpDir, err = ioutil.TempDir("/", "temp-storage-extract"); err != nil {
 		fatal(err)
 	}
 
@@ -98,7 +98,7 @@ func applyLayerHandler(dest string, layer archive.Reader, options *archive.TarOp
 		return 0, fmt.Errorf("ApplyLayer json encode: %v", err)
 	}
 
-	cmd := reexec.Command("docker-applyLayer", dest)
+	cmd := reexec.Command("storage-applyLayer", dest)
 	cmd.Stdin = layer
 	cmd.Env = append(cmd.Env, fmt.Sprintf("OPT=%s", data))
 

@@ -15,7 +15,7 @@ import (
 )
 
 func init() {
-	reexec.Register("docker-mountfrom", mountFromMain)
+	reexec.Register("storage-mountfrom", mountFromMain)
 }
 
 func fatal(err error) {
@@ -40,7 +40,7 @@ func mountFrom(dir, device, target, mType, label string) error {
 		Label:  label,
 	}
 
-	cmd := reexec.Command("docker-mountfrom", dir)
+	cmd := reexec.Command("storage-mountfrom", dir)
 	w, err := cmd.StdinPipe()
 	if err != nil {
 		return fmt.Errorf("mountfrom error on pipe creation: %v", err)
@@ -65,7 +65,7 @@ func mountFrom(dir, device, target, mType, label string) error {
 	return nil
 }
 
-// mountfromMain is the entry-point for docker-mountfrom on re-exec.
+// mountfromMain is the entry-point for storage-mountfrom on re-exec.
 func mountFromMain() {
 	runtime.LockOSThread()
 	flag.Parse()

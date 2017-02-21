@@ -756,37 +756,38 @@ func (r *layerStore) Diff(from, to string) (io.ReadCloser, error) {
 
 	metadata = storage.NewJSONUnpacker(bytes.NewBuffer(tsbytes))
 
-	if fgetter, err := r.newFileGetter(to); err != nil {
+	fgetter, err := r.newFileGetter(to)
+	if err != nil {
 		return nil, err
-	} else {
-		var stream io.ReadCloser
-		if compression != archive.Uncompressed {
-			preader, pwriter := io.Pipe()
-			compressor, err := archive.CompressStream(pwriter, compression)
-			if err != nil {
-				fgetter.Close()
-				pwriter.Close()
-				preader.Close()
-				return nil, err
-			}
-			go func() {
-				asm.WriteOutputTarStream(fgetter, metadata, compressor)
-				compressor.Close()
-				pwriter.Close()
-			}()
-			stream = preader
-		} else {
-			stream = asm.NewOutputTarStream(fgetter, metadata)
-		}
-		return ioutils.NewReadCloserWrapper(stream, func() error {
-			err1 := stream.Close()
-			err2 := fgetter.Close()
-			if err2 == nil {
-				return err1
-			}
-			return err2
-		}), nil
 	}
+
+	var stream io.ReadCloser
+	if compression != archive.Uncompressed {
+		preader, pwriter := io.Pipe()
+		compressor, err := archive.CompressStream(pwriter, compression)
+		if err != nil {
+			fgetter.Close()
+			pwriter.Close()
+			preader.Close()
+			return nil, err
+		}
+		go func() {
+			asm.WriteOutputTarStream(fgetter, metadata, compressor)
+			compressor.Close()
+			pwriter.Close()
+		}()
+		stream = preader
+	} else {
+		stream = asm.NewOutputTarStream(fgetter, metadata)
+	}
+	return ioutils.NewReadCloserWrapper(stream, func() error {
+		err1 := stream.Close()
+		err2 := fgetter.Close()
+		if err2 == nil {
+			return err1
+		}
+		return err2
+	}), nil
 }
 
 func (r *layerStore) DiffSize(from, to string) (size int64, err error) {
@@ -834,12 +835,11 @@ func (r *layerStore) ApplyDiff(to string, diff archive.Reader) (size int64, err 
 		compressor = gzip.NewWriter(&tsdata)
 	}
 	metadata := storage.NewJSONPacker(compressor)
-	if c, err := archive.DecompressStream(defragmented); err != nil {
+	decompressed, err := archive.DecompressStream(defragmented)
+	if err != nil {
 		return -1, err
-	} else {
-		defragmented = c
 	}
-	payload, err := asm.NewInputTarStream(defragmented, metadata, storage.NewDiscardFilePutter())
+	payload, err := asm.NewInputTarStream(decompressed, metadata, storage.NewDiscardFilePutter())
 	if err != nil {
 		return -1, err
 	}

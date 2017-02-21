@@ -123,11 +123,10 @@ func (c canonicalReference) Familiar() Named {
 	}
 }
 
-// EnsureTagged adds the default tag "latest" to a reference if it only has
+// TagNameOnly adds the default tag "latest" to a reference if it only has
 // a repo name.
-func EnsureTagged(ref Named) NamedTagged {
-	namedTagged, ok := ref.(NamedTagged)
-	if !ok {
+func TagNameOnly(ref Named) Named {
+	if IsNameOnly(ref) {
 		namedTagged, err := WithTag(ref, defaultTag)
 		if err != nil {
 			// Default tag must be valid, to create a NamedTagged
@@ -137,7 +136,7 @@ func EnsureTagged(ref Named) NamedTagged {
 		}
 		return namedTagged
 	}
-	return namedTagged
+	return ref
 }
 
 // ParseAnyReference parses a reference string as a possible identifier,

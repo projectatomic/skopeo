@@ -39,7 +39,7 @@ func main() {
 
 	if len(*flNewDir) == 0 {
 		var err error
-		newDir, err = ioutil.TempDir("", "docker-test-newDir")
+		newDir, err = ioutil.TempDir("", "storage-test-newDir")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -52,7 +52,7 @@ func main() {
 	}
 
 	if len(*flOldDir) == 0 {
-		oldDir, err := ioutil.TempDir("", "docker-test-oldDir")
+		oldDir, err := ioutil.TempDir("", "storage-test-oldDir")
 		if err != nil {
 			log.Fatal(err)
 		}

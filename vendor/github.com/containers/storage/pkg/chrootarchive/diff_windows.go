@@ -29,9 +29,9 @@ func applyLayerHandler(dest string, layer archive.Reader, options *archive.TarOp
 		layer = decompressed
 	}
 
-	tmpDir, err := ioutil.TempDir(os.Getenv("temp"), "temp-docker-extract")
+	tmpDir, err := ioutil.TempDir(os.Getenv("temp"), "temp-storage-extract")
 	if err != nil {
-		return 0, fmt.Errorf("ApplyLayer failed to create temp-docker-extract under %s. %s", dest, err)
+		return 0, fmt.Errorf("ApplyLayer failed to create temp-storage-extract under %s. %s", dest, err)
 	}
 
 	s, err := archive.UnpackLayer(dest, layer, nil)

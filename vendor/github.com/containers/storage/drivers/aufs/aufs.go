@@ -279,7 +279,7 @@ func (a *Driver) Remove(id string) error {
 	}
 
 	// Atomically remove each directory in turn by first moving it out of the
-	// way (so that docker doesn't find it anymore) before doing removal of
+	// way (so that container runtimes don't find it anymore) before doing removal of
 	// the whole tree.
 	tmpMntPath := path.Join(a.mntPath(), fmt.Sprintf("%s-removing", id))
 	if err := os.Rename(mountpoint, tmpMntPath); err != nil && !os.IsNotExist(err) {
@@ -559,14 +559,14 @@ func (a *Driver) aufsMount(ro []string, rw, target, mountLabel string) (err erro
 // version of aufs.
 func useDirperm() bool {
 	enableDirpermLock.Do(func() {
-		base, err := ioutil.TempDir("", "docker-aufs-base")
+		base, err := ioutil.TempDir("", "storage-aufs-base")
 		if err != nil {
 			logrus.Errorf("error checking dirperm1: %v", err)
 			return
 		}
 		defer os.RemoveAll(base)
 
-		union, err := ioutil.TempDir("", "docker-aufs-union")
+		union, err := ioutil.TempDir("", "storage-aufs-union")
 		if err != nil {
 			logrus.Errorf("error checking dirperm1: %v", err)
 			return

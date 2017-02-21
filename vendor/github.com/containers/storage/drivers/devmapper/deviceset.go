@@ -1135,7 +1135,7 @@ func (devices *DeviceSet) growFS(info *devInfo) error {
 
 	defer devices.deactivateDevice(info)
 
-	fsMountPoint := "/run/docker/mnt"
+	fsMountPoint := "/run/containers/mnt"
 	if _, err := os.Stat(fsMountPoint); os.IsNotExist(err) {
 		if err := os.MkdirAll(fsMountPoint, 0700); err != nil {
 			return err
@@ -1693,7 +1693,7 @@ func (devices *DeviceSet) initDevmapper(doInit bool) error {
 		return err
 	}
 
-	// Set the device prefix from the device id and inode of the docker root dir
+	// Set the device prefix from the device id and inode of the container root dir
 
 	st, err := os.Stat(devices.root)
 	if err != nil {
@@ -1702,11 +1702,11 @@ func (devices *DeviceSet) initDevmapper(doInit bool) error {
 	sysSt := st.Sys().(*syscall.Stat_t)
 	// "reg-" stands for "regular file".
 	// In the future we might use "dev-" for "device file", etc.
-	// docker-maj,min[-inode] stands for:
-	//	- Managed by docker
+	// container-maj,min[-inode] stands for:
+	//	- Managed by container storage
 	//	- The target of this device is at major <maj> and minor <min>
 	//	- If <inode> is defined, use that file inside the device as a loopback image. Otherwise use the device itself.
-	devices.devicePrefix = fmt.Sprintf("docker-%d:%d-%d", major(sysSt.Dev), minor(sysSt.Dev), sysSt.Ino)
+	devices.devicePrefix = fmt.Sprintf("container-%d:%d-%d", major(sysSt.Dev), minor(sysSt.Dev), sysSt.Ino)
 	logrus.Debugf("devmapper: Generated prefix: %s", devices.devicePrefix)
 
 	// Check for the existence of the thin-pool device
@@ -1826,7 +1826,7 @@ func (devices *DeviceSet) initDevmapper(doInit bool) error {
 
 	if devices.thinPoolDevice == "" {
 		if devices.metadataLoopFile != "" || devices.dataLoopFile != "" {
-			logrus.Warn("devmapper: Usage of loopback devices is strongly discouraged for production use. Please use `--storage-opt dm.thinpooldev` or use `man docker` to refer to dm.thinpooldev section.")
+			logrus.Warn("devmapper: Usage of loopback devices is strongly discouraged for production use. Please use `--storage-opt dm.thinpooldev`.")
 		}
 	}
 

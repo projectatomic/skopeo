@@ -39,7 +39,7 @@ const filterDriver = 1
 // init registers the windows graph drivers to the register.
 func init() {
 	graphdriver.Register("windowsfilter", InitFilter)
-	reexec.Register("docker-windows-write-layer", writeLayer)
+	reexec.Register("storage-windows-write-layer", writeLayer)
 }
 
 type checker struct {
@@ -614,7 +614,7 @@ func addAceToSddlDacl(sddl, ace string) (string, bool) {
 
 // importLayer adds a new layer to the tag and graph store based on the given data.
 func (d *Driver) importLayer(id string, layerData archive.Reader, parentLayerPaths []string) (size int64, err error) {
-	cmd := reexec.Command(append([]string{"docker-windows-write-layer", d.info.HomeDir, id}, parentLayerPaths...)...)
+	cmd := reexec.Command(append([]string{"storage-windows-write-layer", d.info.HomeDir, id}, parentLayerPaths...)...)
 	output := bytes.NewBuffer(nil)
 	cmd.Stdin = layerData
 	cmd.Stdout = output
