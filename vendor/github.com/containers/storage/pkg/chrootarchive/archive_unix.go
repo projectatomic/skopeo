@@ -16,7 +16,7 @@ import (
 	"github.com/containers/storage/pkg/reexec"
 )
 
-// untar is the entry-point for docker-untar on re-exec. This is not used on
+// untar is the entry-point for storage-untar on re-exec. This is not used on
 // Windows as it does not support chroot, hence no point sandboxing through
 // chroot and rexec.
 func untar() {
@@ -57,7 +57,7 @@ func invokeUnpack(decompressedArchive io.Reader, dest string, options *archive.T
 		return fmt.Errorf("Untar pipe failure: %v", err)
 	}
 
-	cmd := reexec.Command("docker-untar", dest)
+	cmd := reexec.Command("storage-untar", dest)
 	cmd.Stdin = decompressedArchive
 
 	cmd.ExtraFiles = append(cmd.ExtraFiles, r)
@@ -75,7 +75,7 @@ func invokeUnpack(decompressedArchive io.Reader, dest string, options *archive.T
 	w.Close()
 
 	if err := cmd.Wait(); err != nil {
-		// when `xz -d -c -q | docker-untar ...` failed on docker-untar side,
+		// when `xz -d -c -q | storage-untar ...` failed on storage-untar side,
 		// we need to exhaust `xz`'s output, otherwise the `xz` side will be
 		// pending on write pipe forever
 		io.Copy(ioutil.Discard, decompressedArchive)

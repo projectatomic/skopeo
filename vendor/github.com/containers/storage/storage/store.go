@@ -23,23 +23,38 @@ import (
 )
 
 var (
-	ErrLoadError            = errors.New("error loading storage metadata")
-	ErrDuplicateID          = errors.New("that ID is already in use")
-	ErrDuplicateName        = errors.New("that name is already in use")
-	ErrParentIsContainer    = errors.New("would-be parent layer is a container")
-	ErrNotAContainer        = errors.New("identifier is not a container")
-	ErrNotAnImage           = errors.New("identifier is not an image")
-	ErrNotALayer            = errors.New("identifier is not a layer")
-	ErrNotAnID              = errors.New("identifier is not a layer, image, or container")
-	ErrLayerHasChildren     = errors.New("layer has children")
-	ErrLayerUsedByImage     = errors.New("layer is in use by an image")
+	// ErrLoadError indicates that there was an initialization error.
+	ErrLoadError = errors.New("error loading storage metadata")
+	// ErrDuplicateID indicates that an ID which is to be assigned to a new item is already being used.
+	ErrDuplicateID = errors.New("that ID is already in use")
+	// ErrDuplicateName indicates that a name which is to be assigned to a new item is already being used.
+	ErrDuplicateName = errors.New("that name is already in use")
+	// ErrParentIsContainer is returned when a caller attempts to create a layer as a child of a container's layer.
+	ErrParentIsContainer = errors.New("would-be parent layer is a container")
+	// ErrNotAContainer is returned when the caller attempts to delete a container that isn't a container.
+	ErrNotAContainer = errors.New("identifier is not a container")
+	// ErrNotAnImage is returned when the caller attempts to delete an image that isn't an image.
+	ErrNotAnImage = errors.New("identifier is not an image")
+	// ErrNotALayer is returned when the caller attempts to delete a layer that isn't a layer.
+	ErrNotALayer = errors.New("identifier is not a layer")
+	// ErrNotAnID is returned when the caller attempts to read or write metadata from an item that doesn't exist.
+	ErrNotAnID = errors.New("identifier is not a layer, image, or container")
+	// ErrLayerHasChildren is returned when the caller attempts to delete a layer that has children.
+	ErrLayerHasChildren = errors.New("layer has children")
+	// ErrLayerUsedByImage is returned when the caller attempts to delete a layer that is an image's top layer.
+	ErrLayerUsedByImage = errors.New("layer is in use by an image")
+	// ErrLayerUsedByContainer is returned when the caller attempts to delete a layer that is a container's layer.
 	ErrLayerUsedByContainer = errors.New("layer is in use by a container")
+	// ErrImageUsedByContainer is returned when the caller attempts to delete an image that is a container's image.
 	ErrImageUsedByContainer = errors.New("image is in use by a container")
-	ErrIncompleteOptions    = errors.New("missing necessary StoreOptions")
-	ErrSizeUnknown          = errors.New("size is not known")
-	DefaultStoreOptions     StoreOptions
-	stores                  []*store
-	storesLock              sync.Mutex
+	// ErrIncompleteOptions is returned when the caller attempts to initialize a Store without providing required information.
+	ErrIncompleteOptions = errors.New("missing necessary StoreOptions")
+	// ErrSizeUnknown is returned when the caller asks for the size of a big data item, but the Store couldn't determine the answer.
+	ErrSizeUnknown = errors.New("size is not known")
+	// DefaultStoreOptions is a reasonable default set of options.
+	DefaultStoreOptions StoreOptions
+	stores              []*store
+	storesLock          sync.Mutex
 )
 
 // FileBasedStore wraps up the most common methods of the various types of file-based
@@ -111,11 +126,11 @@ type StoreOptions struct {
 	GraphDriverName string `json:"driver,omitempty"`
 	// GraphDriverOptions are driver-specific options.
 	GraphDriverOptions []string `json:"driver-options,omitempty"`
-	// UidMap and GidMap are used mainly for deciding on the ownership of
+	// UIDMap and GIDMap are used mainly for deciding on the ownership of
 	// files in layers as they're stored on disk, which is often necessary
 	// when user namespaces are being used.
-	UidMap []idtools.IDMap `json:"uidmap,omitempty"`
-	GidMap []idtools.IDMap `json:"gidmap,omitempty"`
+	UIDMap []idtools.IDMap `json:"uidmap,omitempty"`
+	GIDMap []idtools.IDMap `json:"gidmap,omitempty"`
 }
 
 // Store wraps up the various types of file-based stores that we use into a
@@ -443,8 +458,8 @@ func GetStore(options StoreOptions) (Store, error) {
 		graphRoot:       options.GraphRoot,
 		graphDriverName: options.GraphDriverName,
 		graphOptions:    options.GraphDriverOptions,
-		uidMap:          copyIDMap(options.UidMap),
-		gidMap:          copyIDMap(options.GidMap),
+		uidMap:          copyIDMap(options.UIDMap),
+		gidMap:          copyIDMap(options.GIDMap),
 	}
 	if err := s.load(); err != nil {
 		return nil, err
@@ -1306,9 +1321,8 @@ func (s *store) DeleteLayer(id string) error {
 			}
 		}
 		return rlstore.Delete(id)
-	} else {
-		return ErrNotALayer
 	}
+	return ErrNotALayer
 }
 
 func (s *store) DeleteImage(id string, commit bool) (layers []string, err error) {
@@ -1482,14 +1496,11 @@ func (s *store) DeleteContainer(id string) error {
 					return err
 				}
 				return nil
-			} else {
-				return ErrNotALayer
 			}
+			return ErrNotALayer
 		}
-	} else {
-		return ErrNotAContainer
 	}
-	return nil
+	return ErrNotAContainer
 }
 
 func (s *store) Delete(id string) error {
@@ -1543,9 +1554,8 @@ func (s *store) Delete(id string) error {
 					return err
 				}
 				return nil
-			} else {
-				return ErrNotALayer
 			}
+			return ErrNotALayer
 		}
 	}
 	if ristore.Exists(id) {
