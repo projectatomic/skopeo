@@ -113,11 +113,11 @@ func (s *CopySuite) TestCopySimpleAtomicRegistry(c *check.C) {
 
 	// FIXME: It would be nice to use one of the local Docker registries instead of neeeding an Internet connection.
 	// "pull": docker: → dir:
-	assertSkopeoSucceeds(c, "", "copy", "docker://estesp/busybox:amd64", "dir:"+dir1)
+	assertSkopeoSucceeds(c, "", "copy", "docker://estesp/busybox:amd64", "dir:"+dir1+"::compress")
 	// "push": dir: → atomic:
-	assertSkopeoSucceeds(c, "", "--tls-verify=false", "--debug", "copy", "dir:"+dir1, "atomic:localhost:5000/myns/unsigned:unsigned")
+	assertSkopeoSucceeds(c, "", "--tls-verify=false", "--debug", "copy", "dir:"+dir1+"::compress", "atomic:localhost:5000/myns/unsigned:unsigned")
 	// The result of pushing and pulling is an unmodified image.
-	assertSkopeoSucceeds(c, "", "--tls-verify=false", "copy", "atomic:localhost:5000/myns/unsigned:unsigned", "dir:"+dir2)
+	assertSkopeoSucceeds(c, "", "--tls-verify=false", "copy", "atomic:localhost:5000/myns/unsigned:unsigned", "dir:"+dir2+"::compress")
 	out := combinedOutputOfCommand(c, "diff", "-urN", dir1, dir2)
 	c.Assert(out, check.Equals, "")
 }
@@ -346,7 +346,7 @@ func (s *CopySuite) TestCopyCompression(c *check.C) {
 		c.Assert(err, check.IsNil)
 
 		assertSkopeoSucceeds(c, "", "--tls-verify=false", "copy", "dir:fixtures/"+t.fixture, t.remote)
-		assertSkopeoSucceeds(c, "", "--tls-verify=false", "copy", t.remote, "dir:"+dir)
+		assertSkopeoSucceeds(c, "", "--tls-verify=false", "copy", t.remote, "dir:"+dir+"::compress")
 
 		// The original directory contained an uncompressed file, the copy after pushing and pulling doesn't (we use a different name for the compressed file).
 		_, err = os.Lstat(filepath.Join("fixtures", t.fixture, uncompresssedLayerFile))
