@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"io"
+	"io/ioutil"
 	"net"
 	"os/exec"
 	"strings"
@@ -149,4 +151,24 @@ func modifyEnviron(env []string, name, value string) []string {
 		}
 	}
 	return append(res, prefix+value)
+}
+
+// fileFromFixtureFixture applies edits to inputPath and returns a path to the temporary file.
+// Callers should defer os.Remove(the_returned_path)
+func fileFromFixture(c *check.C, inputPath string, edits map[string]string) string {
+	contents, err := ioutil.ReadFile(inputPath)
+	c.Assert(err, check.IsNil)
+	for template, value := range edits {
+		contents = bytes.Replace(contents, []byte(template), []byte(value), -1)
+	}
+
+	file, err := ioutil.TempFile("", "policy.json")
+	c.Assert(err, check.IsNil)
+	path := file.Name()
+
+	_, err = file.Write(contents)
+	c.Assert(err, check.IsNil)
+	err = file.Close()
+	c.Assert(err, check.IsNil)
+	return path
 }
