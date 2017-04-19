@@ -159,7 +159,9 @@ func fileFromFixture(c *check.C, inputPath string, edits map[string]string) stri
 	contents, err := ioutil.ReadFile(inputPath)
 	c.Assert(err, check.IsNil)
 	for template, value := range edits {
-		contents = bytes.Replace(contents, []byte(template), []byte(value), -1)
+		updated := bytes.Replace(contents, []byte(template), []byte(value), -1)
+		c.Assert(bytes.Equal(updated, contents), check.Equals, false, check.Commentf("Replacing %s in %#v failed", template, string(contents))) // Verify that the template has matched something and we are not silently ignoring it.
+		contents = updated
 	}
 
 	file, err := ioutil.TempFile("", "policy.json")
