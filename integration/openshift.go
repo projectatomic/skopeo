@@ -38,6 +38,7 @@ func startOpenshiftCluster(c *check.C) *openshiftCluster {
 	cluster.workingDir = dir
 
 	cluster.startMaster()
+	cluster.prepareRegistryConfig()
 	cluster.startRegistry()
 	cluster.ocLoginToProject()
 	cluster.dockerLogin()
@@ -124,8 +125,8 @@ func (c *openshiftCluster) startMaster() {
 	c.c.Logf("OK, master started!")
 }
 
-// startRegistry starts the OpenShift registry and waits for it to be ready, or terminates on failure.
-func (c *openshiftCluster) startRegistry() {
+// prepareRegistryConfig creates a registry service account and a related k8s client configuration in ${c.workingDir}/openshift.local.registry.
+func (c *openshiftCluster) prepareRegistryConfig() {
 	// This partially mimics the objects created by (oadm registry), except that we run the
 	// server directly as an ordinary process instead of a pod with an implicitly attached service account.
 	saJSON := `{
@@ -147,14 +148,17 @@ func (c *openshiftCluster) startRegistry() {
 	out, err = cmd.CombinedOutput()
 	c.c.Assert(err, check.IsNil, check.Commentf("%s", string(out)))
 	c.c.Assert(string(out), check.Equals, "")
+}
 
+// startRegistry starts the OpenShift registry and waits for it to be ready, or terminates on failure.
+func (c *openshiftCluster) startRegistry() {
 	//KUBECONFIG=openshift.local.registry/openshift-registry.kubeconfig DOCKER_REGISTRY_URL=127.0.0.1:5000
 	c.registry = c.clusterCmd(map[string]string{
 		"KUBECONFIG":          "openshift.local.registry/openshift-registry.kubeconfig",
 		"DOCKER_REGISTRY_URL": "127.0.0.1:5000",
 	}, "dockerregistry", "/atomic-registry-config.yml")
 	consumeAndLogOutputs(c.c, "registry", c.registry)
-	err = c.registry.Start()
+	err := c.registry.Start()
 	c.c.Assert(err, check.IsNil)
 
 	portOpen, terminatePortCheck := newPortChecker(c.c, 5000)
