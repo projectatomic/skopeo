@@ -7,4 +7,5 @@ notifications:
   email: false
 
 script:
+  - docker build .
   - make check
