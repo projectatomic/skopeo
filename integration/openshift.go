@@ -150,24 +150,30 @@ func (c *openshiftCluster) prepareRegistryConfig() {
 	c.c.Assert(string(out), check.Equals, "")
 }
 
-// startRegistry starts the OpenShift registry and waits for it to be ready, or terminates on failure.
-func (c *openshiftCluster) startRegistry() {
-	//KUBECONFIG=openshift.local.registry/openshift-registry.kubeconfig DOCKER_REGISTRY_URL=127.0.0.1:5000
-	c.registry = c.clusterCmd(map[string]string{
+// startRegistry starts the OpenShift registry with configPart on port, waits for it to be ready, and returns the process object, or terminates on failure.
+func (c *openshiftCluster) startRegistryProcess(port int, configPath string) *exec.Cmd {
+	cmd := c.clusterCmd(map[string]string{
 		"KUBECONFIG":          "openshift.local.registry/openshift-registry.kubeconfig",
-		"DOCKER_REGISTRY_URL": "127.0.0.1:5000",
-	}, "dockerregistry", "/atomic-registry-config.yml")
-	consumeAndLogOutputs(c.c, "registry", c.registry)
-	err := c.registry.Start()
+		"DOCKER_REGISTRY_URL": fmt.Sprintf("127.0.0.1:%d", port),
+	}, "dockerregistry", configPath)
+	consumeAndLogOutputs(c.c, fmt.Sprintf("registry-%d", port), cmd)
+	err := cmd.Start()
 	c.c.Assert(err, check.IsNil)
 
-	portOpen, terminatePortCheck := newPortChecker(c.c, 5000)
+	portOpen, terminatePortCheck := newPortChecker(c.c, port)
 	defer func() {
 		terminatePortCheck <- true
 	}()
 	c.c.Logf("Waiting for registry to start")
 	<-portOpen
 	c.c.Logf("OK, Registry port open")
+
+	return cmd
+}
+
+// startRegistry starts the OpenShift registry and waits for it to be ready, or terminates on failure.
+func (c *openshiftCluster) startRegistry() {
+	c.registry = c.startRegistryProcess(5000, "/atomic-registry-config.yml")
 }
 
 // ocLogin runs (oc login) and (oc new-project) on the cluster, or terminates on failure.
