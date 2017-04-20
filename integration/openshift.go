@@ -172,7 +172,28 @@ func (cluster *openshiftCluster) startRegistryProcess(c *check.C, port int, conf
 
 // startRegistry starts the OpenShift registry and waits for it to be ready, or terminates on failure.
 func (cluster *openshiftCluster) startRegistry(c *check.C) {
+	// Our “primary” registry
 	cluster.processes = append(cluster.processes, cluster.startRegistryProcess(c, 5000, "/atomic-registry-config.yml"))
+
+	// A registry configured with acceptschema2:false
+	schema1Config := fileFromFixture(c, "/atomic-registry-config.yml", map[string]string{
+		"addr: :5000":              "addr: :5005",
+		"rootdirectory: /registry": "rootdirectory: /registry-schema1",
+		// The default configuration currently already contains acceptschema2: false
+	})
+	// Make sure the configuration contains "acceptschema2: false", because eventually it will be enabled upstream and this function will need to be updated.
+	configContents, err := ioutil.ReadFile(schema1Config)
+	c.Assert(err, check.IsNil)
+	c.Assert(string(configContents), check.Matches, "(?s).*acceptschema2: false.*")
+	cluster.processes = append(cluster.processes, cluster.startRegistryProcess(c, 5005, schema1Config))
+
+	// A registry configured with acceptschema2:true
+	schema2Config := fileFromFixture(c, "/atomic-registry-config.yml", map[string]string{
+		"addr: :5000":              "addr: :5006",
+		"rootdirectory: /registry": "rootdirectory: /registry-schema2",
+		"acceptschema2: false":     "acceptschema2: true",
+	})
+	cluster.processes = append(cluster.processes, cluster.startRegistryProcess(c, 5006, schema2Config))
 }
 
 // ocLogin runs (oc login) and (oc new-project) on the cluster, or terminates on failure.
@@ -196,14 +217,15 @@ func (cluster *openshiftCluster) dockerLogin(c *check.C) {
 
 	out := combinedOutputOfCommand(c, "oc", "config", "view", "-o", "json", "-o", "jsonpath={.users[*].user.token}")
 	c.Logf("oc config value: %s", out)
-	configJSON := fmt.Sprintf(`{
-		"auths": {
-			"localhost:5000": {
+	authValue := base64.StdEncoding.EncodeToString([]byte("unused:" + out))
+	auths := []string{}
+	for _, port := range []int{5000, 5005, 5006} {
+		auths = append(auths, fmt.Sprintf(`"localhost:%d": {
 				"auth": "%s",
 				"email": "unused"
-			}
-		}
-	}`, base64.StdEncoding.EncodeToString([]byte("unused:"+out)))
+			}`, port, authValue))
+	}
+	configJSON := `{"auths": {` + strings.Join(auths, ",") + `}}`
 	err = ioutil.WriteFile(filepath.Join(dockerDir, "config.json"), []byte(configJSON), 0600)
 	c.Assert(err, check.IsNil)
 }

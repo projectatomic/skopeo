@@ -21,12 +21,16 @@ func init() {
 	check.Suite(&CopySuite{})
 }
 
-const v2DockerRegistryURL = "localhost:5555" // Update also policy.json
+const (
+	v2DockerRegistryURL   = "localhost:5555" // Update also policy.json
+	v2s1DockerRegistryURL = "localhost:5556"
+)
 
 type CopySuite struct {
-	cluster  *openshiftCluster
-	registry *testRegistryV2
-	gpgHome  string
+	cluster    *openshiftCluster
+	registry   *testRegistryV2
+	s1Registry *testRegistryV2
+	gpgHome    string
 }
 
 func (s *CopySuite) SetUpSuite(c *check.C) {
@@ -36,7 +40,7 @@ func (s *CopySuite) SetUpSuite(c *check.C) {
 
 	s.cluster = startOpenshiftCluster(c) // FIXME: Set up TLS for the docker registry port instead of using "--tls-verify=false" all over the place.
 
-	for _, stream := range []string{"unsigned", "personal", "official", "naming", "cosigned", "compression"} {
+	for _, stream := range []string{"unsigned", "personal", "official", "naming", "cosigned", "compression", "schema1", "schema2"} {
 		isJSON := fmt.Sprintf(`{
 			"kind": "ImageStream",
 			"apiVersion": "v1",
@@ -48,7 +52,9 @@ func (s *CopySuite) SetUpSuite(c *check.C) {
 		runCommandWithInput(c, isJSON, "oc", "create", "-f", "-")
 	}
 
-	s.registry = setupRegistryV2At(c, v2DockerRegistryURL, false, false) // FIXME: Set up TLS for the docker registry port instead of using "--tls-verify=false" all over the place.
+	// FIXME: Set up TLS for the docker registry port instead of using "--tls-verify=false" all over the place.
+	s.registry = setupRegistryV2At(c, v2DockerRegistryURL, false, false)
+	s.s1Registry = setupRegistryV2At(c, v2s1DockerRegistryURL, false, true)
 
 	gpgHome, err := ioutil.TempDir("", "skopeo-gpg")
 	c.Assert(err, check.IsNil)
@@ -73,6 +79,9 @@ func (s *CopySuite) TearDownSuite(c *check.C) {
 	}
 	if s.registry != nil {
 		s.registry.Close()
+	}
+	if s.s1Registry != nil {
+		s.s1Registry.Close()
 	}
 	if s.cluster != nil {
 		s.cluster.tearDown(c)
@@ -534,4 +543,59 @@ func (s *CopySuite) TestCopyNoPanicOnHTTPResponseWOTLSVerifyFalse(c *check.C) {
 	// just fail when evaluating the src
 	assertSkopeoFails(c, ".*server gave HTTP response to HTTPS client.*",
 		"copy", ourRegistry+"foobar", "dir:test")
+}
+
+func (s *CopySuite) TestCopySchemaConversion(c *check.C) {
+	// Test conversion / schema autodetection both for the OpenShift embedded registry…
+	s.testCopySchemaConversionRegistries(c, "docker://localhost:5005/myns/schema1", "docker://localhost:5006/myns/schema2")
+	// … and for various docker/distribution registry versions.
+	if false {
+		// FIXME: This does not currently work, because the schema1-only docker/distribution registry we have (unlike newer versions)
+		// enforces that a schema1 manifest contains a matching tag field. Our _s2→s1 conversion_ code does set the tag correctly,
+		// but a mere copy of schema1→schema1 changing the tag does not update the manifest.
+		// So, enabling this test results in a successful schema2→schema1 conversion, followed by a schema1→schema1 copy failure.
+		s.testCopySchemaConversionRegistries(c, "docker://"+v2s1DockerRegistryURL+"/schema1", "docker://"+v2DockerRegistryURL+"/schema2")
+	}
+}
+
+func (s *CopySuite) testCopySchemaConversionRegistries(c *check.C, schema1Registry, schema2Registry string) {
+	topDir, err := ioutil.TempDir("", "schema-conversion")
+	c.Assert(err, check.IsNil)
+	defer os.RemoveAll(topDir)
+	for _, subdir := range []string{"input1", "input2", "dest2"} {
+		err := os.MkdirAll(filepath.Join(topDir, subdir), 0755)
+		c.Assert(err, check.IsNil)
+	}
+	input1Dir := filepath.Join(topDir, "input1")
+	input2Dir := filepath.Join(topDir, "input2")
+	destDir := filepath.Join(topDir, "dest2")
+
+	// Ensure we are working with a schema2 image.
+	// dir: accepts any manifest format, i.e. this makes …/input2 a schema2 source which cannot be asked to produce schema1 like ordinary docker: registries can.
+	assertSkopeoSucceeds(c, "", "copy", "docker://busybox", "dir:"+input2Dir)
+	verifyManifestMIMEType(c, input2Dir, manifest.DockerV2Schema2MediaType)
+	// 2→2 (the "f2t2" in tag means "from 2 to 2")
+	assertSkopeoSucceeds(c, "", "copy", "--dest-tls-verify=false", "dir:"+input2Dir, schema2Registry+":f2t2")
+	assertSkopeoSucceeds(c, "", "copy", "--src-tls-verify=false", schema2Registry+":f2t2", "dir:"+destDir)
+	verifyManifestMIMEType(c, destDir, manifest.DockerV2Schema2MediaType)
+	// 2→1; we will use the result as a schema1 image for further tests.
+	assertSkopeoSucceeds(c, "", "copy", "--dest-tls-verify=false", "dir:"+input2Dir, schema1Registry+":f2t1")
+	assertSkopeoSucceeds(c, "", "copy", "--src-tls-verify=false", schema1Registry+":f2t1", "dir:"+input1Dir)
+	verifyManifestMIMEType(c, input1Dir, manifest.DockerV2Schema1SignedMediaType)
+	// 1→1
+	assertSkopeoSucceeds(c, "", "copy", "--dest-tls-verify=false", "dir:"+input1Dir, schema1Registry+":f1t1")
+	assertSkopeoSucceeds(c, "", "copy", "--src-tls-verify=false", schema1Registry+":f1t1", "dir:"+destDir)
+	verifyManifestMIMEType(c, destDir, manifest.DockerV2Schema1SignedMediaType)
+	// 1→2: image stays unmodified schema1
+	assertSkopeoSucceeds(c, "", "copy", "--dest-tls-verify=false", "dir:"+input1Dir, schema2Registry+":f1t2")
+	assertSkopeoSucceeds(c, "", "copy", "--src-tls-verify=false", schema2Registry+":f1t2", "dir:"+destDir)
+	verifyManifestMIMEType(c, destDir, manifest.DockerV2Schema1SignedMediaType)
+}
+
+// Verify manifest in a dir: image at dir is expectedMIMEType.
+func verifyManifestMIMEType(c *check.C, dir string, expectedMIMEType string) {
+	manifestBlob, err := ioutil.ReadFile(filepath.Join(dir, "manifest.json"))
+	c.Assert(err, check.IsNil)
+	mimeType := manifest.GuessMIMEType(manifestBlob)
+	c.Assert(mimeType, check.Equals, expectedMIMEType)
 }
