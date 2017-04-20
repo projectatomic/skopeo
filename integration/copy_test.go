@@ -75,7 +75,7 @@ func (s *CopySuite) TearDownSuite(c *check.C) {
 		s.registry.Close()
 	}
 	if s.cluster != nil {
-		s.cluster.tearDown()
+		s.cluster.tearDown(c)
 	}
 }
 

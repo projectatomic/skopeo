@@ -21,7 +21,6 @@ var adminKUBECONFIG = map[string]string{
 // openshiftCluster is an OpenShift API master and integrated registry
 // running on localhost.
 type openshiftCluster struct {
-	c          *check.C
 	workingDir string
 	master     *exec.Cmd
 	registry   *exec.Cmd
@@ -31,26 +30,26 @@ type openshiftCluster struct {
 // WARNING: This affects state in users' home directory! Only run
 // in isolated test environment.
 func startOpenshiftCluster(c *check.C) *openshiftCluster {
-	cluster := &openshiftCluster{c: c}
+	cluster := &openshiftCluster{}
 
 	dir, err := ioutil.TempDir("", "openshift-cluster")
-	cluster.c.Assert(err, check.IsNil)
+	c.Assert(err, check.IsNil)
 	cluster.workingDir = dir
 
-	cluster.startMaster()
-	cluster.prepareRegistryConfig()
-	cluster.startRegistry()
-	cluster.ocLoginToProject()
-	cluster.dockerLogin()
-	cluster.relaxImageSignerPermissions()
+	cluster.startMaster(c)
+	cluster.prepareRegistryConfig(c)
+	cluster.startRegistry(c)
+	cluster.ocLoginToProject(c)
+	cluster.dockerLogin(c)
+	cluster.relaxImageSignerPermissions(c)
 
 	return cluster
 }
 
-// clusterCmd creates an exec.Cmd in c.workingDir with current environment modified by environment
-func (c *openshiftCluster) clusterCmd(env map[string]string, name string, args ...string) *exec.Cmd {
+// clusterCmd creates an exec.Cmd in cluster.workingDir with current environment modified by environment
+func (cluster *openshiftCluster) clusterCmd(env map[string]string, name string, args ...string) *exec.Cmd {
 	cmd := exec.Command(name, args...)
-	cmd.Dir = c.workingDir
+	cmd.Dir = cluster.workingDir
 	cmd.Env = os.Environ()
 	for key, value := range env {
 		cmd.Env = modifyEnviron(cmd.Env, key, value)
@@ -59,19 +58,19 @@ func (c *openshiftCluster) clusterCmd(env map[string]string, name string, args .
 }
 
 // startMaster starts the OpenShift master (etcd+API server) and waits for it to be ready, or terminates on failure.
-func (c *openshiftCluster) startMaster() {
-	c.master = c.clusterCmd(nil, "openshift", "start", "master")
-	stdout, err := c.master.StdoutPipe()
+func (cluster *openshiftCluster) startMaster(c *check.C) {
+	cluster.master = cluster.clusterCmd(nil, "openshift", "start", "master")
+	stdout, err := cluster.master.StdoutPipe()
 	// Send both to the same pipe. This might cause the two streams to be mixed up,
 	// but logging actually goes only to stderr - this primarily ensure we log any
 	// unexpected output to stdout.
-	c.master.Stderr = c.master.Stdout
-	err = c.master.Start()
-	c.c.Assert(err, check.IsNil)
+	cluster.master.Stderr = cluster.master.Stdout
+	err = cluster.master.Start()
+	c.Assert(err, check.IsNil)
 
-	portOpen, terminatePortCheck := newPortChecker(c.c, 8443)
+	portOpen, terminatePortCheck := newPortChecker(c, 8443)
 	defer func() {
-		c.c.Logf("Terminating port check")
+		c.Logf("Terminating port check")
 		terminatePortCheck <- true
 	}()
 
@@ -79,12 +78,12 @@ func (c *openshiftCluster) startMaster() {
 	logCheckFound := make(chan bool)
 	go func() {
 		defer func() {
-			c.c.Logf("Log checker exiting")
+			c.Logf("Log checker exiting")
 		}()
 		scanner := bufio.NewScanner(stdout)
 		for scanner.Scan() {
 			line := scanner.Text()
-			c.c.Logf("Log line: %s", line)
+			c.Logf("Log line: %s", line)
 			if strings.Contains(line, "Started Origin Controllers") {
 				logCheckFound <- true
 				return
@@ -93,7 +92,7 @@ func (c *openshiftCluster) startMaster() {
 			// Note: we can block before we get here.
 			select {
 			case <-terminateLogCheck:
-				c.c.Logf("terminated")
+				c.Logf("terminated")
 				return
 			default:
 				// Do not block here and read the next line.
@@ -102,31 +101,31 @@ func (c *openshiftCluster) startMaster() {
 		logCheckFound <- false
 	}()
 	defer func() {
-		c.c.Logf("Terminating log check")
+		c.Logf("Terminating log check")
 		terminateLogCheck <- true
 	}()
 
 	gotPortCheck := false
 	gotLogCheck := false
 	for !gotPortCheck || !gotLogCheck {
-		c.c.Logf("Waiting for master")
+		c.Logf("Waiting for master")
 		select {
 		case <-portOpen:
-			c.c.Logf("port check done")
+			c.Logf("port check done")
 			gotPortCheck = true
 		case found := <-logCheckFound:
-			c.c.Logf("log check done, found: %t", found)
+			c.Logf("log check done, found: %t", found)
 			if !found {
-				c.c.Fatal("log check done, success message not found")
+				c.Fatal("log check done, success message not found")
 			}
 			gotLogCheck = true
 		}
 	}
-	c.c.Logf("OK, master started!")
+	c.Logf("OK, master started!")
 }
 
-// prepareRegistryConfig creates a registry service account and a related k8s client configuration in ${c.workingDir}/openshift.local.registry.
-func (c *openshiftCluster) prepareRegistryConfig() {
+// prepareRegistryConfig creates a registry service account and a related k8s client configuration in ${cluster.workingDir}/openshift.local.registry.
+func (cluster *openshiftCluster) prepareRegistryConfig(c *check.C) {
 	// This partially mimics the objects created by (oadm registry), except that we run the
 	// server directly as an ordinary process instead of a pod with an implicitly attached service account.
 	saJSON := `{
@@ -136,67 +135,67 @@ func (c *openshiftCluster) prepareRegistryConfig() {
 			"name": "registry"
 		}
 	}`
-	cmd := c.clusterCmd(adminKUBECONFIG, "oc", "create", "-f", "-")
-	runExecCmdWithInput(c.c, cmd, saJSON)
+	cmd := cluster.clusterCmd(adminKUBECONFIG, "oc", "create", "-f", "-")
+	runExecCmdWithInput(c, cmd, saJSON)
 
-	cmd = c.clusterCmd(adminKUBECONFIG, "oadm", "policy", "add-cluster-role-to-user", "system:registry", "-z", "registry")
+	cmd = cluster.clusterCmd(adminKUBECONFIG, "oadm", "policy", "add-cluster-role-to-user", "system:registry", "-z", "registry")
 	out, err := cmd.CombinedOutput()
-	c.c.Assert(err, check.IsNil, check.Commentf("%s", string(out)))
-	c.c.Assert(string(out), check.Equals, "cluster role \"system:registry\" added: \"registry\"\n")
+	c.Assert(err, check.IsNil, check.Commentf("%s", string(out)))
+	c.Assert(string(out), check.Equals, "cluster role \"system:registry\" added: \"registry\"\n")
 
-	cmd = c.clusterCmd(adminKUBECONFIG, "oadm", "create-api-client-config", "--client-dir=openshift.local.registry", "--basename=openshift-registry", "--user=system:serviceaccount:default:registry")
+	cmd = cluster.clusterCmd(adminKUBECONFIG, "oadm", "create-api-client-config", "--client-dir=openshift.local.registry", "--basename=openshift-registry", "--user=system:serviceaccount:default:registry")
 	out, err = cmd.CombinedOutput()
-	c.c.Assert(err, check.IsNil, check.Commentf("%s", string(out)))
-	c.c.Assert(string(out), check.Equals, "")
+	c.Assert(err, check.IsNil, check.Commentf("%s", string(out)))
+	c.Assert(string(out), check.Equals, "")
 }
 
 // startRegistry starts the OpenShift registry with configPart on port, waits for it to be ready, and returns the process object, or terminates on failure.
-func (c *openshiftCluster) startRegistryProcess(port int, configPath string) *exec.Cmd {
-	cmd := c.clusterCmd(map[string]string{
+func (cluster *openshiftCluster) startRegistryProcess(c *check.C, port int, configPath string) *exec.Cmd {
+	cmd := cluster.clusterCmd(map[string]string{
 		"KUBECONFIG":          "openshift.local.registry/openshift-registry.kubeconfig",
 		"DOCKER_REGISTRY_URL": fmt.Sprintf("127.0.0.1:%d", port),
 	}, "dockerregistry", configPath)
-	consumeAndLogOutputs(c.c, fmt.Sprintf("registry-%d", port), cmd)
+	consumeAndLogOutputs(c, fmt.Sprintf("registry-%d", port), cmd)
 	err := cmd.Start()
-	c.c.Assert(err, check.IsNil)
+	c.Assert(err, check.IsNil)
 
-	portOpen, terminatePortCheck := newPortChecker(c.c, port)
+	portOpen, terminatePortCheck := newPortChecker(c, port)
 	defer func() {
 		terminatePortCheck <- true
 	}()
-	c.c.Logf("Waiting for registry to start")
+	c.Logf("Waiting for registry to start")
 	<-portOpen
-	c.c.Logf("OK, Registry port open")
+	c.Logf("OK, Registry port open")
 
 	return cmd
 }
 
 // startRegistry starts the OpenShift registry and waits for it to be ready, or terminates on failure.
-func (c *openshiftCluster) startRegistry() {
-	c.registry = c.startRegistryProcess(5000, "/atomic-registry-config.yml")
+func (cluster *openshiftCluster) startRegistry(c *check.C) {
+	cluster.registry = cluster.startRegistryProcess(c, 5000, "/atomic-registry-config.yml")
 }
 
 // ocLogin runs (oc login) and (oc new-project) on the cluster, or terminates on failure.
-func (c *openshiftCluster) ocLoginToProject() {
-	c.c.Logf("oc login")
-	cmd := c.clusterCmd(nil, "oc", "login", "--certificate-authority=openshift.local.config/master/ca.crt", "-u", "myuser", "-p", "mypw", "https://localhost:8443")
+func (cluster *openshiftCluster) ocLoginToProject(c *check.C) {
+	c.Logf("oc login")
+	cmd := cluster.clusterCmd(nil, "oc", "login", "--certificate-authority=openshift.local.config/master/ca.crt", "-u", "myuser", "-p", "mypw", "https://localhost:8443")
 	out, err := cmd.CombinedOutput()
-	c.c.Assert(err, check.IsNil, check.Commentf("%s", out))
-	c.c.Assert(string(out), check.Matches, "(?s).*Login successful.*") // (?s) : '.' will also match newlines
+	c.Assert(err, check.IsNil, check.Commentf("%s", out))
+	c.Assert(string(out), check.Matches, "(?s).*Login successful.*") // (?s) : '.' will also match newlines
 
-	outString := combinedOutputOfCommand(c.c, "oc", "new-project", "myns")
-	c.c.Assert(outString, check.Matches, `(?s).*Now using project "myns".*`) // (?s) : '.' will also match newlines
+	outString := combinedOutputOfCommand(c, "oc", "new-project", "myns")
+	c.Assert(outString, check.Matches, `(?s).*Now using project "myns".*`) // (?s) : '.' will also match newlines
 }
 
 // dockerLogin simulates (docker login) to the cluster, or terminates on failure.
 // We do not run (docker login) directly, because that requires a running daemon and a docker package.
-func (c *openshiftCluster) dockerLogin() {
+func (cluster *openshiftCluster) dockerLogin(c *check.C) {
 	dockerDir := filepath.Join(homedir.Get(), ".docker")
 	err := os.Mkdir(dockerDir, 0700)
-	c.c.Assert(err, check.IsNil)
+	c.Assert(err, check.IsNil)
 
-	out := combinedOutputOfCommand(c.c, "oc", "config", "view", "-o", "json", "-o", "jsonpath={.users[*].user.token}")
-	c.c.Logf("oc config value: %s", out)
+	out := combinedOutputOfCommand(c, "oc", "config", "view", "-o", "json", "-o", "jsonpath={.users[*].user.token}")
+	c.Logf("oc config value: %s", out)
 	configJSON := fmt.Sprintf(`{
 		"auths": {
 			"localhost:5000": {
@@ -206,29 +205,29 @@ func (c *openshiftCluster) dockerLogin() {
 		}
 	}`, base64.StdEncoding.EncodeToString([]byte("unused:"+out)))
 	err = ioutil.WriteFile(filepath.Join(dockerDir, "config.json"), []byte(configJSON), 0600)
-	c.c.Assert(err, check.IsNil)
+	c.Assert(err, check.IsNil)
 }
 
 // relaxImageSignerPermissions opens up the system:image-signer permissions so that
 // anyone can work with signatures
 // FIXME: This also allows anyone to DoS anyone else; this design is really not all
 // that workable, but it is the best we can do for now.
-func (c *openshiftCluster) relaxImageSignerPermissions() {
-	cmd := c.clusterCmd(adminKUBECONFIG, "oadm", "policy", "add-cluster-role-to-group", "system:image-signer", "system:authenticated")
+func (cluster *openshiftCluster) relaxImageSignerPermissions(c *check.C) {
+	cmd := cluster.clusterCmd(adminKUBECONFIG, "oadm", "policy", "add-cluster-role-to-group", "system:image-signer", "system:authenticated")
 	out, err := cmd.CombinedOutput()
-	c.c.Assert(err, check.IsNil, check.Commentf("%s", string(out)))
-	c.c.Assert(string(out), check.Equals, "cluster role \"system:image-signer\" added: \"system:authenticated\"\n")
+	c.Assert(err, check.IsNil, check.Commentf("%s", string(out)))
+	c.Assert(string(out), check.Equals, "cluster role \"system:image-signer\" added: \"system:authenticated\"\n")
 }
 
 // tearDown stops the cluster services and deletes (only some!) of the state.
-func (c *openshiftCluster) tearDown() {
-	if c.registry != nil && c.registry.Process != nil {
-		c.registry.Process.Kill()
+func (cluster *openshiftCluster) tearDown(c *check.C) {
+	if cluster.registry != nil && cluster.registry.Process != nil {
+		cluster.registry.Process.Kill()
 	}
-	if c.master != nil && c.master.Process != nil {
-		c.master.Process.Kill()
+	if cluster.master != nil && cluster.master.Process != nil {
+		cluster.master.Process.Kill()
 	}
-	if c.workingDir != "" {
-		os.RemoveAll(c.workingDir)
+	if cluster.workingDir != "" {
+		os.RemoveAll(cluster.workingDir)
 	}
 }
