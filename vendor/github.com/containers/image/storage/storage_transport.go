@@ -2,7 +2,6 @@ package storage
 
 import (
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -30,7 +29,6 @@ var (
 	// ErrPathNotAbsolute is returned when a graph root is not an absolute
 	// path name.
 	ErrPathNotAbsolute = errors.New("path name is not absolute")
-	idRegexp           = regexp.MustCompile("^(sha256:)?([0-9a-fA-F]{64})$")
 )
 
 // StoreTransport is an ImageTransport that uses a storage.Store to parse
@@ -100,9 +98,12 @@ func (s storageTransport) ParseStoreReference(store storage.Store, ref string) (
 				return nil, err
 			}
 		}
-		sum, err = digest.Parse("sha256:" + refInfo[1])
-		if err != nil {
-			return nil, err
+		sum, err = digest.Parse(refInfo[1])
+		if err != nil || sum.Validate() != nil {
+			sum, err = digest.Parse("sha256:" + refInfo[1])
+			if err != nil || sum.Validate() != nil {
+				return nil, err
+			}
 		}
 	} else { // Coverage: len(refInfo) is always 1 or 2
 		// Anything else: store specified in a form we don't
@@ -285,7 +286,7 @@ func verboseName(name reference.Named) string {
 	name = reference.TagNameOnly(name)
 	tag := ""
 	if tagged, ok := name.(reference.NamedTagged); ok {
-		tag = tagged.Tag()
+		tag = ":" + tagged.Tag()
 	}
-	return name.Name() + ":" + tag
+	return name.Name() + tag
 }

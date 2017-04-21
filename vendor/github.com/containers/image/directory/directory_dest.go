@@ -118,6 +118,10 @@ func (d *dirImageDestination) ReapplyBlob(info types.BlobInfo) (types.BlobInfo, 
 	return info, nil
 }
 
+// PutManifest writes manifest to the destination.
+// FIXME? This should also receive a MIME type if known, to differentiate between schema versions.
+// If the destination is in principle available, refuses this manifest type (e.g. it does not recognize the schema),
+// but may accept a different manifest type, the returned error must be an ManifestTypeRejectedError.
 func (d *dirImageDestination) PutManifest(manifest []byte) error {
 	return ioutil.WriteFile(d.ref.manifestPath(), manifest, 0644)
 }
