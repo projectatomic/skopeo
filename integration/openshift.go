@@ -22,8 +22,7 @@ var adminKUBECONFIG = map[string]string{
 // running on localhost.
 type openshiftCluster struct {
 	workingDir string
-	master     *exec.Cmd
-	registry   *exec.Cmd
+	processes  []*exec.Cmd // Processes to terminate on teardown; append to the end, terminate from end to the start.
 }
 
 // startOpenshiftCluster creates a new openshiftCluster.
@@ -59,13 +58,14 @@ func (cluster *openshiftCluster) clusterCmd(env map[string]string, name string, 
 
 // startMaster starts the OpenShift master (etcd+API server) and waits for it to be ready, or terminates on failure.
 func (cluster *openshiftCluster) startMaster(c *check.C) {
-	cluster.master = cluster.clusterCmd(nil, "openshift", "start", "master")
-	stdout, err := cluster.master.StdoutPipe()
+	cmd := cluster.clusterCmd(nil, "openshift", "start", "master")
+	cluster.processes = append(cluster.processes, cmd)
+	stdout, err := cmd.StdoutPipe()
 	// Send both to the same pipe. This might cause the two streams to be mixed up,
 	// but logging actually goes only to stderr - this primarily ensure we log any
 	// unexpected output to stdout.
-	cluster.master.Stderr = cluster.master.Stdout
-	err = cluster.master.Start()
+	cmd.Stderr = cmd.Stdout
+	err = cmd.Start()
 	c.Assert(err, check.IsNil)
 
 	portOpen, terminatePortCheck := newPortChecker(c, 8443)
@@ -172,7 +172,7 @@ func (cluster *openshiftCluster) startRegistryProcess(c *check.C, port int, conf
 
 // startRegistry starts the OpenShift registry and waits for it to be ready, or terminates on failure.
 func (cluster *openshiftCluster) startRegistry(c *check.C) {
-	cluster.registry = cluster.startRegistryProcess(c, 5000, "/atomic-registry-config.yml")
+	cluster.processes = append(cluster.processes, cluster.startRegistryProcess(c, 5000, "/atomic-registry-config.yml"))
 }
 
 // ocLogin runs (oc login) and (oc new-project) on the cluster, or terminates on failure.
@@ -221,11 +221,8 @@ func (cluster *openshiftCluster) relaxImageSignerPermissions(c *check.C) {
 
 // tearDown stops the cluster services and deletes (only some!) of the state.
 func (cluster *openshiftCluster) tearDown(c *check.C) {
-	if cluster.registry != nil && cluster.registry.Process != nil {
-		cluster.registry.Process.Kill()
-	}
-	if cluster.master != nil && cluster.master.Process != nil {
-		cluster.master.Process.Kill()
+	for i := len(cluster.processes) - 1; i >= 0; i-- {
+		cluster.processes[i].Process.Kill()
 	}
 	if cluster.workingDir != "" {
 		os.RemoveAll(cluster.workingDir)
