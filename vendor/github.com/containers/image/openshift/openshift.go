@@ -338,10 +338,7 @@ func (d *openshiftImageDestination) Close() error {
 }
 
 func (d *openshiftImageDestination) SupportedManifestMIMETypes() []string {
-	return []string{
-		manifest.DockerV2Schema1SignedMediaType,
-		manifest.DockerV2Schema1MediaType,
-	}
+	return d.docker.SupportedManifestMIMETypes()
 }
 
 // SupportsSignatures returns an error (to be displayed to the user) if the destination certainly can't store signatures.
