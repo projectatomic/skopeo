@@ -7,13 +7,13 @@ import (
 	"io"
 	"io/ioutil"
 	"reflect"
+	"strings"
 	"time"
 
 	pb "gopkg.in/cheggaaa/pb.v1"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/containers/image/image"
-	"github.com/containers/image/manifest"
 	"github.com/containers/image/pkg/compression"
 	"github.com/containers/image/signature"
 	"github.com/containers/image/transports"
@@ -21,11 +21,6 @@ import (
 	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 )
-
-// preferredManifestMIMETypes lists manifest MIME types in order of our preference, if we can't use the original manifest and need to convert.
-// Prefer v2s2 to v2s1 because v2s2 does not need to be changed when uploading to a different location.
-// Include v2s1 signed but not v2s1 unsigned, because docker/distribution requires a signature even if the unsigned MIME type is used.
-var preferredManifestMIMETypes = []string{manifest.DockerV2Schema2MediaType, manifest.DockerV2Schema1SignedMediaType}
 
 type digestingReader struct {
 	source           io.Reader
@@ -186,8 +181,12 @@ func Image(policyContext *signature.PolicyContext, destRef, srcRef types.ImageRe
 
 	canModifyManifest := len(sigs) == 0
 	manifestUpdates := types.ManifestUpdateOptions{}
+	manifestUpdates.InformationOnly.Destination = dest
 
-	if err := determineManifestConversion(&manifestUpdates, src, destSupportedManifestMIMETypes, canModifyManifest); err != nil {
+	// We compute preferredManifestMIMEType only to show it in error messages.
+	// Without having to add this context in an error message, we would be happy enough to know only that no conversion is needed.
+	preferredManifestMIMEType, otherManifestMIMETypeCandidates, err := determineManifestConversion(&manifestUpdates, src, destSupportedManifestMIMETypes, canModifyManifest)
+	if err != nil {
 		return err
 	}
 
@@ -210,52 +209,56 @@ func Image(policyContext *signature.PolicyContext, destRef, srcRef types.ImageRe
 		return err
 	}
 
-	pendingImage := src
-	if !reflect.DeepEqual(manifestUpdates, types.ManifestUpdateOptions{InformationOnly: manifestUpdates.InformationOnly}) {
-		if !canModifyManifest {
-			return errors.Errorf("Internal error: copy needs an updated manifest but that was known to be forbidden")
-		}
-		manifestUpdates.InformationOnly.Destination = dest
-		pendingImage, err = src.UpdatedImage(manifestUpdates)
-		if err != nil {
-			return errors.Wrap(err, "Error creating an updated image manifest")
-		}
-	}
-	manifest, _, err := pendingImage.Manifest()
+	// With docker/distribution registries we do not know whether the registry accepts schema2 or schema1 only;
+	// and at least with the OpenShift registry "acceptschema2" option, there is no way to detect the support
+	// without actually trying to upload something and getting a types.ManifestTypeRejectedError.
+	// So, try the preferred manifest MIME type. If the process succeeds, fine…
+	manifest, err := ic.copyUpdatedConfigAndManifest()
 	if err != nil {
-		return errors.Wrap(err, "Error reading manifest")
-	}
+		logrus.Debugf("Writing manifest using preferred type %s failed: %v", preferredManifestMIMEType, err)
+		// … if it fails, _and_ the failure is because the manifest is rejected, we may have other options.
+		if _, isManifestRejected := errors.Cause(err).(types.ManifestTypeRejectedError); !isManifestRejected || len(otherManifestMIMETypeCandidates) == 0 {
+			// We don’t have other options.
+			// In principle the code below would handle this as well, but the resulting  error message is fairly ugly. Do
+			// Don’t bother the user with MIME types if we have no choice.
+			return err
+		}
+		// If the original MIME type is acceptable, determineManifestConversion always uses it as preferredManifestMIMEType.
+		// So if we are here, we will definitely be trying to convert the manifest.
+		// With !canModifyManifest, that would just be a string of repeated failures for the same reason,
+		// so let’s bail out early and with a better error message.
+		if !canModifyManifest {
+			return errors.Wrap(err, "Writing manifest failed (and converting it is not possible)")
+		}
 
-	if err := ic.copyConfig(pendingImage); err != nil {
-		return err
+		// errs is a list of errors when trying various manifest types. Also serves as an "upload succeeded" flag when set to nil.
+		errs := []string{fmt.Sprintf("%s(%v)", preferredManifestMIMEType, err)}
+		for _, manifestMIMEType := range otherManifestMIMETypeCandidates {
+			logrus.Debugf("Trying to use manifest type %s…", manifestMIMEType)
+			manifestUpdates.ManifestMIMEType = manifestMIMEType
+			attemptedManifest, err := ic.copyUpdatedConfigAndManifest()
+			if err != nil {
+				logrus.Debugf("Upload of manifest type %s failed: %v", manifestMIMEType, err)
+				errs = append(errs, fmt.Sprintf("%s(%v)", manifestMIMEType, err))
+				continue
+			}
+
+			// We have successfully uploaded a manifest.
+			manifest = attemptedManifest
+			errs = nil // Mark this as a success so that we don't abort below.
+			break
+		}
+		if errs != nil {
+			return fmt.Errorf("Uploading manifest failed, attempted the following formats: %s", strings.Join(errs, ", "))
+		}
 	}
 
 	if options.SignBy != "" {
-		mech, err := signature.NewGPGSigningMechanism()
+		newSig, err := createSignature(dest, manifest, options.SignBy, reportWriter)
 		if err != nil {
-			return errors.Wrap(err, "Error initializing GPG")
-		}
-		defer mech.Close()
-		if err := mech.SupportsSigning(); err != nil {
-			return errors.Wrap(err, "Signing not supported")
-		}
-
-		dockerReference := dest.Reference().DockerReference()
-		if dockerReference == nil {
-			return errors.Errorf("Cannot determine canonical Docker reference for destination %s", transports.ImageName(dest.Reference()))
-		}
-
-		writeReport("Signing manifest\n")
-		newSig, err := signature.SignDockerManifest(manifest, dockerReference.String(), mech, options.SignBy)
-		if err != nil {
-			return errors.Wrap(err, "Error creating signature")
+			return err
 		}
 		sigs = append(sigs, newSig)
-	}
-
-	writeReport("Writing manifest to image destination\n")
-	if err := dest.PutManifest(manifest); err != nil {
-		return errors.Wrap(err, "Error writing manifest")
 	}
 
 	writeReport("Storing signatures\n")
@@ -320,6 +323,45 @@ func layerDigestsDiffer(a, b []types.BlobInfo) bool {
 		}
 	}
 	return false
+}
+
+// copyUpdatedConfigAndManifest updates the image per ic.manifestUpdates, if necessary,
+// stores the resulting config and manifest ot the destination, and returns the stored manifest.
+func (ic *imageCopier) copyUpdatedConfigAndManifest() ([]byte, error) {
+	pendingImage := ic.src
+	if !reflect.DeepEqual(*ic.manifestUpdates, types.ManifestUpdateOptions{InformationOnly: ic.manifestUpdates.InformationOnly}) {
+		if !ic.canModifyManifest {
+			return nil, errors.Errorf("Internal error: copy needs an updated manifest but that was known to be forbidden")
+		}
+		if !ic.diffIDsAreNeeded && ic.src.UpdatedImageNeedsLayerDiffIDs(*ic.manifestUpdates) {
+			// We have set ic.diffIDsAreNeeded based on the preferred MIME type returned by determineManifestConversion.
+			// So, this can only happen if we are trying to upload using one of the other MIME type candidates.
+			// Because UpdatedImageNeedsLayerDiffIDs only when converting from s1 to s2, this case should only arise
+			// when ic.dest.SupportedManifestMIMETypes() includes both s1 and s2, the upload using s1 failed, and we are now trying s2.
+			// Supposedly s2-only registries do not exist or are extremely rare, so failing with this error message is good enough for now.
+			// If handling such registries turned out to be necessary, we could compute ic.diffIDsAreNeeded based on the full list of manifest MIME type candidates.
+			return nil, errors.Errorf("Can not convert image to %s, preparing DiffIDs for this case is not supported", ic.manifestUpdates.ManifestMIMEType)
+		}
+		pi, err := ic.src.UpdatedImage(*ic.manifestUpdates)
+		if err != nil {
+			return nil, errors.Wrap(err, "Error creating an updated image manifest")
+		}
+		pendingImage = pi
+	}
+	manifest, _, err := pendingImage.Manifest()
+	if err != nil {
+		return nil, errors.Wrap(err, "Error reading manifest")
+	}
+
+	if err := ic.copyConfig(pendingImage); err != nil {
+		return nil, err
+	}
+
+	fmt.Fprintf(ic.reportWriter, "Writing manifest to image destination\n")
+	if err := ic.dest.PutManifest(manifest); err != nil {
+		return nil, errors.Wrap(err, "Error writing manifest")
+	}
+	return manifest, nil
 }
 
 // copyConfig copies config.json, if any, from src to dest.
@@ -574,42 +616,4 @@ func compressGoroutine(dest *io.PipeWriter, src io.Reader) {
 	defer zipper.Close()
 
 	_, err = io.Copy(zipper, src) // Sets err to nil, i.e. causes dest.Close()
-}
-
-// determineManifestConversion updates manifestUpdates to convert manifest to a supported MIME type, if necessary and canModifyManifest.
-// Note that the conversion will only happen later, through src.UpdatedImage
-func determineManifestConversion(manifestUpdates *types.ManifestUpdateOptions, src types.Image, destSupportedManifestMIMETypes []string, canModifyManifest bool) error {
-	if len(destSupportedManifestMIMETypes) == 0 {
-		return nil // Anything goes
-	}
-	supportedByDest := map[string]struct{}{}
-	for _, t := range destSupportedManifestMIMETypes {
-		supportedByDest[t] = struct{}{}
-	}
-
-	_, srcType, err := src.Manifest()
-	if err != nil { // This should have been cached?!
-		return errors.Wrap(err, "Error reading manifest")
-	}
-	if _, ok := supportedByDest[srcType]; ok {
-		logrus.Debugf("Manifest MIME type %s is declared supported by the destination", srcType)
-		return nil
-	}
-
-	// OK, we should convert the manifest.
-	if !canModifyManifest {
-		logrus.Debugf("Manifest MIME type %s is not supported by the destination, but we can't modify the manifest, hoping for the best...")
-		return nil // Take our chances - FIXME? Or should we fail without trying?
-	}
-
-	var chosenType = destSupportedManifestMIMETypes[0] // This one is known to be supported.
-	for _, t := range preferredManifestMIMETypes {
-		if _, ok := supportedByDest[t]; ok {
-			chosenType = t
-			break
-		}
-	}
-	logrus.Debugf("Will convert manifest from MIME type %s to %s", srcType, chosenType)
-	manifestUpdates.ManifestMIMEType = chosenType
-	return nil
 }

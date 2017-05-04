@@ -71,14 +71,9 @@ type storageImage struct {
 
 // newImageSource sets us up to read out an image, which needs to already exist.
 func newImageSource(imageRef storageReference) (*storageImageSource, error) {
-	id := imageRef.resolveID()
-	if id == "" {
-		logrus.Errorf("no image matching reference %q found", imageRef.StringWithinTransport())
-		return nil, ErrNoSuchImage
-	}
-	img, err := imageRef.transport.store.GetImage(id)
+	img, err := imageRef.resolveImage()
 	if err != nil {
-		return nil, errors.Wrapf(err, "error reading image %q", id)
+		return nil, err
 	}
 	image := &storageImageSource{
 		imageRef:       imageRef,
@@ -336,21 +331,37 @@ func (s *storageImageDestination) Commit() error {
 	}
 	img, err := s.imageRef.transport.store.CreateImage(s.ID, nil, lastLayer, "", nil)
 	if err != nil {
-		logrus.Debugf("error creating image: %q", err)
-		return err
+		if err != storage.ErrDuplicateID {
+			logrus.Debugf("error creating image: %q", err)
+			return errors.Wrapf(err, "error creating image %q", s.ID)
+		}
+		img, err = s.imageRef.transport.store.GetImage(s.ID)
+		if err != nil {
+			return errors.Wrapf(err, "error reading image %q", s.ID)
+		}
+		if img.TopLayer != lastLayer {
+			logrus.Debugf("error creating image: image with ID %q exists, but uses different layers", err)
+			return errors.Wrapf(err, "image with ID %q already exists, but uses a different top layer", s.ID)
+		}
+		logrus.Debugf("reusing image ID %q", img.ID)
+	} else {
+		logrus.Debugf("created new image ID %q", img.ID)
 	}
-	logrus.Debugf("created new image ID %q", img.ID)
 	s.ID = img.ID
+	names := img.Names
 	if s.Tag != "" {
-		// We have a name to set, so move the name to this image.
-		if err := s.imageRef.transport.store.SetNames(img.ID, []string{s.Tag}); err != nil {
+		names = append(names, s.Tag)
+	}
+	// We have names to set, so move those names to this image.
+	if len(names) > 0 {
+		if err := s.imageRef.transport.store.SetNames(img.ID, names); err != nil {
 			if _, err2 := s.imageRef.transport.store.DeleteImage(img.ID, true); err2 != nil {
 				logrus.Debugf("error deleting incomplete image %q: %v", img.ID, err2)
 			}
 			logrus.Debugf("error setting names on image %q: %v", img.ID, err)
 			return err
 		}
-		logrus.Debugf("set name of image %q to %q", img.ID, s.Tag)
+		logrus.Debugf("set names of image %q to %v", img.ID, names)
 	}
 	// Save the data blobs to disk, and drop their contents from memory.
 	keys := []ddigest.Digest{}
@@ -409,6 +420,10 @@ func (s *storageImageDestination) SupportedManifestMIMETypes() []string {
 	return nil
 }
 
+// PutManifest writes manifest to the destination.
+// FIXME? This should also receive a MIME type if known, to differentiate between schema versions.
+// If the destination is in principle available, refuses this manifest type (e.g. it does not recognize the schema),
+// but may accept a different manifest type, the returned error must be an ManifestTypeRejectedError.
 func (s *storageImageDestination) PutManifest(manifest []byte) error {
 	s.Manifest = make([]byte, len(manifest))
 	copy(s.Manifest, manifest)

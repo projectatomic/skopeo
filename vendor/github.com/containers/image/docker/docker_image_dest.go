@@ -16,6 +16,9 @@ import (
 	"github.com/containers/image/docker/reference"
 	"github.com/containers/image/manifest"
 	"github.com/containers/image/types"
+	"github.com/docker/distribution/registry/api/errcode"
+	"github.com/docker/distribution/registry/api/v2"
+	"github.com/docker/distribution/registry/client"
 	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 )
@@ -209,6 +212,10 @@ func (d *dockerImageDestination) ReapplyBlob(info types.BlobInfo) (types.BlobInf
 	return info, nil
 }
 
+// PutManifest writes manifest to the destination.
+// FIXME? This should also receive a MIME type if known, to differentiate between schema versions.
+// If the destination is in principle available, refuses this manifest type (e.g. it does not recognize the schema),
+// but may accept a different manifest type, the returned error must be an ManifestTypeRejectedError.
 func (d *dockerImageDestination) PutManifest(m []byte) error {
 	digest, err := manifest.Digest(m)
 	if err != nil {
@@ -233,14 +240,29 @@ func (d *dockerImageDestination) PutManifest(m []byte) error {
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusCreated {
-		body, err := ioutil.ReadAll(res.Body)
-		if err == nil {
-			logrus.Debugf("Error body %s", string(body))
+		err = errors.Wrapf(client.HandleErrorResponse(res), "Error uploading manifest to %s", path)
+		if isManifestInvalidError(errors.Cause(err)) {
+			err = types.ManifestTypeRejectedError{Err: err}
 		}
-		logrus.Debugf("Error uploading manifest, status %d, %#v", res.StatusCode, res)
-		return errors.Errorf("Error uploading manifest to %s, status %d", path, res.StatusCode)
+		return err
 	}
 	return nil
+}
+
+// isManifestInvalidError returns true iff err from client.HandleErrorReponse is a “manifest invalid” error.
+func isManifestInvalidError(err error) bool {
+	errors, ok := err.(errcode.Errors)
+	if !ok || len(errors) == 0 {
+		return false
+	}
+	ec, ok := errors[0].(errcode.ErrorCoder)
+	if !ok {
+		return false
+	}
+	// ErrorCodeManifestInvalid is returned by OpenShift with acceptschema2=false.
+	// ErrorCodeTagInvalid is returned by docker/distribution (at least as of ec87e9b6971d831f0eff752ddb54fb64693e51cd)
+	// when uploading to a tag (because it can’t find a matching tag inside the manifest)
+	return ec.ErrorCode() == v2.ErrorCodeManifestInvalid || ec.ErrorCode() == v2.ErrorCodeTagInvalid
 }
 
 func (d *dockerImageDestination) PutSignatures(signatures [][]byte) error {

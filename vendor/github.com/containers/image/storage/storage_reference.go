@@ -6,6 +6,8 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/containers/image/docker/reference"
 	"github.com/containers/image/types"
+	"github.com/containers/storage/storage"
+	"github.com/pkg/errors"
 )
 
 // A storageReference holds an arbitrary name and/or an ID, which is a 32-byte
@@ -32,15 +34,36 @@ func newReference(transport storageTransport, reference, id string, name referen
 }
 
 // Resolve the reference's name to an image ID in the store, if there's already
-// one present with the same name or ID.
-func (s *storageReference) resolveID() string {
+// one present with the same name or ID, and return the image.
+func (s *storageReference) resolveImage() (*storage.Image, error) {
 	if s.id == "" {
 		image, err := s.transport.store.GetImage(s.reference)
 		if image != nil && err == nil {
 			s.id = image.ID
 		}
 	}
-	return s.id
+	if s.id == "" {
+		logrus.Errorf("reference %q does not resolve to an image ID", s.StringWithinTransport())
+		return nil, ErrNoSuchImage
+	}
+	img, err := s.transport.store.GetImage(s.id)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error reading image %q", s.id)
+	}
+	if s.reference != "" {
+		nameMatch := false
+		for _, name := range img.Names {
+			if name == s.reference {
+				nameMatch = true
+				break
+			}
+		}
+		if !nameMatch {
+			logrus.Errorf("no image matching reference %q found", s.StringWithinTransport())
+			return nil, ErrNoSuchImage
+		}
+	}
+	return img, nil
 }
 
 // Return a Transport object that defaults to using the same store that we used
@@ -103,14 +126,13 @@ func (s storageReference) NewImage(ctx *types.SystemContext) (types.Image, error
 }
 
 func (s storageReference) DeleteImage(ctx *types.SystemContext) error {
-	id := s.resolveID()
-	if id == "" {
-		logrus.Errorf("reference %q does not resolve to an image ID", s.StringWithinTransport())
-		return ErrNoSuchImage
+	img, err := s.resolveImage()
+	if err != nil {
+		return err
 	}
-	layers, err := s.transport.store.DeleteImage(id, true)
+	layers, err := s.transport.store.DeleteImage(img.ID, true)
 	if err == nil {
-		logrus.Debugf("deleted image %q", id)
+		logrus.Debugf("deleted image %q", img.ID)
 		for _, layer := range layers {
 			logrus.Debugf("deleted layer %q", layer)
 		}

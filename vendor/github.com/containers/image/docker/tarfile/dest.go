@@ -156,10 +156,13 @@ func (d *Destination) ReapplyBlob(info types.BlobInfo) (types.BlobInfo, error) {
 	return info, nil
 }
 
-// PutManifest sends the given manifest blob to the destination.
-// FIXME? This should also receive a MIME type if known, to differentiate
-//        between schema versions.
+// PutManifest writes manifest to the destination.
+// FIXME? This should also receive a MIME type if known, to differentiate between schema versions.
+// If the destination is in principle available, refuses this manifest type (e.g. it does not recognize the schema),
+// but may accept a different manifest type, the returned error must be an ManifestTypeRejectedError.
 func (d *Destination) PutManifest(m []byte) error {
+	// We do not bother with types.ManifestTypeRejectedError; our .SupportedManifestMIMETypes() above is already providing only one alternative,
+	// so the caller trying a different manifest kind would be pointless.
 	var man schema2Manifest
 	if err := json.Unmarshal(m, &man); err != nil {
 		return errors.Wrap(err, "Error parsing manifest")
