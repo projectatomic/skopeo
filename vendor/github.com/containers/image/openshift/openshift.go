@@ -338,10 +338,7 @@ func (d *openshiftImageDestination) Close() error {
 }
 
 func (d *openshiftImageDestination) SupportedManifestMIMETypes() []string {
-	return []string{
-		manifest.DockerV2Schema1SignedMediaType,
-		manifest.DockerV2Schema1MediaType,
-	}
+	return d.docker.SupportedManifestMIMETypes()
 }
 
 // SupportsSignatures returns an error (to be displayed to the user) if the destination certainly can't store signatures.
@@ -383,6 +380,10 @@ func (d *openshiftImageDestination) ReapplyBlob(info types.BlobInfo) (types.Blob
 	return d.docker.ReapplyBlob(info)
 }
 
+// PutManifest writes manifest to the destination.
+// FIXME? This should also receive a MIME type if known, to differentiate between schema versions.
+// If the destination is in principle available, refuses this manifest type (e.g. it does not recognize the schema),
+// but may accept a different manifest type, the returned error must be an ManifestTypeRejectedError.
 func (d *openshiftImageDestination) PutManifest(m []byte) error {
 	manifestDigest, err := manifest.Digest(m)
 	if err != nil {

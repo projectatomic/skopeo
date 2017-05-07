@@ -420,6 +420,10 @@ func (s *storageImageDestination) SupportedManifestMIMETypes() []string {
 	return nil
 }
 
+// PutManifest writes manifest to the destination.
+// FIXME? This should also receive a MIME type if known, to differentiate between schema versions.
+// If the destination is in principle available, refuses this manifest type (e.g. it does not recognize the schema),
+// but may accept a different manifest type, the returned error must be an ManifestTypeRejectedError.
 func (s *storageImageDestination) PutManifest(manifest []byte) error {
 	s.Manifest = make([]byte, len(manifest))
 	copy(s.Manifest, manifest)
