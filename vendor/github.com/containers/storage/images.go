@@ -88,14 +88,18 @@ type ImageStore interface {
 type imageStore struct {
 	lockfile Locker
 	dir      string
-	images   []Image
+	images   []*Image
 	idindex  *truncindex.TruncIndex
 	byid     map[string]*Image
 	byname   map[string]*Image
 }
 
 func (r *imageStore) Images() ([]Image, error) {
-	return r.images, nil
+	images := make([]Image, len(r.images))
+	for i := range r.images {
+		images[i] = *(r.images[i])
+	}
+	return images, nil
 }
 
 func (r *imageStore) imagespath() string {
@@ -117,20 +121,20 @@ func (r *imageStore) Load() error {
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	images := []Image{}
+	images := []*Image{}
 	idlist := []string{}
 	ids := make(map[string]*Image)
 	names := make(map[string]*Image)
 	if err = json.Unmarshal(data, &images); len(data) == 0 || err == nil {
 		for n, image := range images {
-			ids[image.ID] = &images[n]
+			ids[image.ID] = images[n]
 			idlist = append(idlist, image.ID)
 			for _, name := range image.Names {
 				if conflict, ok := names[name]; ok {
 					r.removeName(conflict, name)
 					needSave = true
 				}
-				names[name] = &images[n]
+				names[name] = images[n]
 			}
 		}
 	}
@@ -170,7 +174,7 @@ func newImageStore(dir string) (ImageStore, error) {
 	istore := imageStore{
 		lockfile: lockfile,
 		dir:      dir,
-		images:   []Image{},
+		images:   []*Image{},
 		byid:     make(map[string]*Image),
 		byname:   make(map[string]*Image),
 	}
@@ -228,7 +232,7 @@ func (r *imageStore) Create(id string, names []string, layer, metadata string) (
 		}
 	}
 	if err == nil {
-		newImage := Image{
+		image = &Image{
 			ID:           id,
 			Names:        names,
 			TopLayer:     layer,
@@ -237,8 +241,7 @@ func (r *imageStore) Create(id string, names []string, layer, metadata string) (
 			BigDataSizes: make(map[string]int64),
 			Flags:        make(map[string]interface{}),
 		}
-		r.images = append(r.images, newImage)
-		image = &r.images[len(r.images)-1]
+		r.images = append(r.images, image)
 		r.idindex.Add(id)
 		r.byid[id] = image
 		for _, name := range names {
@@ -291,7 +294,7 @@ func (r *imageStore) Delete(id string) error {
 		return ErrImageUnknown
 	}
 	id = image.ID
-	newImages := []Image{}
+	newImages := []*Image{}
 	for _, candidate := range r.images {
 		if candidate.ID != id {
 			newImages = append(newImages, candidate)

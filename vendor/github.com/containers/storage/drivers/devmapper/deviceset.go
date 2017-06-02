@@ -28,7 +28,6 @@ import (
 	"github.com/containers/storage/pkg/loopback"
 	"github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/parsers"
-	"github.com/containers/storage/storageversion"
 	"github.com/docker/go-units"
 
 	"github.com/opencontainers/selinux/go-selinux/label"
@@ -1668,17 +1667,17 @@ func (devices *DeviceSet) initDevmapper(doInit bool) error {
 	}
 
 	// https://github.com/docker/docker/issues/4036
-	if supported := devicemapper.UdevSetSyncSupport(true); !supported {
-		if storageversion.IAmStatic == "true" {
-			logrus.Errorf("devmapper: Udev sync is not supported. This will lead to data loss and unexpected behavior. Install a dynamic binary to use devicemapper or select a different storage driver. For more information, see https://docs.docker.com/engine/reference/commandline/daemon/#daemon-storage-driver-option")
-		} else {
-			logrus.Errorf("devmapper: Udev sync is not supported. This will lead to data loss and unexpected behavior. Install a more recent version of libdevmapper or select a different storage driver. For more information, see https://docs.docker.com/engine/reference/commandline/daemon/#daemon-storage-driver-option")
-		}
-
-		if !devices.overrideUdevSyncCheck {
-			return graphdriver.ErrNotSupported
-		}
-	}
+	// if supported := devicemapper.UdevSetSyncSupport(true); !supported {
+	// 	if storageversion.IAmStatic == "true" {
+	// 		logrus.Errorf("devmapper: Udev sync is not supported. This will lead to data loss and unexpected behavior. Install a dynamic binary to use devicemapper or select a different storage driver. For more information, see https://docs.docker.com/engine/reference/commandline/daemon/#daemon-storage-driver-option")
+	// 	} else {
+	// 		logrus.Errorf("devmapper: Udev sync is not supported. This will lead to data loss and unexpected behavior. Install a more recent version of libdevmapper or select a different storage driver. For more information, see https://docs.docker.com/engine/reference/commandline/daemon/#daemon-storage-driver-option")
+	// 	}
+	//
+	// 	if !devices.overrideUdevSyncCheck {
+	// 		return graphdriver.ErrNotSupported
+	// 	}
+	// }
 
 	//create the root dir of the devmapper driver ownership to match this
 	//daemon's remapped root uid/gid so containers can start properly

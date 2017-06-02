@@ -159,7 +159,7 @@ type layerStore struct {
 	rundir   string
 	driver   drivers.Driver
 	layerdir string
-	layers   []Layer
+	layers   []*Layer
 	idindex  *truncindex.TruncIndex
 	byid     map[string]*Layer
 	byname   map[string]*Layer
@@ -167,7 +167,11 @@ type layerStore struct {
 }
 
 func (r *layerStore) Layers() ([]Layer, error) {
-	return r.layers, nil
+	layers := make([]Layer, len(r.layers))
+	for i := range r.layers {
+		layers[i] = *(r.layers[i])
+	}
+	return layers, nil
 }
 
 func (r *layerStore) mountspath() string {
@@ -185,7 +189,7 @@ func (r *layerStore) Load() error {
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	layers := []Layer{}
+	layers := []*Layer{}
 	idlist := []string{}
 	ids := make(map[string]*Layer)
 	names := make(map[string]*Layer)
@@ -193,19 +197,19 @@ func (r *layerStore) Load() error {
 	parents := make(map[string][]*Layer)
 	if err = json.Unmarshal(data, &layers); len(data) == 0 || err == nil {
 		for n, layer := range layers {
-			ids[layer.ID] = &layers[n]
+			ids[layer.ID] = layers[n]
 			idlist = append(idlist, layer.ID)
 			for _, name := range layer.Names {
 				if conflict, ok := names[name]; ok {
 					r.removeName(conflict, name)
 					needSave = true
 				}
-				names[name] = &layers[n]
+				names[name] = layers[n]
 			}
 			if pslice, ok := parents[layer.Parent]; ok {
-				parents[layer.Parent] = append(pslice, &layers[n])
+				parents[layer.Parent] = append(pslice, layers[n])
 			} else {
-				parents[layer.Parent] = []*Layer{&layers[n]}
+				parents[layer.Parent] = []*Layer{layers[n]}
 			}
 		}
 	}
@@ -383,15 +387,14 @@ func (r *layerStore) Put(id, parent string, names []string, mountLabel string, o
 		err = r.driver.Create(id, parent, mountLabel, options)
 	}
 	if err == nil {
-		newLayer := Layer{
+		layer = &Layer{
 			ID:         id,
 			Parent:     parent,
 			Names:      names,
 			MountLabel: mountLabel,
 			Flags:      make(map[string]interface{}),
 		}
-		r.layers = append(r.layers, newLayer)
-		layer = &r.layers[len(r.layers)-1]
+		r.layers = append(r.layers, layer)
 		r.idindex.Add(id)
 		r.byid[id] = layer
 		for _, name := range names {
@@ -549,7 +552,7 @@ func (r *layerStore) Delete(id string) error {
 		if layer.MountPoint != "" {
 			delete(r.bymount, layer.MountPoint)
 		}
-		newLayers := []Layer{}
+		newLayers := []*Layer{}
 		for _, candidate := range r.layers {
 			if candidate.ID != id {
 				newLayers = append(newLayers, candidate)
