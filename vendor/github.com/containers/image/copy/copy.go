@@ -3,11 +3,13 @@ package copy
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	pb "gopkg.in/cheggaaa/pb.v1"
@@ -20,6 +22,7 @@ import (
 	"github.com/containers/image/types"
 	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 )
 
 type digestingReader struct {
@@ -33,7 +36,6 @@ type digestingReader struct {
 // data, that we're copying between images, and cache other information that
 // might allow us to take some shortcuts
 type imageCopier struct {
-	copiedBlobs       map[digest.Digest]digest.Digest
 	cachedDiffIDs     map[digest.Digest]digest.Digest
 	manifestUpdates   *types.ManifestUpdateOptions
 	dest              types.ImageDestination
@@ -44,6 +46,7 @@ type imageCopier struct {
 	reportWriter      io.Writer
 	progressInterval  time.Duration
 	progress          chan types.ProgressProperties
+	mu                sync.RWMutex
 }
 
 // newDigestingReader returns an io.Reader implementation with contents of source, which will eventually return a non-EOF error
@@ -196,7 +199,6 @@ func Image(policyContext *signature.PolicyContext, destRef, srcRef types.ImageRe
 
 	// If src.UpdatedImageNeedsLayerDiffIDs(manifestUpdates) will be true, it needs to be true by the time we get here.
 	ic := imageCopier{
-		copiedBlobs:       make(map[digest.Digest]digest.Digest),
 		cachedDiffIDs:     make(map[digest.Digest]digest.Digest),
 		manifestUpdates:   &manifestUpdates,
 		dest:              dest,
@@ -298,9 +300,15 @@ func updateEmbeddedDockerReference(manifestUpdates *types.ManifestUpdateOptions,
 // copyLayers copies layers from src/rawSource to dest, using and updating ic.manifestUpdates if necessary and ic.canModifyManifest.
 func (ic *imageCopier) copyLayers() error {
 	srcInfos := ic.src.LayerInfos()
-	destInfos := []types.BlobInfo{}
-	diffIDs := []digest.Digest{}
-	for _, srcLayer := range srcInfos {
+	destInfos := make([]types.BlobInfo, len(srcInfos))
+	diffIDs := make([]digest.Digest, len(srcInfos))
+	// TODO: set ctx timeout somehow (should come from callers)
+	// CRI-O would call "image.Copy(ctx, ...) with ctx coming from the grpc
+	// caller for instance.
+	ctx := context.Background()
+	eg, ctx := errgroup.WithContext(ctx)
+	for i, srcLayer := range srcInfos {
+		i, srcLayer := i, srcLayer // https://golang.org/doc/faq#closures_and_goroutines
 		var (
 			destInfo types.BlobInfo
 			diffID   digest.Digest
@@ -313,16 +321,22 @@ func (ic *imageCopier) copyLayers() error {
 			if ic.diffIDsAreNeeded {
 				return errors.New("getting DiffID for foreign layers is unimplemented")
 			}
-			destInfo = srcLayer
+			destInfos[i] = destInfo
 			fmt.Fprintf(ic.reportWriter, "Skipping foreign layer %q copy to %s\n", destInfo.Digest, ic.dest.Reference().Transport().Name())
 		} else {
-			destInfo, diffID, err = ic.copyLayer(srcLayer)
-			if err != nil {
-				return err
-			}
+			eg.Go(func() error {
+				destInfo, diffID, err = ic.copyLayer(srcLayer)
+				if err != nil {
+					return err
+				}
+				destInfos[i] = destInfo
+				diffIDs[i] = diffID
+				return nil
+			})
 		}
-		destInfos = append(destInfos, destInfo)
-		diffIDs = append(diffIDs, diffID)
+	}
+	if err := eg.Wait(); err != nil {
+		return err
 	}
 	ic.manifestUpdates.InformationOnly.LayerInfos = destInfos
 	if ic.diffIDsAreNeeded {
@@ -422,7 +436,9 @@ func (ic *imageCopier) copyLayer(srcInfo types.BlobInfo) (types.BlobInfo, digest
 		return types.BlobInfo{}, "", errors.Wrapf(err, "Error checking for blob %s at destination", srcInfo.Digest)
 	}
 	// If we already have a cached diffID for this blob, we don't need to compute it
+	ic.mu.RLock()
 	diffIDIsNeeded := ic.diffIDsAreNeeded && (ic.cachedDiffIDs[srcInfo.Digest] == "")
+	ic.mu.RUnlock()
 	// If we already have the blob, and we don't need to recompute the diffID, then we might be able to avoid reading it again
 	if haveBlob && !diffIDIsNeeded {
 		// Check the blob sizes match, if we were given a size this time
@@ -436,7 +452,10 @@ func (ic *imageCopier) copyLayer(srcInfo types.BlobInfo) (types.BlobInfo, digest
 			return types.BlobInfo{}, "", errors.Wrapf(err, "Error reapplying blob %s at destination", srcInfo.Digest)
 		}
 		fmt.Fprintf(ic.reportWriter, "Skipping fetch of repeat blob %s\n", srcInfo.Digest)
-		return blobinfo, ic.cachedDiffIDs[srcInfo.Digest], err
+		ic.mu.RLock()
+		cachedDiffID := ic.cachedDiffIDs[srcInfo.Digest]
+		ic.mu.RUnlock()
+		return blobinfo, cachedDiffID, err
 	}
 
 	// Fallback: copy the layer, computing the diffID if we need to do so
@@ -459,7 +478,9 @@ func (ic *imageCopier) copyLayer(srcInfo types.BlobInfo) (types.BlobInfo, digest
 			return types.BlobInfo{}, "", errors.Wrap(diffIDResult.err, "Error computing layer DiffID")
 		}
 		logrus.Debugf("Computed DiffID %s for layer %s", diffIDResult.digest, srcInfo.Digest)
+		ic.mu.Lock()
 		ic.cachedDiffIDs[srcInfo.Digest] = diffIDResult.digest
+		ic.mu.Unlock()
 	}
 	return blobInfo, diffIDResult.digest, nil
 }

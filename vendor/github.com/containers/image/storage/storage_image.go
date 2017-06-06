@@ -416,8 +416,15 @@ func (s *storageImageDestination) Commit() error {
 	return nil
 }
 
+var manifestMIMETypes = []string{
+	// TODO(runcom): we'll add OCI as part of another PR here
+	manifest.DockerV2Schema2MediaType,
+	manifest.DockerV2Schema1SignedMediaType,
+	manifest.DockerV2Schema1MediaType,
+}
+
 func (s *storageImageDestination) SupportedManifestMIMETypes() []string {
-	return nil
+	return manifestMIMETypes
 }
 
 // PutManifest writes manifest to the destination.
