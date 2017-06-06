@@ -11,12 +11,15 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/containers/image/manifest"
 	"github.com/containers/image/types"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
+
+	"github.com/ostreedev/ostree-go/pkg/otbuiltin"
 )
 
 type blobToImport struct {
@@ -158,7 +161,17 @@ func fixFiles(dir string, usermode bool) error {
 	return nil
 }
 
-func (d *ostreeImageDestination) importBlob(blob *blobToImport) error {
+func (d *ostreeImageDestination) ostreeCommit(repo *otbuiltin.Repo, branch string, root string, metadata []string) error {
+	opts := otbuiltin.NewCommitOptions()
+	opts.AddMetadataString = metadata
+	opts.Timestamp = time.Now()
+	// OCI layers have no parent OSTree commit
+	opts.Parent = "0000000000000000000000000000000000000000000000000000000000000000"
+	_, err := repo.Commit(root, branch, opts)
+	return err
+}
+
+func (d *ostreeImageDestination) importBlob(repo *otbuiltin.Repo, blob *blobToImport) error {
 	ostreeBranch := fmt.Sprintf("ociimage/%s", blob.Digest.Hex())
 	destinationPath := filepath.Join(d.tmpDirPath, blob.Digest.Hex(), "root")
 	if err := ensureDirectoryExists(destinationPath); err != nil {
@@ -186,11 +199,7 @@ func (d *ostreeImageDestination) importBlob(blob *blobToImport) error {
 			return err
 		}
 	}
-	return exec.Command("ostree", "commit",
-		"--repo", d.ref.repo,
-		fmt.Sprintf("--add-metadata-string=docker.size=%d", blob.Size),
-		"--branch", ostreeBranch,
-		fmt.Sprintf("--tree=dir=%s", destinationPath)).Run()
+	return d.ostreeCommit(repo, ostreeBranch, destinationPath, []string{fmt.Sprintf("docker.size=%d", blob.Size)})
 }
 
 func (d *ostreeImageDestination) importConfig(blob *blobToImport) error {
@@ -258,6 +267,16 @@ func (d *ostreeImageDestination) PutSignatures(signatures [][]byte) error {
 }
 
 func (d *ostreeImageDestination) Commit() error {
+	repo, err := otbuiltin.OpenRepo(d.ref.repo)
+	if err != nil {
+		return err
+	}
+
+	_, err = repo.PrepareTransaction()
+	if err != nil {
+		return err
+	}
+
 	for _, layer := range d.schema.LayersDescriptors {
 		hash := layer.Digest.Hex()
 		blob := d.blobs[hash]
@@ -266,7 +285,7 @@ func (d *ostreeImageDestination) Commit() error {
 		if blob == nil {
 			continue
 		}
-		err := d.importBlob(blob)
+		err := d.importBlob(repo, blob)
 		if err != nil {
 			return err
 		}
@@ -282,11 +301,11 @@ func (d *ostreeImageDestination) Commit() error {
 	}
 
 	manifestPath := filepath.Join(d.tmpDirPath, "manifest")
-	err := exec.Command("ostree", "commit",
-		"--repo", d.ref.repo,
-		fmt.Sprintf("--add-metadata-string=docker.manifest=%s", string(d.manifest)),
-		fmt.Sprintf("--branch=ociimage/%s", d.ref.branchName),
-		manifestPath).Run()
+
+	metadata := []string{fmt.Sprintf("docker.manifest=%s", string(d.manifest))}
+	err = d.ostreeCommit(repo, fmt.Sprintf("ociimage/%s", d.ref.branchName), manifestPath, metadata)
+
+	_, err = repo.CommitTransaction()
 	return err
 }
 

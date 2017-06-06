@@ -21,7 +21,6 @@ import (
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/stringid"
-	"github.com/containers/storage/storageversion"
 )
 
 var (
@@ -1044,12 +1043,15 @@ func (s *store) SetNames(id string, names []string) error {
 	}
 
 	if rlstore.Exists(id) {
+		defer rlstore.Touch()
 		return rlstore.SetNames(id, deduped)
 	}
 	if ristore.Exists(id) {
+		defer ristore.Touch()
 		return ristore.SetNames(id, deduped)
 	}
 	if rcstore.Exists(id) {
+		defer rcstore.Touch()
 		return rcstore.SetNames(id, deduped)
 	}
 	return ErrLayerUnknown
@@ -1502,11 +1504,7 @@ func (s *store) Status() ([][2]string, error) {
 }
 
 func (s *store) Version() ([][2]string, error) {
-	return [][2]string{
-		{"GitCommit", storageversion.GitCommit},
-		{"Version", storageversion.Version},
-		{"BuildTime", storageversion.BuildTime},
-	}, nil
+	return [][2]string{}, nil
 }
 
 func (s *store) Mount(id, mountLabel string) (string, error) {
