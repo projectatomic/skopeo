@@ -37,6 +37,7 @@ RUN set -x \
 ENV GOPATH /usr/share/gocode:/go
 ENV PATH $GOPATH/bin:/usr/share/gocode/bin:$PATH
 RUN go get github.com/golang/lint/golint
+RUN go get github.com/cpuguy83/go-md2man
 WORKDIR /go/src/github.com/projectatomic/skopeo
 COPY . /go/src/github.com/projectatomic/skopeo
 
