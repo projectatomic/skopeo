@@ -8,7 +8,7 @@ import (
 
 	"github.com/containers/image/manifest"
 	"github.com/containers/image/types"
-	"github.com/opencontainers/go-digest"
+	digest "github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 )
 
@@ -46,6 +46,18 @@ func (s *dirImageSource) GetManifest(ctx context.Context, instanceDigest *digest
 		return nil, "", err
 	}
 	return m, manifest.GuessMIMEType(m), err
+}
+
+// GetOriginalManifest returns the original manifest of the image (= the image used to write the image into this ImageReference),
+// even if the image has been modified by the transport (e.g. uncompressing layers and throwing away the originals).
+// If instanceDigest is not nil, it contains a digest of the specific manifest instance to retrieve (when the primary manifest is a manifest list);
+// this never happens if the primary manifest is not a manifest list (e.g. if the source never returns manifest lists).
+// For most transports, GetManifest() and GetOriginalManifest() should return the same data.
+// If there is a difference, signatures returned by GetSignatures() should apply to GetOriginalManifest();
+// OTOH there is NO EXPECTATION that image layers referenced by the original manifest will be accessible via GetBlob()
+// (but the config blob, if any, _should_ be accessible).
+func (s *dirImageSource) GetOriginalManifest(ctx context.Context, instanceDigest *digest.Digest) ([]byte, string, error) {
+	return s.GetManifest(ctx, instanceDigest)
 }
 
 // HasThreadSafeGetBlob indicates whether GetBlob can be executed concurrently.

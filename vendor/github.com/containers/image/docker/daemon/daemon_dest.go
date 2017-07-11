@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/containers/image/docker/daemon/signatures"
 	"github.com/containers/image/docker/reference"
 	"github.com/containers/image/docker/tarfile"
 	"github.com/containers/image/types"
@@ -15,13 +16,17 @@ import (
 type daemonImageDestination struct {
 	ref                  daemonReference
 	mustMatchRuntimeOS   bool
-	*tarfile.Destination // Implements most of types.ImageDestination
+	*tarfile.Destination                       // Implements most of types.ImageDestination
+	namedTaggedRef       reference.NamedTagged // Equivalent to ref.ref
+	sigsStore            *signatures.Store
 	// For talking to imageLoadGoroutine
 	goroutineCancel context.CancelFunc
 	statusChannel   <-chan error
 	writer          *io.PipeWriter
 	// Other state
-	committed bool // writer has been closed
+	pendingManifest   []byte   // To be stored in sigsStore; or nil if not set yet
+	pendingSignatures [][]byte // To be stored in sigsStore; or nil if not set yet
+	committed         bool     // writer has been closed
 }
 
 // newImageDestination returns a types.ImageDestination for the specified image reference.
@@ -55,9 +60,13 @@ func newImageDestination(ctx context.Context, sys *types.SystemContext, ref daem
 		ref:                ref,
 		mustMatchRuntimeOS: mustMatchRuntimeOS,
 		Destination:        tarfile.NewDestination(writer, namedTaggedRef),
+		namedTaggedRef:     namedTaggedRef,
+		sigsStore:          signatures.NewStore(sys),
 		goroutineCancel:    goroutineCancel,
 		statusChannel:      statusChannel,
 		writer:             writer,
+		pendingManifest:    nil,
+		pendingSignatures:  nil,
 		committed:          false,
 	}, nil
 }
@@ -120,6 +129,38 @@ func (d *daemonImageDestination) Reference() types.ImageReference {
 	return d.ref
 }
 
+// SupportsSignatures returns an error (to be displayed to the user) if the destination certainly can't store signatures.
+// Note: It is still possible for PutSignatures to fail if SupportsSignatures returns nil.
+func (d *daemonImageDestination) SupportsSignatures(ctx context.Context) error {
+	// This overrides d.Destination.SupportsSignatures, which always fails.
+	return nil // FIXME? Make use of the signature database configurable?
+}
+
+// PutManifest writes manifest to the destination.
+// FIXME? This should also receive a MIME type if known, to differentiate between schema versions.
+// If the destination is in principle available, refuses this manifest type (e.g. it does not recognize the schema),
+// but may accept a different manifest type, the returned error must be an ManifestTypeRejectedError.
+func (d *daemonImageDestination) PutManifest(ctx context.Context, m []byte) error {
+	if d.pendingManifest != nil {
+		return errors.New("Internal error: PutManifest called twice")
+	}
+	if err := d.Destination.PutManifest(ctx, m); err != nil {
+		return err
+	}
+	d.pendingManifest = m
+	return nil
+}
+
+// PutSignatures adds the given signatures to the docker tarfile
+func (d *daemonImageDestination) PutSignatures(ctx context.Context, signatures [][]byte) error {
+	// This overrides d.Destination.PutSignatures, which fails for non-empty input
+	if d.pendingSignatures != nil {
+		return errors.New("internal error: PutSignatures called twice")
+	}
+	d.pendingSignatures = signatures
+	return nil
+}
+
 // Commit marks the process of storing the image as successful and asks for the image to be persisted.
 // WARNING: This does not have any transactional semantics:
 // - Uploaded data MAY be visible to others before Commit() is called
@@ -135,10 +176,22 @@ func (d *daemonImageDestination) Commit(ctx context.Context) error {
 	d.committed = true // We may still fail, but we are done sending to imageLoadGoroutine.
 
 	logrus.Debugf("docker-daemon: Waiting for status")
+	var err error
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case err := <-d.statusChannel:
+	case err = <-d.statusChannel:
+	}
+	if err != nil {
 		return err
 	}
+
+	if d.pendingManifest == nil { // PutManifest should have set this?!
+		return errors.New("Internal error: Commit called before PutManifest")
+	}
+	configDigest := d.Destination.TarfileConfigDigest()
+	if configDigest == "" { // d.Destination.PutManifest should have set this?!
+		return errors.New("Internal error: config digest unknown after PutManifest")
+	}
+	return d.sigsStore.Write(configDigest, d.namedTaggedRef, d.pendingManifest, d.pendingSignatures)
 }

@@ -26,7 +26,7 @@ github.com/VividCortex/ewma
 github.com/containerd/continuity/pathdriver
 # github.com/containers/buildah v1.8.4
 github.com/containers/buildah/pkg/unshare
-# github.com/containers/image v1.5.2-0.20190821161828-0cc0e97405db
+# github.com/containers/image v1.5.2-0.20190821161828-0cc0e97405db => github.com/mtrmac/image v0.0.0-20190927204041-3bf4ed6fcf13
 github.com/containers/image/copy
 github.com/containers/image/directory
 github.com/containers/image/docker
@@ -58,11 +58,12 @@ github.com/containers/image/oci/layout
 github.com/containers/image/openshift
 github.com/containers/image/ostree
 github.com/containers/image/tarball
-github.com/containers/image/pkg/keyctl
+github.com/containers/image/internal/pkg/keyctl
 github.com/containers/image/pkg/blobinfocache/internal/prioritize
 github.com/containers/image/docker/tarfile
+github.com/containers/image/docker/daemon/signatures
 github.com/containers/image/oci/internal
-# github.com/containers/storage v1.13.0
+# github.com/containers/storage v1.13.2
 github.com/containers/storage/pkg/reexec
 github.com/containers/storage/pkg/idtools
 github.com/containers/storage/pkg/homedir
@@ -149,9 +150,9 @@ github.com/docker/go-connections/nat
 github.com/docker/go-units
 # github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7
 github.com/docker/libtrust
-# github.com/etcd-io/bbolt v1.3.2
+# github.com/etcd-io/bbolt v1.3.3
 github.com/etcd-io/bbolt
-# github.com/ghodss/yaml v0.0.0-20150909031657-73d445a93680
+# github.com/ghodss/yaml v0.0.0-20161207003320-04f313413ffd
 github.com/ghodss/yaml
 # github.com/go-check/check v0.0.0-20180628173108-788fd7840127
 github.com/go-check/check
@@ -163,7 +164,7 @@ github.com/gorilla/context
 github.com/gorilla/mux
 # github.com/imdario/mergo v0.0.0-20141206190957-6633656539c1
 github.com/imdario/mergo
-# github.com/klauspost/compress v1.7.2
+# github.com/klauspost/compress v1.8.1
 github.com/klauspost/compress/zstd
 github.com/klauspost/compress/huff0
 github.com/klauspost/compress/snappy
@@ -174,7 +175,7 @@ github.com/klauspost/compress/fse
 github.com/klauspost/cpuid
 # github.com/klauspost/pgzip v1.2.1
 github.com/klauspost/pgzip
-# github.com/konsorten/go-windows-terminal-sequences v1.0.1
+# github.com/konsorten/go-windows-terminal-sequences v1.0.2
 github.com/konsorten/go-windows-terminal-sequences
 # github.com/kr/pretty v0.1.0
 github.com/kr/pretty
@@ -190,7 +191,7 @@ github.com/mistifyio/go-zfs
 github.com/mtrmac/gpgme
 # github.com/opencontainers/go-digest v1.0.0-rc1
 github.com/opencontainers/go-digest
-# github.com/opencontainers/image-spec v1.0.0-rc6.0.20190823105129-775207bd45b6
+# github.com/opencontainers/image-spec v1.0.2-0.20190823105129-775207bd45b6
 github.com/opencontainers/image-spec/specs-go/v1
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/schema
@@ -211,7 +212,7 @@ github.com/ostreedev/ostree-go/pkg/otbuiltin
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
 github.com/pmezard/go-difflib/difflib
-# github.com/pquerna/ffjson v0.0.0-20181028064349-e517b90714f7
+# github.com/pquerna/ffjson v0.0.0-20190813045741-dac163c6c0a9
 github.com/pquerna/ffjson/fflib/v1
 github.com/pquerna/ffjson/inception
 github.com/pquerna/ffjson/shared
@@ -225,7 +226,7 @@ github.com/stretchr/testify/require
 github.com/syndtr/gocapability/capability
 # github.com/tchap/go-patricia v2.3.0+incompatible
 github.com/tchap/go-patricia/patricia
-# github.com/ulikunitz/xz v0.5.4
+# github.com/ulikunitz/xz v0.5.6
 github.com/ulikunitz/xz
 github.com/ulikunitz/xz/internal/xlog
 github.com/ulikunitz/xz/lzma
@@ -269,7 +270,7 @@ golang.org/x/net/idna
 golang.org/x/net/internal/socks
 # golang.org/x/sync v0.0.0-20181108010431-42b317875d0f
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.0.0-20190626221950-04f50cda93cb
+# golang.org/x/sys v0.0.0-20190902133755-9109b7679e13
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 # golang.org/x/text v0.3.0
@@ -277,7 +278,7 @@ golang.org/x/text/secure/bidirule
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
 golang.org/x/text/transform
-# gopkg.in/yaml.v2 v2.0.0-20141029210843-d466437aa4ad
+# gopkg.in/yaml.v2 v2.0.0
 gopkg.in/yaml.v2
 # k8s.io/client-go v0.0.0-20181219152756-3dd551c0f083
 k8s.io/client-go/util/homedir

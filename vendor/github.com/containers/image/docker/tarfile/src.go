@@ -388,6 +388,18 @@ func (s *Source) GetManifest(ctx context.Context, instanceDigest *digest.Digest)
 	return s.generatedManifest, manifest.DockerV2Schema2MediaType, nil
 }
 
+// GetOriginalManifest returns the original manifest of the image (= the image used to write the image into this ImageReference),
+// even if the image has been modified by the transport (e.g. uncompressing layers and throwing away the originals).
+// If instanceDigest is not nil, it contains a digest of the specific manifest instance to retrieve (when the primary manifest is a manifest list);
+// this never happens if the primary manifest is not a manifest list (e.g. if the source never returns manifest lists).
+// For most transports, GetManifest() and GetOriginalManifest() should return the same data.
+// If there is a difference, signatures returned by GetSignatures() should apply to GetOriginalManifest();
+// OTOH there is NO EXPECTATION that image layers referenced by the original manifest will be accessible via GetBlob()
+// (but the config blob, if any, _should_ be accessible).
+func (s *Source) GetOriginalManifest(ctx context.Context, instanceDigest *digest.Digest) ([]byte, string, error) {
+	return s.GetManifest(ctx, instanceDigest)
+}
+
 // uncompressedReadCloser is an io.ReadCloser that closes both the uncompressed stream and the underlying input.
 type uncompressedReadCloser struct {
 	io.Reader
@@ -475,4 +487,13 @@ func (s *Source) GetSignatures(ctx context.Context, instanceDigest *digest.Diges
 		return nil, errors.Errorf(`Manifest lists are not supported by "docker-daemon:"`)
 	}
 	return [][]byte{}, nil
+}
+
+// TarfileConfigDigest returns the config digest (“image ID”) of the image.
+// (TarfileConfigDigest is not a part of types.ImageSource.)
+func (s *Source) TarfileConfigDigest() (digest.Digest, error) {
+	if err := s.ensureCachedDataIsPresent(); err != nil {
+		return "", err
+	}
+	return s.configDigest, nil
 }

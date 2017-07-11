@@ -57,6 +57,15 @@ type PolicyRequirement interface {
 	//   signature are authorized to run code as root, or to affect system or cluster configuration.
 	isSignatureAuthorAccepted(ctx context.Context, image types.UnparsedImage, sig []byte) (signatureAcceptanceResult, *Signature, error)
 
+	// isImageAuthenticated returns true if the requirement has positively authenticated the image.
+	// If it returns false, err may be nil if the image is acceptable but not authenticated.
+	// The err, if not nil, should be a PolicyRequirementError if evaluation succeeded but the result was rejection.
+	// WARNING: Authenticating the image is intended for further verification of a chain of trust,
+	// but it is not the appropriate criterion for whether to run an image (use isRunningImageAllowed instead),
+	// nor does not necessarily mean that the image is trusted to affect the local system (e.g.
+	// to run as root, or to affect system or cluster configuration.)
+	isImageAuthenticated(ctx context.Context, image types.UnparsedImage) (bool, error)
+
 	// isRunningImageAllowed returns true if the requirement allows running an image.
 	// If it returns false, err must be non-nil, and should be an PolicyRequirementError if evaluation
 	// succeeded but the result was rejection.
@@ -247,6 +256,53 @@ func (pc *PolicyContext) GetSignaturesWithAcceptedAuthor(ctx context.Context, im
 		} else {
 			logrus.Debugf(" Overall: Signature not accepted")
 		}
+	}
+	return res, nil
+}
+
+// IsImageAuthenticated returns true if the policy has positively authenticated the image.
+// If it returns false, err may be nil if the image is acceptable but not authenticated.
+// The err, if not nil, should be a PolicyRequirementError if evaluation succeeded but the result was rejection.
+// WARNING: Authenticating the image is intended for further verification of a chain of trust,
+// but it is not the appropriate criterion for whether to run an image (use isRunningImageAllowed instead),
+// nor does not necessarily mean that the image is trusted to affect the local system (e.g.
+// to run as root, or to affect system or cluster configuration.)
+func (pc *PolicyContext) IsImageAuthenticated(ctx context.Context, image types.UnparsedImage) (res bool, finalErr error) {
+	if err := pc.changeState(pcReady, pcInUse); err != nil {
+		return false, err
+	}
+	defer func() {
+		if err := pc.changeState(pcInUse, pcReady); err != nil {
+			res = false
+			finalErr = err
+		}
+	}()
+
+	logrus.Debugf("IsImageAuthenticated for image %s", policyIdentityLogName(image.Reference()))
+	reqs := pc.requirementsForImageRef(image.Reference())
+
+	if len(reqs) == 0 {
+		return false, PolicyRequirementError("List of verification policy requirements must not be empty")
+	}
+
+	res = false // Need at least one positive authentication result.
+	for reqNumber, req := range reqs {
+		// FIXME: supply state
+		authenticated, err := req.isImageAuthenticated(ctx, image)
+		if authenticated {
+			res = true
+			logrus.Debugf(" Requirement %d: authenticated", reqNumber)
+		} else if err == nil {
+			logrus.Debugf(" Requirement %d: no decision", reqNumber)
+		} else {
+			logrus.Debugf("Requirement %d: rejected, done", reqNumber)
+			return false, err
+		}
+	}
+	if res {
+		logrus.Debugf("Overall: authenticated")
+	} else {
+		logrus.Debugf("Overall: not authenticated")
 	}
 	return res, nil
 }

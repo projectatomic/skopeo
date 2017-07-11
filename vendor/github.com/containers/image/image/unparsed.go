@@ -14,6 +14,7 @@ import (
 // An UnparsedImage is a pair of (ImageSource, instance digest); it can represent either a manifest list or a single image instance.
 type UnparsedImage struct {
 	src            types.ImageSource
+	srcGetManifest func(context.Context, *digest.Digest) ([]byte, string, error) // Either src.GetManifest or src.GetOriginalManifest
 	instanceDigest *digest.Digest
 	cachedManifest []byte // A private cache for Manifest(); nil if not yet known.
 	// A private cache for Manifest(), may be the empty string if guessing failed.
@@ -29,6 +30,21 @@ type UnparsedImage struct {
 func UnparsedInstance(src types.ImageSource, instanceDigest *digest.Digest) *UnparsedImage {
 	return &UnparsedImage{
 		src:            src,
+		srcGetManifest: src.GetManifest,
+		instanceDigest: instanceDigest,
+	}
+}
+
+// UnparsedOriginalInstance returns a types.UnparsedImage implementation for (source, instanceDigest),
+// using source.GetOriginalManifest() instead of source.GetManifest().
+// Hence, theres is NO EXPECTATION that the image layers referenced by the manifest will be accessible
+// via source.GetBlob().  Most users should use UnparsedInstance() above.
+//
+// The UnparsedImage must not be used after the underlying ImageSource is Close()d.
+func UnparsedOriginalInstance(src types.ImageSource, instanceDigest *digest.Digest) *UnparsedImage {
+	return &UnparsedImage{
+		src:            src,
+		srcGetManifest: src.GetOriginalManifest,
 		instanceDigest: instanceDigest,
 	}
 }
@@ -43,12 +59,12 @@ func (i *UnparsedImage) Reference() types.ImageReference {
 // Manifest is like ImageSource.GetManifest, but the result is cached; it is OK to call this however often you need.
 func (i *UnparsedImage) Manifest(ctx context.Context) ([]byte, string, error) {
 	if i.cachedManifest == nil {
-		m, mt, err := i.src.GetManifest(ctx, i.instanceDigest)
+		m, mt, err := i.srcGetManifest(ctx, i.instanceDigest)
 		if err != nil {
 			return nil, "", err
 		}
 
-		// ImageSource.GetManifest does not do digest verification, but we do;
+		// i.srcGetManifest does not do digest verification, but we do;
 		// this immediately protects also any user of types.Image.
 		if digest, haveDigest := i.expectedManifestDigest(); haveDigest {
 			matches, err := manifest.MatchesDigest(m, digest)

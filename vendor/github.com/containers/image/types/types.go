@@ -7,8 +7,8 @@ import (
 
 	"github.com/containers/image/docker/reference"
 	"github.com/containers/image/pkg/compression"
-	"github.com/opencontainers/go-digest"
-	"github.com/opencontainers/image-spec/specs-go/v1"
+	digest "github.com/opencontainers/go-digest"
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 // ImageTransport is a top-level namespace for ways to to store/load an image.
@@ -91,7 +91,20 @@ type ImageReference interface {
 	DeleteImage(ctx context.Context, sys *SystemContext) error
 }
 
-// BlobInfo collects known information about a blob (layer/config).
+// LayerCompression indicates if layers must be compressed, decompressed or preserved
+type LayerCompression int
+
+const (
+	// PreserveOriginal indicates the layer must be preserved, ie
+	// no compression or decompression.
+	PreserveOriginal LayerCompression = iota
+	// Decompress indicates the layer must be decompressed
+	Decompress
+	// Compress indicates the layer must be compressed
+	Compress
+)
+
+// BlobInfo collects known information about a downloadable blob (layer/config).
 // In some situations, some fields may be unknown, in others they may be mandatory; documenting an “unknown” value here does not override that.
 type BlobInfo struct {
 	Digest      digest.Digest // "" if unknown.
@@ -99,6 +112,14 @@ type BlobInfo struct {
 	URLs        []string
 	Annotations map[string]string
 	MediaType   string
+	// CompressionOperation is used in Image.UpdateLayerInfos to instruct
+	// whether the original layer should be preserved or (de)compressed. The
+	// field defaults to preserve the original layer.
+	CompressionOperation LayerCompression
+	// CompressionAlgorithm is used in Image.UpdateLayerInfos to set the correct
+	// MIME type for compressed layers (e.g., gzip or zstd). This field MUST be
+	// set when `CompressionOperation == Compress`.
+	CompressionAlgorithm *compression.Algorithm
 }
 
 // BICTransportScope encapsulates transport-dependent representation of a “scope” where blobs are or are not present.
@@ -195,6 +216,15 @@ type ImageSource interface {
 	// If instanceDigest is not nil, it contains a digest of the specific manifest instance to retrieve (when the primary manifest is a manifest list);
 	// this never happens if the primary manifest is not a manifest list (e.g. if the source never returns manifest lists).
 	GetManifest(ctx context.Context, instanceDigest *digest.Digest) ([]byte, string, error)
+	// GetOriginalManifest returns the original manifest of the image (= the image used to write the image into this ImageReference),
+	// even if the image has been modified by the transport (e.g. uncompressing layers and throwing away the originals).
+	// If instanceDigest is not nil, it contains a digest of the specific manifest instance to retrieve (when the primary manifest is a manifest list);
+	// this never happens if the primary manifest is not a manifest list (e.g. if the source never returns manifest lists).
+	// For most transports, GetManifest() and GetOriginalManifest() should return the same data.
+	// If there is a difference, signatures returned by GetSignatures() should apply to GetOriginalManifest();
+	// OTOH there is NO EXPECTATION that image layers referenced by the original manifest will be accessible via GetBlob()
+	// (but the config blob, if any, _should_ be accessible).
+	GetOriginalManifest(ctx context.Context, instanceDigest *digest.Digest) ([]byte, string, error)
 	// GetBlob returns a stream for the specified blob, and the blob’s size (or -1 if unknown).
 	// The Digest field in BlobInfo is guaranteed to be provided, Size may be -1 and MediaType may be optionally provided.
 	// May update BlobInfoCache, preferably after it knows for certain that a blob truly exists at a specific location.
@@ -211,19 +241,6 @@ type ImageSource interface {
 	// WARNING: The list may contain duplicates, and they are semantically relevant.
 	LayerInfosForCopy(ctx context.Context) ([]BlobInfo, error)
 }
-
-// LayerCompression indicates if layers must be compressed, decompressed or preserved
-type LayerCompression int
-
-const (
-	// PreserveOriginal indicates the layer must be preserved, ie
-	// no compression or decompression.
-	PreserveOriginal LayerCompression = iota
-	// Decompress indicates the layer must be decompressed
-	Decompress
-	// Compress indicates the layer must be compressed
-	Compress
-)
 
 // ImageDestination is a service, possibly remote (= slow), to store components of a single image.
 //
@@ -343,6 +360,10 @@ type Image interface {
 	// The Digest field is guaranteed to be provided, Size may be -1 and MediaType may be optionally provided.
 	// WARNING: The list may contain duplicates, and they are semantically relevant.
 	LayerInfosForCopy(context.Context) ([]BlobInfo, error)
+	// LayerDiffIDs returns a list of DiffIDs (= digests of the UNCOMPRESSED versions, whether or not the downloadable blobs are compressed) of layers referenced by this image,
+	// in order (the root layer first, and then successive layered layers), if available, or nil if not.
+	// WARNING: The list may contain duplicates, and they are semantically relevant.
+	LayerDiffIDs(context.Context) ([]digest.Digest, error)
 	// EmbeddedDockerReferenceConflicts whether a Docker reference embedded in the manifest, if any, conflicts with destination ref.
 	// It returns false if the manifest does not embed a Docker reference.
 	// (This embedding unfortunately happens for Docker schema1, please do not add support for this in any new formats.)
@@ -496,6 +517,12 @@ type SystemContext struct {
 	// Note that this field is used mainly to integrate containers/image into projectatomic/docker
 	// in order to not break any existing docker's integration tests.
 	DockerDisableV1Ping bool
+
+	// === docker/daemon.Transport and docker/daemon/signatures.Store overrides ===
+	// If not "", overrides the system's default path for the docker signature storage, used for recording metadata allowing to authenticate docker images.
+	DockerSignatureDBPath string
+
+	// === ostree.Transport overrides ===
 	// Directory to use for OSTree temporary files
 	OSTreeTmpDirPath string
 

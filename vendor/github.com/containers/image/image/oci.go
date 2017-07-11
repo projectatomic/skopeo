@@ -3,6 +3,7 @@ package image
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 
 	"github.com/containers/image/docker/reference"
@@ -101,6 +102,25 @@ func (m *manifestOCI1) LayerInfos() []types.BlobInfo {
 	return manifestLayerInfosToBlobInfos(m.m.LayerInfos())
 }
 
+// LayerDiffIDs returns a list of DiffIDs (= digests of the UNCOMPRESSED versions, whether or not the downloadable blobs are compressed) of layers referenced by this image,
+// in order (the root layer first, and then successive layered layers), if available, or nil if not.
+// WARNING: The list may contain duplicates, and they are semantically relevant.
+func (m *manifestOCI1) LayerDiffIDs(ctx context.Context) ([]digest.Digest, error) {
+	configBytes, err := m.ConfigBlob(ctx)
+	if err != nil {
+		return nil, err
+	}
+	imageConfig := &imgspecv1.Image{}
+	if err := json.Unmarshal(configBytes, imageConfig); err != nil {
+		return nil, err
+	}
+	res := make([]digest.Digest, len(imageConfig.RootFS.DiffIDs))
+	for i, d := range imageConfig.RootFS.DiffIDs {
+		res[i] = digest.Digest(d)
+	}
+	return res, nil
+}
+
 // EmbeddedDockerReferenceConflicts whether a Docker reference embedded in the manifest, if any, conflicts with destination ref.
 // It returns false if the manifest does not embed a Docker reference.
 // (This embedding unfortunately happens for Docker schema1, please do not add support for this in any new formats.)
@@ -187,7 +207,22 @@ func (m *manifestOCI1) convertToManifestSchema2() (types.Image, error) {
 	layers := make([]manifest.Schema2Descriptor, len(m.m.Layers))
 	for idx := range layers {
 		layers[idx] = schema2DescriptorFromOCI1Descriptor(m.m.Layers[idx])
-		layers[idx].MediaType = manifest.DockerV2Schema2LayerMediaType
+		switch layers[idx].MediaType {
+		case imgspecv1.MediaTypeImageLayerNonDistributable:
+			layers[idx].MediaType = manifest.DockerV2Schema2ForeignLayerMediaType
+		case imgspecv1.MediaTypeImageLayerNonDistributableGzip:
+			layers[idx].MediaType = manifest.DockerV2Schema2ForeignLayerMediaTypeGzip
+		case imgspecv1.MediaTypeImageLayerNonDistributableZstd:
+			return nil, fmt.Errorf("Error during manifest conversion: %q: zstd compression is not supported for docker images", layers[idx].MediaType)
+		case imgspecv1.MediaTypeImageLayer:
+			layers[idx].MediaType = manifest.DockerV2SchemaLayerMediaTypeUncompressed
+		case imgspecv1.MediaTypeImageLayerGzip:
+			layers[idx].MediaType = manifest.DockerV2Schema2LayerMediaType
+		case imgspecv1.MediaTypeImageLayerZstd:
+			return nil, fmt.Errorf("Error during manifest conversion: %q: zstd compression is not supported for docker images", layers[idx].MediaType)
+		default:
+			return nil, fmt.Errorf("Unknown media type during manifest conversion: %q", layers[idx].MediaType)
+		}
 	}
 
 	// Rather than copying the ConfigBlob now, we just pass m.src to the

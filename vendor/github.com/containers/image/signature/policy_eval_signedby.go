@@ -90,8 +90,7 @@ func (pr *prSignedBy) isSignatureAuthorAccepted(ctx context.Context, image types
 	return sarAccepted, signature, nil
 }
 
-func (pr *prSignedBy) isRunningImageAllowed(ctx context.Context, image types.UnparsedImage) (bool, error) {
-	// FIXME: pass context.Context
+func (pr *prSignedBy) isImageAuthenticated(ctx context.Context, image types.UnparsedImage) (bool, error) {
 	sigs, err := image.Signatures(ctx)
 	if err != nil {
 		return false, err
@@ -128,4 +127,8 @@ func (pr *prSignedBy) isRunningImageAllowed(ctx context.Context, image types.Unp
 			strings.Join(msgs, "; ")))
 	}
 	return false, summary
+}
+
+func (pr *prSignedBy) isRunningImageAllowed(ctx context.Context, image types.UnparsedImage) (bool, error) {
+	return pr.isImageAuthenticated(ctx, image)
 }

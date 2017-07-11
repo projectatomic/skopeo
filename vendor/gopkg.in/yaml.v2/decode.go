@@ -32,9 +32,9 @@ type node struct {
 // Parser, produces a node tree out of a libyaml event stream.
 
 type parser struct {
-	parser  yaml_parser_t
-	event   yaml_event_t
-	doc     *node
+	parser yaml_parser_t
+	event  yaml_event_t
+	doc    *node
 }
 
 func newParser(b []byte) *parser {
@@ -120,7 +120,6 @@ func (p *parser) parse() *node {
 	default:
 		panic("attempted to parse unknown event: " + strconv.Itoa(int(p.event.typ)))
 	}
-	panic("unreachable")
 }
 
 func (p *parser) node(kind int) *node {
@@ -191,17 +190,18 @@ type decoder struct {
 	aliases map[string]bool
 	mapType reflect.Type
 	terrors []string
+	strict  bool
 }
 
 var (
-	mapItemType = reflect.TypeOf(MapItem{})
-	durationType = reflect.TypeOf(time.Duration(0))
+	mapItemType    = reflect.TypeOf(MapItem{})
+	durationType   = reflect.TypeOf(time.Duration(0))
 	defaultMapType = reflect.TypeOf(map[interface{}]interface{}{})
-	ifaceType = defaultMapType.Elem()
+	ifaceType      = defaultMapType.Elem()
 )
 
-func newDecoder() *decoder {
-	d := &decoder{mapType: defaultMapType}
+func newDecoder(strict bool) *decoder {
+	d := &decoder{mapType: defaultMapType, strict: strict}
 	d.aliases = make(map[string]bool)
 	return d
 }
@@ -251,7 +251,7 @@ func (d *decoder) callUnmarshaler(n *node, u Unmarshaler) (good bool) {
 //
 // If n holds a null value, prepare returns before doing anything.
 func (d *decoder) prepare(n *node, out reflect.Value) (newout reflect.Value, unmarshaled, good bool) {
-	if n.tag == yaml_NULL_TAG || n.kind == scalarNode && n.tag == "" && (n.value == "null" || n.value == "") {
+	if n.tag == yaml_NULL_TAG || n.kind == scalarNode && n.tag == "" && (n.value == "null" || n.value == "~" || n.value == "" && n.implicit) {
 		return out, false, false
 	}
 	again := true
@@ -476,34 +476,36 @@ func settableValueOf(i interface{}) reflect.Value {
 }
 
 func (d *decoder) sequence(n *node, out reflect.Value) (good bool) {
+	l := len(n.children)
+
 	var iface reflect.Value
 	switch out.Kind() {
 	case reflect.Slice:
-		// okay
+		out.Set(reflect.MakeSlice(out.Type(), l, l))
 	case reflect.Interface:
 		// No type hints. Will have to use a generic sequence.
 		iface = out
-		out = settableValueOf(make([]interface{}, 0))
+		out = settableValueOf(make([]interface{}, l))
 	default:
 		d.terror(n, yaml_SEQ_TAG, out)
 		return false
 	}
 	et := out.Type().Elem()
 
-	l := len(n.children)
+	j := 0
 	for i := 0; i < l; i++ {
 		e := reflect.New(et).Elem()
 		if ok := d.unmarshal(n.children[i], e); ok {
-			out.Set(reflect.Append(out, e))
+			out.Index(j).Set(e)
+			j++
 		}
 	}
+	out.Set(out.Slice(0, j))
 	if iface.IsValid() {
 		iface.Set(out)
 	}
 	return true
 }
-
-
 
 func (d *decoder) mapping(n *node, out reflect.Value) (good bool) {
 	switch out.Kind() {
@@ -605,6 +607,15 @@ func (d *decoder) mappingStruct(n *node, out reflect.Value) (good bool) {
 	}
 	name := settableValueOf("")
 	l := len(n.children)
+
+	var inlineMap reflect.Value
+	var elemType reflect.Type
+	if sinfo.InlineMap != -1 {
+		inlineMap = out.Field(sinfo.InlineMap)
+		inlineMap.Set(reflect.New(inlineMap.Type()).Elem())
+		elemType = inlineMap.Type().Elem()
+	}
+
 	for i := 0; i < l; i += 2 {
 		ni := n.children[i]
 		if isMerge(ni) {
@@ -622,6 +633,15 @@ func (d *decoder) mappingStruct(n *node, out reflect.Value) (good bool) {
 				field = out.FieldByIndex(info.Inline)
 			}
 			d.unmarshal(n.children[i+1], field)
+		} else if sinfo.InlineMap != -1 {
+			if inlineMap.IsNil() {
+				inlineMap.Set(reflect.MakeMap(inlineMap.Type()))
+			}
+			value := reflect.New(elemType).Elem()
+			d.unmarshal(n.children[i+1], value)
+			inlineMap.SetMapIndex(name, value)
+		} else if d.strict {
+			d.terrors = append(d.terrors, fmt.Sprintf("line %d: field %s not found in struct %s", ni.line+1, name.String(), out.Type()))
 		}
 	}
 	return true

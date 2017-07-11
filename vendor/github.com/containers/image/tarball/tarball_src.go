@@ -247,6 +247,18 @@ func (is *tarballImageSource) GetManifest(ctx context.Context, instanceDigest *d
 	return is.manifest, imgspecv1.MediaTypeImageManifest, nil
 }
 
+// GetOriginalManifest returns the original manifest of the image (= the image used to write the image into this ImageReference),
+// even if the image has been modified by the transport (e.g. uncompressing layers and throwing away the originals).
+// If instanceDigest is not nil, it contains a digest of the specific manifest instance to retrieve (when the primary manifest is a manifest list);
+// this never happens if the primary manifest is not a manifest list (e.g. if the source never returns manifest lists).
+// For most transports, GetManifest() and GetOriginalManifest() should return the same data.
+// If there is a difference, signatures returned by GetSignatures() should apply to GetOriginalManifest();
+// OTOH there is NO EXPECTATION that image layers referenced by the original manifest will be accessible via GetBlob()
+// (but the config blob, if any, _should_ be accessible).
+func (is *tarballImageSource) GetOriginalManifest(ctx context.Context, instanceDigest *digest.Digest) ([]byte, string, error) {
+	return is.GetManifest(ctx, instanceDigest)
+}
+
 // GetSignatures returns the image's signatures.  It may use a remote (= slow) service.
 // If instanceDigest is not nil, it contains a digest of the specific manifest instance to retrieve signatures for
 // (when the primary manifest is a manifest list); this never happens if the primary manifest is not a manifest list

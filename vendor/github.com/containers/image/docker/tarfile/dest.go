@@ -27,8 +27,9 @@ type Destination struct {
 	tar      *tar.Writer
 	repoTags []reference.NamedTagged
 	// Other state.
-	blobs  map[digest.Digest]types.BlobInfo // list of already-sent blobs
-	config []byte
+	blobs        map[digest.Digest]types.BlobInfo // list of already-sent blobs
+	config       []byte
+	configDigest digest.Digest // Digest of the image config (used to associate extra data)
 }
 
 // NewDestination returns a tarfile.Destination for the specified io.Writer.
@@ -254,6 +255,8 @@ func (d *Destination) PutManifest(ctx context.Context, m []byte) error {
 		return err
 	}
 
+	d.configDigest = man.ConfigDescriptor.Digest
+
 	// FIXME? Do we also need to support the legacy format?
 	return d.sendBytes(manifestFileName, itemsBytes)
 }
@@ -324,6 +327,12 @@ func (d *Destination) writeLegacyLayerMetadata(layerDescriptors []manifest.Schem
 		lastLayerID = layerID
 	}
 	return layerPaths, lastLayerID, nil
+}
+
+// TarfileConfigDigest returns the config digest (“image ID”) of the image, if available.
+// (TarfileConfigDigest is not a part of types.ImageDestination.)
+func (d *Destination) TarfileConfigDigest() digest.Digest {
+	return d.configDigest
 }
 
 type tarFI struct {

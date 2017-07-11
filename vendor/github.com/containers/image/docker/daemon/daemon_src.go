@@ -3,14 +3,22 @@ package daemon
 import (
 	"context"
 
+	"github.com/containers/image/docker/daemon/signatures"
 	"github.com/containers/image/docker/tarfile"
+	"github.com/containers/image/manifest"
 	"github.com/containers/image/types"
+	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 )
 
 type daemonImageSource struct {
 	ref             daemonReference
 	*tarfile.Source // Implements most of types.ImageSource
+	sigsStore       *signatures.Store
+	// Private cache for readOriginals
+	originalsRead      bool
+	originalManifest   []byte   // Valid if originalsRead
+	originalSignatures [][]byte // Valid if originalsRead
 }
 
 type layerInfo struct {
@@ -45,8 +53,10 @@ func newImageSource(ctx context.Context, sys *types.SystemContext, ref daemonRef
 		return nil, err
 	}
 	return &daemonImageSource{
-		ref:    ref,
-		Source: src,
+		ref:           ref,
+		Source:        src,
+		sigsStore:     signatures.NewStore(sys),
+		originalsRead: false,
 	}, nil
 }
 
@@ -54,6 +64,60 @@ func newImageSource(ctx context.Context, sys *types.SystemContext, ref daemonRef
 // (not as the image itself, or its underlying storage, claims).  This can be used e.g. to determine which public keys are trusted for this image.
 func (s *daemonImageSource) Reference() types.ImageReference {
 	return s.ref
+}
+
+// readOriginals returns the manifest and signatures stored in s.sigsStore, or (nil, nil, nil) if unavailable.
+func (s *daemonImageSource) readOriginals() ([]byte, [][]byte, error) {
+	if !s.originalsRead {
+		configDigest, err := s.Source.TarfileConfigDigest()
+		if err != nil {
+			return nil, nil, err
+		}
+		manifest, sigs, err := s.sigsStore.Read(configDigest, s.ref.ref) // s.ref.ref may be nil
+		if err != nil {
+			return nil, nil, err
+		}
+		s.originalManifest = manifest
+		s.originalSignatures = sigs
+		s.originalsRead = true
+	}
+	return s.originalManifest, s.originalSignatures, nil
+}
+
+// GetOriginalManifest returns the original manifest of the image (= the image used to write the image into this ImageReference),
+// even if the image has been modified by the transport (e.g. uncompressing layers and throwing away the originals).
+// For most transports, GetManifest() and GetOriginalManifest() should return the same data.
+// If there is a difference, signatures returned by GetSignatures() should apply to GetOriginalManifest();
+// OTOH there is NO EXPECTATION that image layers referenced by the original manifest will be accessible via GetBlob()
+// (but the config blob, if any, _should_ be accessible).
+func (s *daemonImageSource) GetOriginalManifest(ctx context.Context, instanceDigest *digest.Digest) ([]byte, string, error) {
+	if instanceDigest != nil {
+		// How did we even get here? GetOriginalManifest(nil) has returned a manifest.DockerV2Schema2MediaType.
+		return nil, "", errors.Errorf(`Manifest lists are not supported by "docker-daemon:"`)
+	}
+	// This overrides s.Source.GetOriginalManifest, which just calls s.source.GetManifest.
+	manifestBytes, _, err := s.readOriginals()
+	if err != nil {
+		return nil, "", err
+	}
+	if manifestBytes == nil {
+		return nil, "", errors.New("The original manifest is not available")
+	}
+	return manifestBytes, manifest.DockerV2Schema2MediaType, nil // v2s2 is the only type we currently accept in Destination.PutManifest
+}
+
+// GetSignatures returns the image's signatures.  It may use a remote (= slow) service.
+func (s *daemonImageSource) GetSignatures(ctx context.Context, instanceDigest *digest.Digest) ([][]byte, error) {
+	if instanceDigest != nil {
+		// How did we even get here? GetOriginalManifest(nil) has returned a manifest.DockerV2Schema2MediaType.
+		return nil, errors.Errorf(`Manifest lists are not supported by "docker-daemon:"`)
+	}
+	// This overrides s.Source.GetSignatures, which just returns nothing.
+	_, sigs, err := s.readOriginals()
+	if err != nil {
+		return nil, err
+	}
+	return sigs, nil
 }
 
 // LayerInfosForCopy() returns updated layer info that should be used when reading, in preference to values in the manifest, if specified.

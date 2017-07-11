@@ -212,6 +212,18 @@ func (s *storageImageSource) GetManifest(ctx context.Context, instanceDigest *di
 	return s.cachedManifest, manifest.GuessMIMEType(s.cachedManifest), err
 }
 
+// GetOriginalManifest returns the original manifest of the image (= the image used to write the image into this ImageReference),
+// even if the image has been modified by the transport (e.g. uncompressing layers and throwing away the originals).
+// If instanceDigest is not nil, it contains a digest of the specific manifest instance to retrieve (when the primary manifest is a manifest list);
+// this never happens if the primary manifest is not a manifest list (e.g. if the source never returns manifest lists).
+// For most transports, GetManifest() and GetOriginalManifest() should return the same data.
+// If there is a difference, signatures returned by GetSignatures() should apply to GetOriginalManifest();
+// OTOH there is NO EXPECTATION that image layers referenced by the original manifest will be accessible via GetBlob()
+// (but the config blob, if any, _should_ be accessible).
+func (s *storageImageSource) GetOriginalManifest(ctx context.Context, instanceDigest *digest.Digest) ([]byte, string, error) {
+	return s.GetManifest(ctx, instanceDigest)
+}
+
 // LayerInfosForCopy() returns the list of layer blobs that make up the root filesystem of
 // the image, after they've been decompressed.
 func (s *storageImageSource) LayerInfosForCopy(ctx context.Context) ([]types.BlobInfo, error) {
@@ -345,9 +357,9 @@ func (s *storageImageDestination) Close() error {
 }
 
 func (s *storageImageDestination) DesiredLayerCompression() types.LayerCompression {
-	// We ultimately have to decompress layers to populate trees on disk,
-	// so callers shouldn't bother compressing them before handing them to
-	// us, if they're not already compressed.
+	// We ultimately have to decompress layers to populate trees on disk
+	// and need to explicitly ask for it here, so that the layers' MIME
+	// types can be set accordingly.
 	return types.PreserveOriginal
 }
 
