@@ -123,7 +123,8 @@ Make sure to clone this repository in your `GOPATH` - otherwise compilation fail
 
 ```sh
 $ git clone https://github.com/projectatomic/skopeo $GOPATH/src/github.com/projectatomic/skopeo
-$ cd $GOPATH/src/github.com/projectatomic/skopeo && make binary-local
+Fedora$ cd $GOPATH/src/github.com/projectatomic/skopeo && make binary-local
+macOS$ cd $GOPATH/src/github.com/projectatomic/skopeo && make binary-local BUILDTAGS=containers_image_ostree_stub
 ```
 
 ### Building in a container
