@@ -22,7 +22,7 @@
             ],
             "docker.io/openshift": [
                 {
-                    "type": "insecureAcceptAnything"
+                    "type": "accept"
                 }
             ]
         },
@@ -40,7 +40,7 @@
             ],
             "": [
                 {
-                    "type": "insecureAcceptAnything"
+                    "type": "accept"
                 }
             ]
         },
