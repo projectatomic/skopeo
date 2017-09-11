@@ -1,28 +1,4 @@
 #
-# ----- Go Builder Image ------
-#
-# FROM golang:1.9 AS builder
-
-# RUN apt-get update && apt-get install -y \
-#     btrfs-tools \
-#     git-core \
-#     libdevmapper-dev \
-#     libgpgme11-dev \
-#     go-md2man \
-#     libglib2.0-dev \
-#     libostree-dev
-
-# # set working directory
-# RUN mkdir -p /go/src/github.com/projectatomic/skopeo
-# WORKDIR /go/src/github.com/projectatomic/skopeo
-
-# # copy sources (including .git repo)
-# COPY . .
-
-# # set entrypoint to bash
-# ENTRYPOINT ["/bin/bash"]
-
-#
 # ----- Go Builder Alpine Image ------
 #
 FROM golang:1.9-alpine AS builder
@@ -45,9 +21,6 @@ WORKDIR /go/src/github.com/projectatomic/skopeo
 
 # copy sources (including .git repo)
 COPY . .
-
-# set entrypoint to bash
-ENTRYPOINT ["/bin/bash"]
 
 # run test and calculate coverage: skip for RELEASE
 RUN make binary-local
@@ -84,4 +57,6 @@ RUN apk add --no-cache \
 
 RUN apk add --no-cache -X http://nl.alpinelinux.org/alpine/edge/testing ostree
 
-COPY --from=builder /go/src/github.com/projectatomic/skopeo/skopeo /usr/bin/skopeo
+COPY --from=builder /go/src/github.com/projectatomic/skopeo/skopeo /usr/local/bin/skopeo
+
+CMD ["/usr/local/bin/skopeo", "--help"]
