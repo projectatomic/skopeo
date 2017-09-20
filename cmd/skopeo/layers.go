@@ -109,10 +109,6 @@ var layersCmd = cli.Command{
 			return err
 		}
 
-		if err := dest.Commit(); err != nil {
-			return err
-		}
-
-		return nil
+		return dest.Commit()
 	},
 }

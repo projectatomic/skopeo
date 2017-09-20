@@ -24,10 +24,7 @@ func deleteHandler(context *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := ref.DeleteImage(ctx); err != nil {
-		return err
-	}
-	return nil
+	return ref.DeleteImage(ctx)
 }
 
 var deleteCmd = cli.Command{
