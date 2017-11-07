@@ -1,11 +1,12 @@
 package daemon
 
 import (
+	"net/http"
+	"path/filepath"
+
 	"github.com/containers/image/types"
 	dockerclient "github.com/docker/docker/client"
 	"github.com/docker/go-connections/tlsconfig"
-	"net/http"
-	"path/filepath"
 )
 
 const (
@@ -15,14 +16,28 @@ const (
 
 // NewDockerClient initializes a new API client based on the passed SystemContext.
 func newDockerClient(ctx *types.SystemContext) (*dockerclient.Client, error) {
-	httpClient, err := tlsConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	host := dockerclient.DefaultDockerHost
 	if ctx != nil && ctx.DockerDaemonHost != "" {
 		host = ctx.DockerDaemonHost
+	}
+
+	// Sadly, unix:// sockets don't work transparently with dockerclient.NewClient.
+	// They work fine with a nil httpClient; with a non-nil httpClient, the transport’s
+	// TLSClientConfig must be nil (or the client will try using HTTPS over the PF_UNIX socket
+	// regardless of the values in the *tls.Config), and we would have to call sockets.ConfigureTransport.
+	//
+	// We don't really want to configure anything for unix:// sockets, so just pass a nil *http.Client.
+	proto, _, _, err := dockerclient.ParseHost(host)
+	if err != nil {
+		return nil, err
+	}
+	var httpClient *http.Client
+	if proto != "unix" {
+		hc, err := tlsConfig(ctx)
+		if err != nil {
+			return nil, err
+		}
+		httpClient = hc
 	}
 
 	return dockerclient.NewClient(host, defaultAPIVersion, httpClient, nil)
