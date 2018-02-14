@@ -46,7 +46,11 @@ var layersCmd = cli.Command{
 			}
 		}()
 
-		var blobDigests []digest.Digest
+		type blobDigest struct {
+			digest   digest.Digest
+			isConfig bool
+		}
+		var blobDigests []blobDigest
 		for _, dString := range c.Args().Tail() {
 			if !strings.HasPrefix(dString, "sha256:") {
 				dString = "sha256:" + dString
@@ -55,7 +59,7 @@ var layersCmd = cli.Command{
 			if err != nil {
 				return err
 			}
-			blobDigests = append(blobDigests, d)
+			blobDigests = append(blobDigests, blobDigest{digest: d, isConfig: false})
 		}
 
 		if len(blobDigests) == 0 {
@@ -63,13 +67,13 @@ var layersCmd = cli.Command{
 			seenLayers := map[digest.Digest]struct{}{}
 			for _, info := range layers {
 				if _, ok := seenLayers[info.Digest]; !ok {
-					blobDigests = append(blobDigests, info.Digest)
+					blobDigests = append(blobDigests, blobDigest{digest: info.Digest, isConfig: false})
 					seenLayers[info.Digest] = struct{}{}
 				}
 			}
 			configInfo := src.ConfigInfo()
 			if configInfo.Digest != "" {
-				blobDigests = append(blobDigests, configInfo.Digest)
+				blobDigests = append(blobDigests, blobDigest{digest: configInfo.Digest, isConfig: true})
 			}
 		}
 
@@ -92,12 +96,12 @@ var layersCmd = cli.Command{
 			}
 		}()
 
-		for _, digest := range blobDigests {
-			r, blobSize, err := rawSource.GetBlob(types.BlobInfo{Digest: digest, Size: -1})
+		for _, bd := range blobDigests {
+			r, blobSize, err := rawSource.GetBlob(types.BlobInfo{Digest: bd.digest, Size: -1})
 			if err != nil {
 				return err
 			}
-			if _, err := dest.PutBlob(r, types.BlobInfo{Digest: digest, Size: blobSize}); err != nil {
+			if _, err := dest.PutBlob(r, types.BlobInfo{Digest: bd.digest, Size: blobSize}, bd.isConfig); err != nil {
 				if closeErr := r.Close(); closeErr != nil {
 					return errors.Wrapf(err, " (close error: %v)", closeErr)
 				}
