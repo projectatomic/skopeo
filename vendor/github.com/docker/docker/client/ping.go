@@ -1,10 +1,10 @@
-package client
+package client // import "github.com/docker/docker/client"
 
 import (
+	"context"
 	"path"
 
 	"github.com/docker/docker/api/types"
-	"golang.org/x/net/context"
 )
 
 // Ping pings the server and returns the value of the "Docker-Experimental", "OS-Type" & "API-Version" headers
@@ -28,7 +28,5 @@ func (cli *Client) Ping(ctx context.Context) (types.Ping, error) {
 		}
 		ping.OSType = serverResp.header.Get("OSType")
 	}
-
-	err = cli.checkResponseErr(serverResp)
-	return ping, err
+	return ping, cli.checkResponseErr(serverResp)
 }
