@@ -179,8 +179,9 @@ providing packages with %{import_path} prefix.
 
 %package -n containers-common
 Summary: Configuration files for working with image signatures
-obsoletes: atomic <= 1.13.1-2
-obsoletes: docker-rhsubscription <= 2:1.13.1-31
+Obsoletes: atomic <= 1.13.1-2
+Obsoletes: docker-rhsubscription <= 2:1.13.1-31
+Obsoletes: skopeo-containers
 
 %description -n containers-common
 This package installs a default signature store configuration and a default
