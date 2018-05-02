@@ -182,6 +182,7 @@ Summary: Configuration files for working with image signatures
 Obsoletes: atomic <= 1.13.1-2
 Obsoletes: docker-rhsubscription <= 2:1.13.1-31
 Obsoletes: skopeo-containers
+Provides: containers-common = %{version}-%{release}
 Provides: skopeo-containers
 
 %description -n containers-common
