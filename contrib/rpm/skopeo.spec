@@ -63,7 +63,7 @@ BuildRequires:  pkgconfig(devmapper)
 BuildRequires:  ostree-devel
 BuildRequires:  glib2-devel
 
-Requires: %{repo}-containers = %{version}-%{release}
+Requires: containers-common = %{version}-%{release}
 
 %description
 Command line utility to inspect images and repositories directly on Docker
@@ -176,12 +176,12 @@ This package contains unit tests for project
 providing packages with %{import_path} prefix.
 %endif
 
-%package containers
+%package -n containers-common
 Summary: Configuration files for working with image signatures
 obsoletes: atomic <= 1.13.1-2
 obsoletes: docker-rhsubscription <= 2:1.13.1-31
 
-%description containers
+%description -n containers-common
 This package installs a default signature store configuration and a default
 policy under `/etc/containers/`.
 
@@ -281,7 +281,7 @@ export GOPATH=%{buildroot}/%{gopath}:$(pwd)/vendor:%{gopath}
 %doc README.md
 %endif
 
-%files containers
+%files -n containers-common
 %dir %{_sysconfdir}/containers
 %dir %{_sysconfdir}/containers/registries.d
 %config(noreplace) %{_sysconfdir}/containers/policy.json
