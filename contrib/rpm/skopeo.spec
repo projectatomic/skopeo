@@ -37,7 +37,7 @@ Name:           %{repo}
 %if 0%{?centos}
 Epoch:          1
 %endif # centos
-Version:        0.1.27
+Version:        0.1.29
 Release:        1.git%{shortcommit0}%{?dist}
 Summary:        Inspect Docker images and repositories on registries
 License:        ASL 2.0
@@ -64,7 +64,11 @@ BuildRequires:  pkgconfig(devmapper)
 BuildRequires:  ostree-devel
 BuildRequires:  glib2-devel
 
+%if 0%{?centos}
+Requires: containers-common = 1:%{version}-%{release}
+%else
 Requires: containers-common = %{version}-%{release}
+%endif
 
 %description
 Command line utility to inspect images and repositories directly on Docker
@@ -182,8 +186,11 @@ Summary: Configuration files for working with image signatures
 Obsoletes: atomic <= 1.13.1-2
 Obsoletes: docker-rhsubscription <= 2:1.13.1-31
 Obsoletes: skopeo-containers
-Provides: containers-common = %{version}-%{release}
-Provides: skopeo-containers
+%if 0%{?centos}
+Provides: skopeo-containers = 1:%{version}-%{release}
+%else
+Provides: skopeo-containers = %{version}-%{release}
+%endif
 
 %description -n containers-common
 This package installs a default signature store configuration and a default
@@ -310,6 +317,10 @@ export GOPATH=%{buildroot}/%{gopath}:$(pwd)/vendor:%{gopath}
 %{_datadir}/bash-completion/completions/%{name}
 
 %changelog
+* Thu May 03 2018 pixdrift <support@pixeldrift.net> - 0.1.29-1.git
+- Rename subpackage to containers-common
+- Update to release
+
 * Tue Nov 21 2017 dwalsh <dwalsh@redhat.com> - 0.1.27-1.git
 - Fix Conflicts to Obsoletes
 - Add better docs to man pages.
