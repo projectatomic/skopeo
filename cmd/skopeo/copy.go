@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/containers/image/copy"
+	"github.com/containers/image/docker/reference"
 	"github.com/containers/image/manifest"
 	"github.com/containers/image/transports"
 	"github.com/containers/image/transports/alltransports"
@@ -72,6 +73,20 @@ func copyHandler(c *cli.Context) error {
 		}
 	}
 
+	if c.IsSet("additional-tag") {
+		for _, image := range c.StringSlice("additional-tag") {
+			ref, err := reference.ParseNormalizedNamed(image)
+			if err != nil {
+				return fmt.Errorf("error parsing additional-tag '%s': %v", image, err)
+			}
+			namedTagged, isNamedTagged := ref.(reference.NamedTagged)
+			if !isNamedTagged {
+				return fmt.Errorf("additional-tag '%s' must be a tagged reference", image)
+			}
+			destinationCtx.DockerArchiveAdditionalTags = append(destinationCtx.DockerArchiveAdditionalTags, namedTagged)
+		}
+	}
+
 	return copy.Image(context.Background(), policyContext, destRef, srcRef, &copy.Options{
 		RemoveSignatures:      removeSignatures,
 		SignBy:                signBy,
@@ -98,6 +113,10 @@ var copyCmd = cli.Command{
 	Action:    copyHandler,
 	// FIXME: Do we need to namespace the GPG aspect?
 	Flags: []cli.Flag{
+		cli.StringSliceFlag{
+			Name:  "additional-tag",
+			Usage: "additional tags (supports docker-archive)",
+		},
 		cli.StringFlag{
 			Name:  "authfile",
 			Usage: "path of the authentication file. Default is ${XDG_RUNTIME_DIR}/containers/auth.json",

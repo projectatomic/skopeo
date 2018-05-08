@@ -16,7 +16,7 @@ type archiveImageDestination struct {
 	writer               io.Closer
 }
 
-func newImageDestination(ref archiveReference) (types.ImageDestination, error) {
+func newImageDestination(sys *types.SystemContext, ref archiveReference) (types.ImageDestination, error) {
 	if ref.destinationRef == nil {
 		return nil, errors.Errorf("docker-archive: destination reference not supplied (must be of form <path>:<reference:tag>)")
 	}
@@ -40,8 +40,12 @@ func newImageDestination(ref archiveReference) (types.ImageDestination, error) {
 		return nil, errors.New("docker-archive doesn't support modifying existing images")
 	}
 
+	tarDest := tarfile.NewDestination(fh, ref.destinationRef)
+	if sys != nil && sys.DockerArchiveAdditionalTags != nil {
+		tarDest.AddRepoTags(sys.DockerArchiveAdditionalTags)
+	}
 	return &archiveImageDestination{
-		Destination: tarfile.NewDestination(fh, ref.destinationRef),
+		Destination: tarDest,
 		ref:         ref,
 		writer:      fh,
 	}, nil
