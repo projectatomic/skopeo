@@ -32,6 +32,8 @@ RUN set -x \
 RUN set -x \
 	&& export GOPATH=$(mktemp -d) \
 	&& git clone --depth 1 -b v1.5.0-alpha.3 git://github.com/openshift/origin "$GOPATH/src/github.com/openshift/origin" \
+	# The sed edits out a "go < 1.5" check which works incorrectly with go ≥ 1.10. \
+	&& sed -i -e 's/\[\[ "\${go_version\[2]}" < "go1.5" ]]/false/' "$GOPATH/src/github.com/openshift/origin/hack/common.sh" \
 	&& (cd "$GOPATH/src/github.com/openshift/origin" && make clean build && make all WHAT=cmd/dockerregistry) \
 	&& cp -a "$GOPATH/src/github.com/openshift/origin/_output/local/bin/linux"/*/* /usr/local/bin \
 	&& cp "$GOPATH/src/github.com/openshift/origin/images/dockerregistry/config.yml" /atomic-registry-config.yml \
