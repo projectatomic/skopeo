@@ -21,4 +21,5 @@ require (
 	github.com/syndtr/gocapability v0.0.0-20180916011248-d98352740cb2
 	github.com/urfave/cli v1.22.1
 	go4.org v0.0.0-20190218023631-ce4c26f7be8e // indirect
+	gopkg.in/yaml.v2 v2.2.2
 )

@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
-	"errors"
 	"io"
 	"strings"
 
 	"github.com/containers/image/v5/pkg/compression"
 	"github.com/containers/image/v5/transports/alltransports"
 	"github.com/containers/image/v5/types"
+	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -50,24 +50,34 @@ func sharedImageFlags() ([]cli.Flag, *sharedImageOptions) {
 	}, &opts
 }
 
+// imageOptions collects CLI flags specific to the "docker" transport, which are
+// the same across subcommands, but may be different for each image
+// (e.g. may differ between the source and destination of a copy)
+type dockerImageOptions struct {
+	global         *globalOptions      // May be shared across several imageOptions instances.
+	shared         *sharedImageOptions // May be shared across several imageOptions instances.
+	credsOption    optionalString      // username[:password] for accessing a registry
+	dockerCertPath string              // A directory using Docker-like *.{crt,cert,key} files for connecting to a registry or a daemon
+	tlsVerify      optionalBool        // Require HTTPS and verify certificates (for docker: and docker-daemon:)
+	noCreds        bool                // Access the registry anonymously
+}
+
 // imageOptions collects CLI flags which are the same across subcommands, but may be different for each image
 // (e.g. may differ between the source and destination of a copy)
 type imageOptions struct {
-	global           *globalOptions      // May be shared across several imageOptions instances.
-	shared           *sharedImageOptions // May be shared across several imageOptions instances.
-	credsOption      optionalString      // username[:password] for accessing a registry
-	dockerCertPath   string              // A directory using Docker-like *.{crt,cert,key} files for connecting to a registry or a daemon
-	tlsVerify        optionalBool        // Require HTTPS and verify certificates (for docker: and docker-daemon:)
-	sharedBlobDir    string              // A directory to use for OCI blobs, shared across repositories
-	dockerDaemonHost string              // docker-daemon: host to connect to
-	noCreds          bool                // Access the registry anonymously
+	dockerImageOptions
+	sharedBlobDir    string // A directory to use for OCI blobs, shared across repositories
+	dockerDaemonHost string // docker-daemon: host to connect to
 }
 
-// imageFlags prepares a collection of CLI flags writing into imageOptions, and the managed imageOptions structure.
-func imageFlags(global *globalOptions, shared *sharedImageOptions, flagPrefix, credsOptionAlias string) ([]cli.Flag, *imageOptions) {
+// dockerImageFlags prepares a collection of docker-transport specific CLI flags
+// writing into imageOptions, and the managed imageOptions structure.
+func dockerImageFlags(global *globalOptions, shared *sharedImageOptions, flagPrefix, credsOptionAlias string) ([]cli.Flag, *imageOptions) {
 	opts := imageOptions{
-		global: global,
-		shared: shared,
+		dockerImageOptions: dockerImageOptions{
+			global: global,
+			shared: shared,
+		},
 	}
 
 	// This is horribly ugly, but we need to support the old option forms of (skopeo copy) for compatibility.
@@ -93,6 +103,19 @@ func imageFlags(global *globalOptions, shared *sharedImageOptions, flagPrefix, c
 			Usage: "require HTTPS and verify certificates when talking to the container registry or daemon (defaults to true)",
 			Value: newOptionalBoolValue(&opts.tlsVerify),
 		},
+		cli.BoolFlag{
+			Name:        flagPrefix + "no-creds",
+			Usage:       "Access the registry anonymously",
+			Destination: &opts.noCreds,
+		},
+	}, &opts
+}
+
+// imageFlags prepares a collection of CLI flags writing into imageOptions, and the managed imageOptions structure.
+func imageFlags(global *globalOptions, shared *sharedImageOptions, flagPrefix, credsOptionAlias string) ([]cli.Flag, *imageOptions) {
+	dockerFlags, opts := dockerImageFlags(global, shared, flagPrefix, credsOptionAlias)
+
+	return append(dockerFlags, []cli.Flag{
 		cli.StringFlag{
 			Name:        flagPrefix + "shared-blob-dir",
 			Usage:       "`DIRECTORY` to use to share blobs across OCI repositories",
@@ -103,12 +126,7 @@ func imageFlags(global *globalOptions, shared *sharedImageOptions, flagPrefix, c
 			Usage:       "use docker daemon host at `HOST` (docker-daemon: only)",
 			Destination: &opts.dockerDaemonHost,
 		},
-		cli.BoolFlag{
-			Name:        flagPrefix + "no-creds",
-			Usage:       "Access the registry anonymously",
-			Destination: &opts.noCreds,
-		},
-	}, &opts
+	}...), opts
 }
 
 // newSystemContext returns a *types.SystemContext corresponding to opts.
