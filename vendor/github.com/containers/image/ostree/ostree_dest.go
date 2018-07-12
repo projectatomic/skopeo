@@ -125,6 +125,13 @@ func (d *ostreeImageDestination) MustMatchRuntimeOS() bool {
 	return true
 }
 
+// IgnoresEmbeddedDockerReference returns true iff the destination does not care about Image.EmbeddedDockerReferenceConflicts(),
+// and would prefer to receive an unmodified manifest instead of one modified for the destination.
+// Does not make a difference if Reference().DockerReference() is nil.
+func (d *ostreeImageDestination) IgnoresEmbeddedDockerReference() bool {
+	return false // N/A, DockerReference() returns nil.
+}
+
 func (d *ostreeImageDestination) PutBlob(ctx context.Context, stream io.Reader, inputInfo types.BlobInfo, isConfig bool) (types.BlobInfo, error) {
 	tmpDir, err := ioutil.TempDir(d.tmpDirPath, "blob")
 	if err != nil {

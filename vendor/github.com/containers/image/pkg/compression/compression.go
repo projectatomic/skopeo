@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/sirupsen/logrus"
+	"github.com/ulikunitz/xz"
 )
 
 // DecompressorFunc returns the decompressed stream, given a compressed stream.
@@ -26,7 +27,7 @@ func Bzip2Decompressor(r io.Reader) (io.Reader, error) {
 
 // XzDecompressor is a DecompressorFunc for the xz compression algorithm.
 func XzDecompressor(r io.Reader) (io.Reader, error) {
-	return nil, errors.New("Decompressing xz streams is not supported")
+	return xz.NewReader(r)
 }
 
 // compressionAlgos is an internal implementation detail of DetectCompression
@@ -64,4 +65,21 @@ func DetectCompression(input io.Reader) (DecompressorFunc, io.Reader, error) {
 	}
 
 	return decompressor, io.MultiReader(bytes.NewReader(buffer[:n]), input), nil
+}
+
+// AutoDecompress takes a stream and returns an uncompressed version of the
+// same stream. It's a simple wrapper around DetectCompression that removes the
+// need to touch DecompressorFuncs.
+func AutoDecompress(stream io.Reader) (io.Reader, bool, error) {
+	decompressFunc, stream, err := DetectCompression(stream)
+	if err != nil {
+		return nil, false, errors.Wrapf(err, "detect compression")
+	}
+	if decompressFunc != nil {
+		stream, err = decompressFunc(stream)
+		if err != nil {
+			return nil, false, errors.Wrapf(err, "auto decompression")
+		}
+	}
+	return stream, decompressFunc != nil, nil
 }
