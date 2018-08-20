@@ -1,4 +1,4 @@
-.PHONY: all binary build-container docs build-local clean install install-binary install-completions shell test-integration vendor
+.PHONY: all binary build-container docs build-local clean install install-defaults install-binary install-docs install-completions shell test-integration vendor
 
 export GO15VENDOREXPERIMENT=1
 
@@ -101,7 +101,9 @@ docs: $(MANPAGES_MD:%.md=%)
 clean:
 	rm -f skopeo docs/*.1
 
-install: install-binary install-docs install-completions
+install: install-binary install-docs install-completions install-defaults
+
+install-defaults:
 	install -d -m 755 ${SIGSTOREDIR}
 	install -d -m 755 ${CONTAINERSSYSCONFIGDIR}
 	install -m 644 default-policy.json ${CONTAINERSSYSCONFIGDIR}/policy.json
