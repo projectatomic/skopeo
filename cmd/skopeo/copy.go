@@ -23,6 +23,9 @@ type copyOptions struct {
 	removeSignatures  bool            // Do not copy signatures from the source image
 	signByFingerprint string          // Sign the image using a GPG key with the specified fingerprint
 	format            optionalString  // Force conversion of the image to a specified format
+
+	dockerTryTorrent      bool
+	dockerTorrentTrackers cli.StringSlice
 }
 
 func copyCmd(global *globalOptions) cli.Command {
@@ -70,6 +73,16 @@ func copyCmd(global *globalOptions) cli.Command {
 				Usage: "`MANIFEST TYPE` (oci, v2s1, or v2s2) to use when saving image to directory using the 'dir:' transport (default is manifest type of source)",
 				Value: newOptionalStringValue(&opts.format),
 			},
+			cli.BoolFlag{
+				Name:        "try-torrent",
+				Usage:       "attempt to pull layers using BitTorrent",
+				Destination: &opts.dockerTryTorrent,
+			},
+			cli.StringSliceFlag{
+				Name:  "torrent-trackers",
+				Usage: "additional trackers for BitTorrent",
+				Value: &opts.dockerTorrentTrackers,
+			},
 		}, sharedFlags...), srcFlags...), destFlags...),
 	}
 }
@@ -101,6 +114,12 @@ func (opts *copyOptions) run(args []string, stdout io.Writer) error {
 	destinationCtx, err := opts.destImage.newSystemContext()
 	if err != nil {
 		return err
+	}
+	if opts.dockerTryTorrent {
+		sourceCtx.DockerTryTorrent = true
+	}
+	if opts.dockerTorrentTrackers != nil {
+		sourceCtx.DockerTorrentTrackers = opts.dockerTorrentTrackers
 	}
 
 	var manifestType string
