@@ -91,6 +91,7 @@ func createApp() (*cli.App, *globalOptions) {
 		layersCmd(&opts),
 		deleteCmd(&opts),
 		manifestDigestCmd(),
+		seedCmd(),
 		standaloneSignCmd(),
 		standaloneVerifyCmd(),
 		untrustedSignatureDumpCmd(),

@@ -169,6 +169,13 @@ Return low-level information about _image-name_ in a registry
 
 Compute a manifest digest of _manifest-file_ and write it to standard output.
 
+## skopeo seed
+**skopeo seed** _image_ _repository_
+
+   **--torrent-trackers** _tracker_ Specify a tracker to use with BitTorrent.  Can be specified multiple times.  If set, it overrides the tracker information from the BitTorrent file.
+
+Seed _image_ on BitTorrent from the specified repository.
+
 ## skopeo standalone-sign
 **skopeo standalone-sign** _manifest docker-reference key-fingerprint_ **--output**|**-o** _signature_
 
