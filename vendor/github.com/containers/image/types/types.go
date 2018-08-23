@@ -493,6 +493,11 @@ type SystemContext struct {
 	// Note that this field is used mainly to integrate containers/image into projectatomic/docker
 	// in order to not break any existing docker's integration tests.
 	DockerDisableV1Ping bool
+	// If set, then try to pull layers using bittorent
+	DockerTryTorrent bool
+	// List of additional Torrent trackers
+	DockerTorrentTrackers []string
+
 	// Directory to use for OSTree temporary files
 	OSTreeTmpDirPath string
 

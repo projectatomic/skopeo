@@ -13,6 +13,7 @@ import (
 
 	"github.com/containers/image/docker/reference"
 	"github.com/containers/image/manifest"
+	"github.com/containers/image/torrent"
 	"github.com/containers/image/types"
 	"github.com/docker/distribution/registry/client"
 	"github.com/opencontainers/go-digest"
@@ -23,21 +24,35 @@ import (
 type dockerImageSource struct {
 	ref dockerReference
 	c   *dockerClient
+	t   *torrent.Client
 	// State
 	cachedManifest         []byte // nil if not loaded yet
 	cachedManifestMIMEType string // Only valid if cachedManifest != nil
+
+	trackers []string
 }
 
 // newImageSource creates a new ImageSource for the specified image reference.
 // The caller must call .Close() on the returned ImageSource.
 func newImageSource(sys *types.SystemContext, ref dockerReference) (*dockerImageSource, error) {
+	var t *torrent.Client
 	c, err := newDockerClientFromRef(sys, ref, false, "pull")
 	if err != nil {
 		return nil, err
 	}
+
+	if sys.DockerTryTorrent {
+		t, err = torrent.MakeClient(sys, logrus.GetLevel() == logrus.DebugLevel, false, 0)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &dockerImageSource{
-		ref: ref,
-		c:   c,
+		ref:      ref,
+		c:        c,
+		t:        t,
+		trackers: sys.DockerTorrentTrackers,
 	}, nil
 }
 
@@ -49,6 +64,9 @@ func (s *dockerImageSource) Reference() types.ImageReference {
 
 // Close removes resources associated with an initialized ImageSource, if any.
 func (s *dockerImageSource) Close() error {
+	if s.t != nil {
+		s.t.Close()
+	}
 	return nil
 }
 
@@ -172,6 +190,15 @@ func (s *dockerImageSource) HasThreadSafeGetBlob() bool {
 func (s *dockerImageSource) GetBlob(ctx context.Context, info types.BlobInfo, cache types.BlobInfoCache) (io.ReadCloser, int64, error) {
 	if len(info.URLs) != 0 {
 		return s.getExternalBlob(ctx, info.URLs)
+	}
+
+	if s.t != nil {
+		reader, size, err := s.t.GetBlobTorrent(ctx, info, s.c.registry, s.ref.ref, s.trackers)
+		if err == nil {
+			return reader, size, err
+		}
+		// if pull via torrent fails, fall through and retrieve normally.
+		logrus.Debugf("Cold not retrieve %s via Torrent, download normally", s.ref.ref)
 	}
 
 	path := fmt.Sprintf(blobsPath, reference.Path(s.ref.ref), info.Digest.String())

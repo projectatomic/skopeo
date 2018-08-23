@@ -53,7 +53,7 @@ MANPAGES_MD = $(wildcard docs/*.md)
 
 BTRFS_BUILD_TAG = $(shell hack/btrfs_tag.sh)
 LIBDM_BUILD_TAG = $(shell hack/libdm_tag.sh)
-LOCAL_BUILD_TAGS = $(BTRFS_BUILD_TAG) $(LIBDM_BUILD_TAG) $(DARWIN_BUILD_TAG)
+LOCAL_BUILD_TAGS = $(BTRFS_BUILD_TAG) $(LIBDM_BUILD_TAG) $(DARWIN_BUILD_TAG) containers_image_include_torrent disable_libutp
 BUILDTAGS += $(LOCAL_BUILD_TAGS)
 
 ifeq ($(DISABLE_CGO), 1)
