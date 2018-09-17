@@ -149,6 +149,51 @@ To check the result :
     }
 ```
 
+## Loading local schemas
+
+By default `file` and `http(s)` references to external schemas are loaded automatically via the file system or via http(s). An external schema can also be loaded using a `SchemaLoader`.
+
+```go
+	sl := gojsonschema.NewSchemaLoader()
+	loader1 := gojsonschema.NewStringLoader(`{ "type" : "string" }`)
+	err := sl.AddSchema("http://some_host.com/string.json", loader1)
+```
+
+Alternatively if your schema already has an `$id` you can use the `AddSchemas` function
+```go
+	loader2 := gojsonschema.NewStringLoader(`{
+			"$id" : "http://some_host.com/maxlength.json",
+			"maxLength" : 5
+		}`)
+	err = sl.AddSchemas(loader2)
+```
+
+The main schema should be passed to the `Compile` function. This main schema can then directly reference the added schemas without needing to download them.
+```go
+	loader3 := gojsonschema.NewStringLoader(`{
+		"$id" : "http://some_host.com/main.json",
+		"allOf" : [
+			{ "$ref" : "http://some_host.com/string.json" },
+			{ "$ref" : "http://some_host.com/maxlength.json" }
+		]
+	}`)
+
+	schema, err := sl.Compile(loader3)
+
+	documentLoader := gojsonschema.NewStringLoader(`"hello world"`)
+
+	result, err := schema.Validate(documentLoader)
+```
+
+It's also possible to pass a `ReferenceLoader` to the `Compile` function that references a loaded schema.
+
+```go
+err = sl.AddSchemas(loader3)
+schema,err := sl.Compile(NewReferenceLoader("http://some_host.com/main.json"))
+``` 
+
+Schemas added by `AddSchema` and `AddSchemas` are only validated when the entire schema is compiled. Returned errors only contain errors about invalid URIs or if a URI is associated with multiple schemas. This may change in the future.
+
 ## Working with Errors
 
 The library handles string error codes which you can customize by creating your own gojsonschema.locale and setting it
@@ -192,6 +237,8 @@ Note: An error of RequiredType has an err.Type() return value of "required"
     "number_gt": NumberGTError
     "number_lte": NumberLTEError
     "number_lt": NumberLTError
+    "condition_then" : ConditionThenError
+    "condition_else" : ConditionElseError
 
 **err.Value()**: *interface{}* Returns the value given
 

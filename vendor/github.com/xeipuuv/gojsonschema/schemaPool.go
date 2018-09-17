@@ -28,6 +28,7 @@ package gojsonschema
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 
 	"github.com/xeipuuv/gojsonreference"
@@ -51,13 +52,17 @@ func newSchemaPool(f JSONLoaderFactory) *schemaPool {
 	return p
 }
 
-func (p *schemaPool) ParseReferences(document interface{}, ref gojsonreference.JsonReference) {
+func (p *schemaPool) ParseReferences(document interface{}, ref gojsonreference.JsonReference) error {
 	// Only the root document should be added to the schema pool
+	if _, ok := p.schemaPoolDocuments[ref.String()]; ok {
+		return fmt.Errorf("Reference already exists: \"%s\"", ref.String())
+	}
+	err := p.parseReferencesRecursive(document, ref)
 	p.schemaPoolDocuments[ref.String()] = &schemaPoolDocument{Document: document}
-	p.parseReferencesRecursive(document, ref)
+	return err
 }
 
-func (p *schemaPool) parseReferencesRecursive(document interface{}, ref gojsonreference.JsonReference) {
+func (p *schemaPool) parseReferencesRecursive(document interface{}, ref gojsonreference.JsonReference) error {
 	// parseReferencesRecursive parses a JSON document and resolves all $id and $ref references.
 	// For $ref references it takes into account the $id scope it is in and replaces
 	// the reference by the absolute resolved reference
@@ -81,6 +86,9 @@ func (p *schemaPool) parseReferencesRecursive(document interface{}, ref gojsonre
 			if err == nil {
 				localRef, err = ref.Inherits(jsonReference)
 				if err == nil {
+					if _, ok := p.schemaPoolDocuments[localRef.String()]; ok {
+						return fmt.Errorf("Reference already exists: \"%s\"", localRef.String())
+					}
 					p.schemaPoolDocuments[localRef.String()] = &schemaPoolDocument{Document: document}
 				}
 			}
@@ -114,6 +122,7 @@ func (p *schemaPool) parseReferencesRecursive(document interface{}, ref gojsonre
 			}
 		}
 	}
+	return nil
 }
 
 func (p *schemaPool) GetDocument(reference gojsonreference.JsonReference) (*schemaPoolDocument, error) {

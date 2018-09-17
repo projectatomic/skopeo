@@ -46,41 +46,7 @@ var (
 )
 
 func NewSchema(l JSONLoader) (*Schema, error) {
-	ref, err := l.JsonReference()
-	if err != nil {
-		return nil, err
-	}
-
-	d := Schema{}
-	d.pool = newSchemaPool(l.LoaderFactory())
-	d.documentReference = ref
-	d.referencePool = newSchemaReferencePool()
-
-	var spd *schemaPoolDocument
-	var doc interface{}
-	if ref.String() != "" {
-		// Get document from schema pool
-		spd, err = d.pool.GetDocument(d.documentReference)
-		if err != nil {
-			return nil, err
-		}
-		doc = spd.Document
-	} else {
-		// Load JSON directly
-		doc, err = l.LoadJSON()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	d.pool.ParseReferences(doc, ref)
-
-	err = d.parse(doc)
-	if err != nil {
-		return nil, err
-	}
-
-	return &d, nil
+	return NewSchemaLoader().Compile(l)
 }
 
 type Schema struct {

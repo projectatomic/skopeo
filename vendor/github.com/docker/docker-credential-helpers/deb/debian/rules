@@ -1,0 +1,17 @@
+#!/usr/bin/make -f
+
+DESTDIR := $(CURDIR)/debian/tmp
+
+override_dh_auto_build:
+	make secretservice pass
+
+override_dh_auto_install:
+	install -D bin/docker-credential-secretservice $(DESTDIR)/usr/bin/docker-credential-secretservice
+	install -D bin/docker-credential-pass $(DESTDIR)/usr/bin/docker-credential-pass
+
+%:
+	dh $@
+
+override_dh_auto_test:
+	# no tests
+

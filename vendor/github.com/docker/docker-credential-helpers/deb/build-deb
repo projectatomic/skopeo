@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -x
+set -e
+
+version=$1
+distro=$2
+
+maintainer=$(awk -F ': ' '$1 == "Maintainer" { print $2; exit }' debian/control)
+
+cat > "debian/changelog" <<-EOF
+docker-credential-helpers ($version) $DISTRO; urgency=low
+
+  * New upstream version
+
+ -- $maintainer  $(date --rfc-2822)
+EOF
+
+mkdir -p src/github.com/docker/docker-credential-helpers
+ln -s /build/credentials /build/src/github.com/docker/docker-credential-helpers/credentials
+ln -s /build/secretservice /build/src/github.com/docker/docker-credential-helpers/secretservice
+ln -s /build/pass /build/src/github.com/docker/docker-credential-helpers/pass
+
+dpkg-buildpackage -us -uc
+
+mkdir /release
+mv /docker-credential-* /release
