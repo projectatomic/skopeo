@@ -40,6 +40,9 @@ func copyHandler(c *cli.Context) error {
 
 	policyContext, err := getPolicyContext(c)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("No system policy found. Install the default-policy.json from the source repo: %v", err)
+		}
 		return fmt.Errorf("Error loading trust policy: %v", err)
 	}
 	defer policyContext.Destroy()
