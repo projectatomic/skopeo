@@ -27,6 +27,9 @@ func contextFromGlobalOptions(c *cli.Context, flagPrefix string) (*types.SystemC
 		DockerDaemonCertPath:              c.String(flagPrefix + "cert-dir"),
 		DockerDaemonInsecureSkipTLSVerify: !c.BoolT(flagPrefix + "tls-verify"),
 	}
+	if c.IsSet("tls-verify") {
+		ctx.DockerInsecureSkipTLSVerify = !c.BoolT("tls-verify")
+	}
 	if c.IsSet(flagPrefix + "tls-verify") {
 		ctx.DockerInsecureSkipTLSVerify = !c.BoolT(flagPrefix + "tls-verify")
 	}

@@ -191,5 +191,9 @@ var copyCmd = cli.Command{
 			Value: "",
 			Usage: "use docker daemon host at `HOST` (docker-daemon destinations only)",
 		},
+		cli.BoolTFlag{
+			Name:  "tls-verify",
+			Usage: "require HTTPS and verify certificates when talking to the container registry or daemon at the source and the destination (defaults to true)",
+		},
 	},
 }
