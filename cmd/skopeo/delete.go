@@ -51,6 +51,10 @@ var deleteCmd = cli.Command{
 			Value: "",
 			Usage: "Use `USERNAME[:PASSWORD]` for accessing the registry",
 		},
+		cli.BoolFlag{
+			Name:  "no-creds",
+			Usage: "access the registry anonymously",
+		},
 		cli.StringFlag{
 			Name:  "cert-dir",
 			Value: "",

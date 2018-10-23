@@ -65,6 +65,10 @@ var inspectCmd = cli.Command{
 			Value: "",
 			Usage: "Use `USERNAME[:PASSWORD]` for accessing the registry",
 		},
+		cli.BoolFlag{
+			Name:  "no-creds",
+			Usage: "access the registry anonymously",
+		},
 	},
 	Action: func(c *cli.Context) (retErr error) {
 		ctx := context.Background()

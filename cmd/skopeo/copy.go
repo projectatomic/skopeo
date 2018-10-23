@@ -141,6 +141,16 @@ var copyCmd = cli.Command{
 			Value: "",
 			Usage: "Use `USERNAME[:PASSWORD]` for accessing the destination registry",
 		},
+		cli.BoolFlag{
+			Name:  "src-no-creds",
+			Value: "",
+			Usage: "access the source registry anonymously",
+		},
+		cli.BoolFlag{
+			Name:  "dest-no-creds",
+			Value: "",
+			Usage: "access the destination registry anonymously",
+		},
 		cli.StringFlag{
 			Name:  "src-cert-dir",
 			Value: "",

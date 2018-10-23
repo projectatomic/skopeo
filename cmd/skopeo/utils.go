@@ -27,6 +27,9 @@ func contextFromGlobalOptions(c *cli.Context, flagPrefix string) (*types.SystemC
 		DockerDaemonCertPath:              c.String(flagPrefix + "cert-dir"),
 		DockerDaemonInsecureSkipTLSVerify: !c.BoolT(flagPrefix + "tls-verify"),
 	}
+	if c.IsSet(flagPrefix+"creds") && c.IsSet(flagPrefix+"no-creds") {
+		return nil, errors.New("creds and no-creds cannot be specified at the same time")
+	}
 	if c.IsSet(flagPrefix + "tls-verify") {
 		ctx.DockerInsecureSkipTLSVerify = !c.BoolT(flagPrefix + "tls-verify")
 	}
@@ -36,6 +39,9 @@ func contextFromGlobalOptions(c *cli.Context, flagPrefix string) (*types.SystemC
 		if err != nil {
 			return nil, err
 		}
+	}
+	if c.Bool(flagPrefix + "no-creds") {
+		ctx.DockerAuthConfig = &types.DockerAuthConfig{}
 	}
 	return ctx, nil
 }
