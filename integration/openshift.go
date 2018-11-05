@@ -22,6 +22,7 @@ var adminKUBECONFIG = map[string]string{
 // running on localhost.
 type openshiftCluster struct {
 	workingDir string
+	dockerDir  string
 	processes  []*exec.Cmd // Processes to terminate on teardown; append to the end, terminate from end to the start.
 }
 
@@ -211,8 +212,8 @@ func (cluster *openshiftCluster) ocLoginToProject(c *check.C) {
 // dockerLogin simulates (docker login) to the cluster, or terminates on failure.
 // We do not run (docker login) directly, because that requires a running daemon and a docker package.
 func (cluster *openshiftCluster) dockerLogin(c *check.C) {
-	dockerDir := filepath.Join(homedir.Get(), ".docker")
-	err := os.Mkdir(dockerDir, 0700)
+	cluster.dockerDir = filepath.Join(homedir.Get(), ".docker")
+	err := os.Mkdir(cluster.dockerDir, 0700)
 	c.Assert(err, check.IsNil)
 
 	out := combinedOutputOfCommand(c, "oc", "config", "view", "-o", "json", "-o", "jsonpath={.users[*].user.token}")
@@ -226,7 +227,7 @@ func (cluster *openshiftCluster) dockerLogin(c *check.C) {
 			}`, port, authValue))
 	}
 	configJSON := `{"auths": {` + strings.Join(auths, ",") + `}}`
-	err = ioutil.WriteFile(filepath.Join(dockerDir, "config.json"), []byte(configJSON), 0600)
+	err = ioutil.WriteFile(filepath.Join(cluster.dockerDir, "config.json"), []byte(configJSON), 0600)
 	c.Assert(err, check.IsNil)
 }
 
@@ -248,5 +249,8 @@ func (cluster *openshiftCluster) tearDown(c *check.C) {
 	}
 	if cluster.workingDir != "" {
 		os.RemoveAll(cluster.workingDir)
+	}
+	if cluster.dockerDir != "" {
+		os.RemoveAll(cluster.dockerDir)
 	}
 }
