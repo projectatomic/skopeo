@@ -1,4 +1,4 @@
-.PHONY: all binary build-container docs build-local clean install install-binary install-completions shell test-integration vendor
+.PHONY: all binary build-container docs docs-in-container build-local clean install install-binary install-completions shell test-integration vendor
 
 export GO15VENDOREXPERIMENT=1
 
@@ -51,9 +51,10 @@ GIT_COMMIT := $(shell git rev-parse HEAD 2> /dev/null || true)
 
 MANPAGES_MD = $(wildcard docs/*.md)
 
-BTRFS_BUILD_TAG = $(shell hack/btrfs_tag.sh)
+BTRFS_BUILD_TAG = $(shell hack/btrfs_tag.sh) $(shell hack/btrfs_installed_tag.sh)
 LIBDM_BUILD_TAG = $(shell hack/libdm_tag.sh)
-LOCAL_BUILD_TAGS = $(BTRFS_BUILD_TAG) $(LIBDM_BUILD_TAG) $(DARWIN_BUILD_TAG)
+OSTREE_BUILD_TAG = $(shell hack/ostree_tag.sh)
+LOCAL_BUILD_TAGS = $(BTRFS_BUILD_TAG) $(LIBDM_BUILD_TAG) $(OSTREE_BUILD_TAG) $(DARWIN_BUILD_TAG)
 BUILDTAGS += $(LOCAL_BUILD_TAGS)
 
 ifeq ($(DISABLE_CGO), 1)
@@ -64,7 +65,7 @@ endif
 #     Note: Uses the -N -l go compiler options to disable compiler optimizations
 #           and inlining. Using these build options allows you to subsequently
 #           use source debugging tools like delve.
-all: binary docs
+all: binary docs-in-container
 
 # Build a container image (skopeobuild) that has everything we need to build.
 # Then do the build and the output (skopeo) should appear in current dir
@@ -92,6 +93,11 @@ docs/%.1: docs/%.1.md
 	$(GO_MD2MAN) -in $< -out $@.tmp && touch $@.tmp && mv $@.tmp $@
 
 docs: $(MANPAGES_MD:%.md=%)
+
+docs-in-container:
+	${CONTAINER_RUNTIME} build ${BUILD_ARGS} -f Dockerfile.build -t skopeobuildimage .
+	${CONTAINER_RUNTIME} run --rm --security-opt label=disable -v $$(pwd):/src/github.com/containers/skopeo \
+		skopeobuildimage make docs $(if $(DEBUG),DEBUG=$(DEBUG)) BUILDTAGS='$(BUILDTAGS)'
 
 clean:
 	rm -f skopeo docs/*.1

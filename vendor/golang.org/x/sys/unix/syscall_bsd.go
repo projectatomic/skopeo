@@ -34,7 +34,7 @@ func Getgroups() (gids []int, err error) {
 		return nil, nil
 	}
 
-	// Sanity check group count. Max is 16 on BSD.
+	// Sanity check group count.  Max is 16 on BSD.
 	if n < 0 || n > 1000 {
 		return nil, EINVAL
 	}
@@ -206,7 +206,7 @@ func (sa *SockaddrDatalink) sockaddr() (unsafe.Pointer, _Socklen, error) {
 	return unsafe.Pointer(&sa.raw), SizeofSockaddrDatalink, nil
 }
 
-func anyToSockaddr(fd int, rsa *RawSockaddrAny) (Sockaddr, error) {
+func anyToSockaddr(rsa *RawSockaddrAny) (Sockaddr, error) {
 	switch rsa.Addr.Family {
 	case AF_LINK:
 		pp := (*RawSockaddrDatalink)(unsafe.Pointer(rsa))
@@ -286,7 +286,7 @@ func Accept(fd int) (nfd int, sa Sockaddr, err error) {
 		Close(nfd)
 		return 0, nil, ECONNABORTED
 	}
-	sa, err = anyToSockaddr(fd, &rsa)
+	sa, err = anyToSockaddr(&rsa)
 	if err != nil {
 		Close(nfd)
 		nfd = 0
@@ -306,21 +306,50 @@ func Getsockname(fd int) (sa Sockaddr, err error) {
 		rsa.Addr.Family = AF_UNIX
 		rsa.Addr.Len = SizeofSockaddrUnix
 	}
-	return anyToSockaddr(fd, &rsa)
+	return anyToSockaddr(&rsa)
 }
 
 //sysnb socketpair(domain int, typ int, proto int, fd *[2]int32) (err error)
 
-// GetsockoptString returns the string value of the socket option opt for the
-// socket associated with fd at the given socket level.
-func GetsockoptString(fd, level, opt int) (string, error) {
-	buf := make([]byte, 256)
-	vallen := _Socklen(len(buf))
-	err := getsockopt(fd, level, opt, unsafe.Pointer(&buf[0]), &vallen)
-	if err != nil {
-		return "", err
-	}
-	return string(buf[:vallen-1]), nil
+func GetsockoptByte(fd, level, opt int) (value byte, err error) {
+	var n byte
+	vallen := _Socklen(1)
+	err = getsockopt(fd, level, opt, unsafe.Pointer(&n), &vallen)
+	return n, err
+}
+
+func GetsockoptInet4Addr(fd, level, opt int) (value [4]byte, err error) {
+	vallen := _Socklen(4)
+	err = getsockopt(fd, level, opt, unsafe.Pointer(&value[0]), &vallen)
+	return value, err
+}
+
+func GetsockoptIPMreq(fd, level, opt int) (*IPMreq, error) {
+	var value IPMreq
+	vallen := _Socklen(SizeofIPMreq)
+	err := getsockopt(fd, level, opt, unsafe.Pointer(&value), &vallen)
+	return &value, err
+}
+
+func GetsockoptIPv6Mreq(fd, level, opt int) (*IPv6Mreq, error) {
+	var value IPv6Mreq
+	vallen := _Socklen(SizeofIPv6Mreq)
+	err := getsockopt(fd, level, opt, unsafe.Pointer(&value), &vallen)
+	return &value, err
+}
+
+func GetsockoptIPv6MTUInfo(fd, level, opt int) (*IPv6MTUInfo, error) {
+	var value IPv6MTUInfo
+	vallen := _Socklen(SizeofIPv6MTUInfo)
+	err := getsockopt(fd, level, opt, unsafe.Pointer(&value), &vallen)
+	return &value, err
+}
+
+func GetsockoptICMPv6Filter(fd, level, opt int) (*ICMPv6Filter, error) {
+	var value ICMPv6Filter
+	vallen := _Socklen(SizeofICMPv6Filter)
+	err := getsockopt(fd, level, opt, unsafe.Pointer(&value), &vallen)
+	return &value, err
 }
 
 //sys   recvfrom(fd int, p []byte, flags int, from *RawSockaddrAny, fromlen *_Socklen) (n int, err error)
@@ -356,7 +385,7 @@ func Recvmsg(fd int, p, oob []byte, flags int) (n, oobn int, recvflags int, from
 	recvflags = int(msg.Flags)
 	// source address is only specified if the socket is unconnected
 	if rsa.Addr.Family != AF_UNSPEC {
-		from, err = anyToSockaddr(fd, &rsa)
+		from, err = anyToSockaddr(&rsa)
 	}
 	return
 }
@@ -541,12 +570,7 @@ func UtimesNano(path string, ts []Timespec) error {
 	if len(ts) != 2 {
 		return EINVAL
 	}
-	// Darwin setattrlist can set nanosecond timestamps
-	err := setattrlistTimes(path, ts, 0)
-	if err != ENOSYS {
-		return err
-	}
-	err = utimensat(AT_FDCWD, path, (*[2]Timespec)(unsafe.Pointer(&ts[0])), 0)
+	err := utimensat(AT_FDCWD, path, (*[2]Timespec)(unsafe.Pointer(&ts[0])), 0)
 	if err != ENOSYS {
 		return err
 	}
@@ -566,10 +590,6 @@ func UtimesNanoAt(dirfd int, path string, ts []Timespec, flags int) error {
 	if len(ts) != 2 {
 		return EINVAL
 	}
-	err := setattrlistTimes(path, ts, flags)
-	if err != ENOSYS {
-		return err
-	}
 	return utimensat(dirfd, path, (*[2]Timespec)(unsafe.Pointer(&ts[0])), flags)
 }
 
@@ -586,15 +606,6 @@ func Futimes(fd int, tv []Timeval) error {
 }
 
 //sys	fcntl(fd int, cmd int, arg int) (val int, err error)
-
-//sys   poll(fds *PollFd, nfds int, timeout int) (n int, err error)
-
-func Poll(fds []PollFd, timeout int) (n int, err error) {
-	if len(fds) == 0 {
-		return poll(nil, 0, timeout)
-	}
-	return poll(&fds[0], len(fds), timeout)
-}
 
 // TODO: wrap
 //	Acct(name nil-string) (err error)
