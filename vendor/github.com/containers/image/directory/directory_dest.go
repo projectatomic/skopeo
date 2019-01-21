@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/containers/image/manifest"
 	"github.com/containers/image/types"
 	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
@@ -172,7 +173,7 @@ func (d *dirImageDestination) PutBlob(ctx context.Context, stream io.Reader, inp
 		return types.BlobInfo{}, err
 	}
 	succeeded = true
-	return types.BlobInfo{Digest: computedDigest, Size: size}, nil
+	return types.BlobInfo{Digest: computedDigest, Size: size, MediaType: manifest.DockerV2SchemeLayerMediaTypeUncompressed}, nil
 }
 
 // TryReusingBlob checks whether the transport already contains, or can efficiently reuse, a blob, and if so, applies it to the current destination
@@ -194,7 +195,7 @@ func (d *dirImageDestination) TryReusingBlob(ctx context.Context, info types.Blo
 	if err != nil {
 		return false, types.BlobInfo{}, err
 	}
-	return true, types.BlobInfo{Digest: info.Digest, Size: finfo.Size()}, nil
+	return true, types.BlobInfo{Digest: info.Digest, Size: finfo.Size(), MediaType: manifest.DockerV2SchemeLayerMediaTypeUncompressed}, nil
 
 }
 

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/containers/image/image"
+	"github.com/containers/image/manifest"
 	"github.com/containers/image/pkg/blobinfocache"
 	"github.com/containers/image/pkg/compression"
 	"github.com/containers/image/signature"
@@ -811,6 +812,17 @@ func (c *copier) copyBlobFromStream(ctx context.Context, srcStream io.Reader, sr
 	uploadedInfo, err := c.dest.PutBlob(ctx, destStream, inputInfo, c.blobInfoCache, isConfig)
 	if err != nil {
 		return types.BlobInfo{}, errors.Wrap(err, "Error writing blob")
+	}
+
+	switch compressionOperation {
+	case types.Compress:
+		uploadedInfo.MediaType = manifest.DockerV2Schema2LayerMediaType
+	case types.Decompress:
+		uploadedInfo.MediaType = manifest.DockerV2SchemeLayerMediaTypeUncompressed
+	case types.PreserveOriginal:
+		// preserve whatever the destination sets by default
+	default:
+		panic("unexpected compression operation")
 	}
 
 	// This is fairly horrible: the writer from getOriginalLayerCopyWriter wants to consumer

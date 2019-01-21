@@ -207,7 +207,10 @@ func (m *Schema2) UpdateLayerInfos(layerInfos []types.BlobInfo) error {
 	original := m.LayersDescriptors
 	m.LayersDescriptors = make([]Schema2Descriptor, len(layerInfos))
 	for i, info := range layerInfos {
-		m.LayersDescriptors[i].MediaType = original[i].MediaType
+		m.LayersDescriptors[i].MediaType = info.MediaType
+		if m.LayersDescriptors[i].MediaType == "" {
+			m.LayersDescriptors[i].MediaType = original[i].MediaType
+		}
 		m.LayersDescriptors[i].Digest = info.Digest
 		m.LayersDescriptors[i].Size = info.Size
 		m.LayersDescriptors[i].URLs = info.URLs
