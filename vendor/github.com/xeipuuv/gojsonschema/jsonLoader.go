@@ -166,6 +166,12 @@ func (l *jsonReferenceLoader) LoadJSON() (interface{}, error) {
 
 func (l *jsonReferenceLoader) loadFromHTTP(address string) (interface{}, error) {
 
+	// returned cached versions for metaschemas for drafts 4, 6 and 7
+	// for performance and allow for easier offline use
+	if metaSchema := drafts.GetMetaSchema(address); metaSchema != "" {
+		return decodeJsonUsingNumber(strings.NewReader(metaSchema))
+	}
+
 	resp, err := http.Get(address)
 	if err != nil {
 		return nil, err
@@ -182,7 +188,6 @@ func (l *jsonReferenceLoader) loadFromHTTP(address string) (interface{}, error) 
 	}
 
 	return decodeJsonUsingNumber(bytes.NewReader(bodyBuff))
-
 }
 
 func (l *jsonReferenceLoader) loadFromFile(path string) (interface{}, error) {
