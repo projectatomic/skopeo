@@ -1,0 +1,66 @@
+{
+    "title": "JSON embedded in an atomic container signature",
+    "description": "This schema is a supplement to atomic-signature.md in this directory.\n\nConsumers of the JSON MUST use the processing rules documented in atomic-signature.md, especially the requirements for the 'critical' subjobject.\n\nWhenever this schema and atomic-signature.md, or the github.com/containers/image/signature implementation, differ,\nit is the atomic-signature.md document, or the github.com/containers/image/signature implementation, which governs.\n\nUsers are STRONGLY RECOMMENDED to use the github.com/containeres/image/signature implementation instead of writing\ntheir own, ESPECIALLY when consuming signatures, so that the policy.json format can be shared by all image consumers.\n",
+    "type": "object",
+    "required": [
+        "critical",
+        "optional"
+    ],
+    "additionalProperties": false,
+    "properties": {
+        "critical": {
+            "type": "object",
+            "required": [
+                "type",
+                "image",
+                "identity"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "atomic container signature"
+                    ]
+                },
+                "image": {
+                    "type": "object",
+                    "required": [
+                        "docker-manifest-digest"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "docker-manifest-digest": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "identity": {
+                    "type": "object",
+                    "required": [
+                        "docker-reference"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "docker-reference": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "optional": {
+            "type": "object",
+            "description": "All members are optional, but if they are included, they must be valid.",
+            "additionalProperties": true,
+            "properties": {
+                "creator": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "integer"
+                }
+            }
+        }
+    }
+}
