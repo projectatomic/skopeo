@@ -34,7 +34,8 @@ func commandAction(handler func(args []string, stdout io.Writer) error) cli.Acti
 // sharedImageOptions collects CLI flags which are image-related, but do not change across images.
 // This really should be a part of globalOptions, but that would break existing users of (skopeo copy --authfile=).
 type sharedImageOptions struct {
-	authFilePath string // Path to a */containers/auth.json
+	authFilePath        string          // Path to a */containers/auth.json
+	additionalAuthFiles cli.StringSlice // Paths to additional authentication files
 }
 
 // imageFlags prepares a collection of CLI flags writing into sharedImageOptions, and the managed sharedImageOptions structure.
@@ -45,6 +46,11 @@ func sharedImageFlags() ([]cli.Flag, *sharedImageOptions) {
 			Name:        "authfile",
 			Usage:       "path of the authentication file. Default is ${XDG_RUNTIME_DIR}/containers/auth.json",
 			Destination: &opts.authFilePath,
+		},
+		cli.StringSliceFlag{
+			Name:  "additional-authfile",
+			Usage: "additional authentication file used for credential lookup only",
+			Value: &opts.additionalAuthFiles,
 		},
 	}, &opts
 }
@@ -114,6 +120,7 @@ func (opts *imageOptions) newSystemContext() (*types.SystemContext, error) {
 		DockerCertPath:       opts.dockerCertPath,
 		OCISharedBlobDirPath: opts.sharedBlobDir,
 		AuthFilePath:         opts.shared.authFilePath,
+		AdditionalAuthFiles:  opts.shared.additionalAuthFiles,
 		DockerDaemonHost:     opts.dockerDaemonHost,
 		DockerDaemonCertPath: opts.dockerCertPath,
 	}

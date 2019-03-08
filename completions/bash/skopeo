@@ -39,6 +39,7 @@ _skopeo_supported_transports() {
 _skopeo_copy() {
     local options_with_args="
     --authfile
+    --additional-authfile
     --format -f
     --sign-by
     --src-creds --screds
@@ -67,6 +68,7 @@ _skopeo_copy() {
 _skopeo_inspect() {
      local options_with_args="
      --authfile
+     --additional-authfile
      --creds
      --cert-dir
      "
@@ -110,6 +112,7 @@ _skopeo_manifest_digest() {
 _skopeo_delete() {
      local options_with_args="
      --authfile
+     --additional-authfile
      --creds
      --cert-dir
      "

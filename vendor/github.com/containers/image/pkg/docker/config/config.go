@@ -51,6 +51,14 @@ func SetAuthentication(sys *types.SystemContext, registry, username, password st
 	})
 }
 
+func getAdditionalAuthFiles(sys *types.SystemContext) []string {
+	paths := []string{}
+	if sys != nil && sys.AdditionalAuthFiles != nil && len(sys.AdditionalAuthFiles) > 0 {
+		paths = append(paths, sys.AdditionalAuthFiles...)
+	}
+	return paths
+}
+
 // GetAuthentication returns the registry credentials stored in
 // either auth.json file or .docker/config.json
 // If an entry is not found empty strings are returned for the username and password
@@ -70,6 +78,8 @@ func GetAuthentication(sys *types.SystemContext, registry string) (string, strin
 		// Logging the error as a warning instead and moving on to pulling the image
 		logrus.Warnf("%v: Trying to pull image in the event that it is a public image.", err)
 	}
+
+	paths = append(paths, getAdditionalAuthFiles(sys)...)
 	paths = append(paths, filepath.Join(homedir.Get(), dockerHomePath), dockerLegacyPath)
 
 	for _, path := range paths {
@@ -93,9 +103,14 @@ func GetUserLoggedIn(sys *types.SystemContext, registry string) (string, error) 
 	if err != nil {
 		return "", err
 	}
-	username, _, _ := findAuthentication(registry, path, false)
-	if username != "" {
-		return username, nil
+	paths := []string{path}
+	paths = append(paths, getAdditionalAuthFiles(sys)...)
+
+	for _, path := range paths {
+		username, _, _ := findAuthentication(registry, path, false)
+		if username != "" {
+			return username, nil
+		}
 	}
 	return "", nil
 }
@@ -253,6 +268,7 @@ func deleteAuthFromCredHelper(credHelper, registry string) error {
 
 // findAuthentication looks for auth of registry in path
 func findAuthentication(registry, path string, legacyFormat bool) (string, string, error) {
+	logrus.Debugf("authentication: trying authfile %q", path)
 	auths, err := readJSONFile(path, legacyFormat)
 	if err != nil {
 		return "", "", errors.Wrapf(err, "error reading JSON file %q", path)

@@ -453,6 +453,11 @@ type SystemContext struct {
 	SystemRegistriesConfPath string
 	// If not "", overrides the default path for the authentication file
 	AuthFilePath string
+	// Allows to specify additional authentication files that can be used
+	// during credential lookup.  Note that the additional authentication
+	// files are only used for reading.  Only the AuthFilePath can be used
+	// for storing and removing credentials.
+	AdditionalAuthFiles []string
 	// If not "", overrides the use of platform.GOARCH when choosing an image or verifying architecture match.
 	ArchitectureChoice string
 	// If not "", overrides the use of platform.GOOS when choosing an image or verifying OS match.

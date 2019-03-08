@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/containers/image/types"
-	"github.com/opencontainers/go-digest"
+	digest "github.com/opencontainers/go-digest"
 	"github.com/sirupsen/logrus"
 )
 
@@ -18,7 +18,8 @@ type locationKey struct {
 
 // memoryCache implements an in-memory-only BlobInfoCache
 type memoryCache struct {
-	mutex                 *sync.Mutex // synchronizes concurrent accesses
+	mutex sync.Mutex
+	// The following fields can only be accessed with mutex held.
 	uncompressedDigests   map[digest.Digest]digest.Digest
 	digestsByUncompressed map[digest.Digest]map[digest.Digest]struct{}             // stores a set of digests for each uncompressed digest
 	knownLocations        map[locationKey]map[types.BICLocationReference]time.Time // stores last known existence time for each location reference
@@ -30,7 +31,6 @@ type memoryCache struct {
 // Manual users of types.{ImageSource,ImageDestination} might also use this instead of a persistent cache.
 func NewMemoryCache() types.BlobInfoCache {
 	return &memoryCache{
-		mutex:                 new(sync.Mutex),
 		uncompressedDigests:   map[digest.Digest]digest.Digest{},
 		digestsByUncompressed: map[digest.Digest]map[digest.Digest]struct{}{},
 		knownLocations:        map[locationKey]map[types.BICLocationReference]time.Time{},
@@ -43,13 +43,11 @@ func NewMemoryCache() types.BlobInfoCache {
 func (mem *memoryCache) UncompressedDigest(anyDigest digest.Digest) digest.Digest {
 	mem.mutex.Lock()
 	defer mem.mutex.Unlock()
-	return mem.uncompressedDigest(anyDigest)
+	return mem.uncompressedDigestLocked(anyDigest)
 }
 
-// uncompressedDigest returns an uncompressed digest corresponding to anyDigest.
-// May return anyDigest if it is known to be uncompressed.
-// Returns "" if nothing is known about the digest (it may be compressed or uncompressed).
-func (mem *memoryCache) uncompressedDigest(anyDigest digest.Digest) digest.Digest {
+// uncompressedDigestLocked implements types.BlobInfoCache.UncompressedDigest, but must be called only with mem.mutex held.
+func (mem *memoryCache) uncompressedDigestLocked(anyDigest digest.Digest) digest.Digest {
 	if d, ok := mem.uncompressedDigests[anyDigest]; ok {
 		return d
 	}
@@ -125,7 +123,7 @@ func (mem *memoryCache) CandidateLocations(transport types.ImageTransport, scope
 	res = mem.appendReplacementCandidates(res, transport, scope, primaryDigest)
 	var uncompressedDigest digest.Digest // = ""
 	if canSubstitute {
-		if uncompressedDigest = mem.uncompressedDigest(primaryDigest); uncompressedDigest != "" {
+		if uncompressedDigest = mem.uncompressedDigestLocked(primaryDigest); uncompressedDigest != "" {
 			otherDigests := mem.digestsByUncompressed[uncompressedDigest] // nil if not present in the map
 			for d := range otherDigests {
 				if d != primaryDigest && d != uncompressedDigest {
