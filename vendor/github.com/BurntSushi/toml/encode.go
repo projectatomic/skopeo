@@ -16,17 +16,17 @@ type tomlEncodeError struct{ error }
 
 var (
 	errArrayMixedElementTypes = errors.New(
-		"toml: cannot encode array with mixed element types")
+		"can't encode array with mixed element types")
 	errArrayNilElement = errors.New(
-		"toml: cannot encode array with nil element")
+		"can't encode array with nil element")
 	errNonString = errors.New(
-		"toml: cannot encode a map with non-string key type")
+		"can't encode a map with non-string key type")
 	errAnonNonStruct = errors.New(
-		"toml: cannot encode an anonymous field that is not a struct")
+		"can't encode an anonymous field that is not a struct")
 	errArrayNoTable = errors.New(
-		"toml: TOML array element cannot contain a table")
+		"TOML array element can't contain a table")
 	errNoKey = errors.New(
-		"toml: top-level values must be Go maps or structs")
+		"top-level values must be a Go map or struct")
 	errAnything = errors.New("") // used in testing
 )
 
@@ -148,7 +148,7 @@ func (enc *Encoder) encode(key Key, rv reflect.Value) {
 	case reflect.Struct:
 		enc.eTable(key, rv)
 	default:
-		panic(e("unsupported type for key '%s': %s", key, k))
+		panic(e("Unsupported type for key '%s': %s", key, k))
 	}
 }
 
@@ -160,7 +160,7 @@ func (enc *Encoder) eElement(rv reflect.Value) {
 		// Special case time.Time as a primitive. Has to come before
 		// TextMarshaler below because time.Time implements
 		// encoding.TextMarshaler, but we need to always use UTC.
-		enc.wf(v.UTC().Format("2006-01-02T15:04:05Z"))
+		enc.wf(v.In(time.FixedZone("UTC", 0)).Format("2006-01-02T15:04:05Z"))
 		return
 	case TextMarshaler:
 		// Special case. Use text marshaler if it's available for this value.
@@ -191,7 +191,7 @@ func (enc *Encoder) eElement(rv reflect.Value) {
 	case reflect.String:
 		enc.writeQuoted(rv.String())
 	default:
-		panic(e("unexpected primitive type: %s", rv.Kind()))
+		panic(e("Unexpected primitive type: %s", rv.Kind()))
 	}
 }
 
@@ -241,7 +241,7 @@ func (enc *Encoder) eArrayOfTables(key Key, rv reflect.Value) {
 func (enc *Encoder) eTable(key Key, rv reflect.Value) {
 	panicIfInvalidKey(key)
 	if len(key) == 1 {
-		// Output an extra newline between top-level tables.
+		// Output an extra new line between top-level tables.
 		// (The newline isn't written if nothing else has been written though.)
 		enc.newline()
 	}
@@ -315,16 +315,10 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) {
 				t := f.Type
 				switch t.Kind() {
 				case reflect.Struct:
-					// Treat anonymous struct fields with
-					// tag names as though they are not
-					// anonymous, like encoding/json does.
-					if getOptions(f.Tag).name == "" {
-						addFields(t, frv, f.Index)
-						continue
-					}
+					addFields(t, frv, f.Index)
+					continue
 				case reflect.Ptr:
-					if t.Elem().Kind() == reflect.Struct &&
-						getOptions(f.Tag).name == "" {
+					if t.Elem().Kind() == reflect.Struct {
 						if !frv.IsNil() {
 							addFields(t.Elem(), frv.Elem(), f.Index)
 						}
@@ -353,18 +347,17 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) {
 				continue
 			}
 
-			opts := getOptions(sft.Tag)
-			if opts.skip {
+			tag := sft.Tag.Get("toml")
+			if tag == "-" {
 				continue
 			}
-			keyName := sft.Name
-			if opts.name != "" {
-				keyName = opts.name
+			keyName, opts := getOptions(tag)
+			if keyName == "" {
+				keyName = sft.Name
 			}
-			if opts.omitempty && isEmpty(sf) {
+			if _, ok := opts["omitempty"]; ok && isEmpty(sf) {
 				continue
-			}
-			if opts.omitzero && isZero(sf) {
+			} else if _, ok := opts["omitzero"]; ok && isZero(sf) {
 				continue
 			}
 
@@ -399,8 +392,9 @@ func tomlTypeOfGo(rv reflect.Value) tomlType {
 	case reflect.Array, reflect.Slice:
 		if typeEqual(tomlHash, tomlArrayType(rv)) {
 			return tomlArrayHash
+		} else {
+			return tomlArray
 		}
-		return tomlArray
 	case reflect.Ptr, reflect.Interface:
 		return tomlTypeOfGo(rv.Elem())
 	case reflect.String:
@@ -457,30 +451,17 @@ func tomlArrayType(rv reflect.Value) tomlType {
 	return firstType
 }
 
-type tagOptions struct {
-	skip      bool // "-"
-	name      string
-	omitempty bool
-	omitzero  bool
-}
-
-func getOptions(tag reflect.StructTag) tagOptions {
-	t := tag.Get("toml")
-	if t == "-" {
-		return tagOptions{skip: true}
-	}
-	var opts tagOptions
-	parts := strings.Split(t, ",")
-	opts.name = parts[0]
-	for _, s := range parts[1:] {
-		switch s {
-		case "omitempty":
-			opts.omitempty = true
-		case "omitzero":
-			opts.omitzero = true
+func getOptions(keyName string) (string, map[string]struct{}) {
+	opts := make(map[string]struct{})
+	ss := strings.Split(keyName, ",")
+	name := ss[0]
+	if len(ss) > 1 {
+		for _, opt := range ss {
+			opts[opt] = struct{}{}
 		}
 	}
-	return opts
+
+	return name, opts
 }
 
 func isZero(rv reflect.Value) bool {

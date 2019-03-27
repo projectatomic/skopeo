@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 
 	"github.com/containers/storage/drivers"
 	"github.com/containers/storage/drivers/overlayutils"
@@ -84,13 +85,12 @@ const (
 )
 
 type overlayOptions struct {
-	overrideKernelCheck bool
-	imageStores         []string
-	quota               quota.Quota
-	mountProgram        string
-	ostreeRepo          string
-	skipMountHome       bool
-	mountOptions        string
+	imageStores   []string
+	quota         quota.Quota
+	mountProgram  string
+	ostreeRepo    string
+	skipMountHome bool
+	mountOptions  string
 }
 
 // Driver contains information about the home directory and the list of active mounts that are created using this driver.
@@ -104,6 +104,7 @@ type Driver struct {
 	options       overlayOptions
 	naiveDiff     graphdriver.DiffDriver
 	supportsDType bool
+	usingMetacopy bool
 	locker        *locker.Locker
 	convert       map[string]bool
 }
@@ -157,6 +158,7 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		return nil, err
 	}
 
+	var usingMetacopy bool
 	var supportsDType bool
 	if opts.mountProgram != "" {
 		supportsDType = true
@@ -165,7 +167,22 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		if err != nil {
 			os.Remove(filepath.Join(home, linkDir))
 			os.Remove(home)
+			patherr, ok := err.(*os.PathError)
+			if ok && patherr.Err == syscall.ENOSPC {
+				return nil, err
+			}
 			return nil, errors.Wrap(err, "kernel does not support overlay fs")
+		}
+		usingMetacopy, err = doesMetacopy(home, opts.mountOptions)
+		if err == nil {
+			if usingMetacopy {
+				logrus.Debugf("overlay test mount indicated that metacopy is being used")
+			} else {
+				logrus.Debugf("overlay test mount indicated that metacopy is not being used")
+			}
+		} else {
+			logrus.Warnf("overlay test mount did not indicate whether or not metacopy is being used: %v", err)
+			return nil, err
 		}
 	}
 
@@ -188,6 +205,7 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		gidMaps:       gidMaps,
 		ctr:           graphdriver.NewRefCounter(graphdriver.NewFsChecker(graphdriver.FsMagicOverlay)),
 		supportsDType: supportsDType,
+		usingMetacopy: usingMetacopy,
 		locker:        locker.New(),
 		options:       *opts,
 		convert:       make(map[string]bool),
@@ -207,7 +225,7 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		return nil, fmt.Errorf("Storage option overlay.size only supported for backingFS XFS. Found %v", backingFs)
 	}
 
-	logrus.Debugf("backingFs=%s, projectQuotaSupported=%v, useNativeDiff=%v", backingFs, projectQuotaSupported, !d.useNaiveDiff())
+	logrus.Debugf("backingFs=%s, projectQuotaSupported=%v, useNativeDiff=%v, usingMetacopy=%v", backingFs, projectQuotaSupported, !d.useNaiveDiff(), d.usingMetacopy)
 
 	return d, nil
 }
@@ -222,11 +240,7 @@ func parseOptions(options []string) (*overlayOptions, error) {
 		key = strings.ToLower(key)
 		switch key {
 		case ".override_kernel_check", "overlay.override_kernel_check", "overlay2.override_kernel_check":
-			logrus.Debugf("overlay: override_kernelcheck=%s", val)
-			o.overrideKernelCheck, err = strconv.ParseBool(val)
-			if err != nil {
-				return nil, err
-			}
+			logrus.Warnf("overlay: override_kernel_check option was specified, but is no longer necessary")
 		case ".mountopt", "overlay.mountopt", "overlay2.mountopt":
 			o.mountOptions = val
 		case ".size", "overlay.size", "overlay2.size":
@@ -285,6 +299,12 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 	exec.Command("modprobe", "overlay").Run()
 
 	layerDir, err := ioutil.TempDir(home, "compat")
+	if err != nil {
+		patherr, ok := err.(*os.PathError)
+		if ok && patherr.Err == syscall.ENOSPC {
+			return false, err
+		}
+	}
 	if err == nil {
 		// Check if reading the directory's contents populates the d_type field, which is required
 		// for proper operation of the overlay filesystem.
@@ -364,6 +384,7 @@ func (d *Driver) Status() [][2]string {
 		{"Backing Filesystem", backingFs},
 		{"Supports d_type", strconv.FormatBool(d.supportsDType)},
 		{"Native Overlay Diff", strconv.FormatBool(!d.useNaiveDiff())},
+		{"Using metacopy", strconv.FormatBool(d.usingMetacopy)},
 	}
 }
 
@@ -397,6 +418,14 @@ func (d *Driver) Metadata(id string) (map[string]string, error) {
 // we had created.
 func (d *Driver) Cleanup() error {
 	return mount.Unmount(d.home)
+}
+
+// CreateFromTemplate creates a layer with the same contents and parent as another layer.
+func (d *Driver) CreateFromTemplate(id, template string, templateIDMappings *idtools.IDMappings, parent string, parentIDMappings *idtools.IDMappings, opts *graphdriver.CreateOpts, readWrite bool) error {
+	if readWrite {
+		return d.CreateReadWrite(id, template, opts)
+	}
+	return d.Create(id, template, opts)
 }
 
 // CreateReadWrite creates a layer that is writable for use as a container
@@ -782,6 +811,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		mountTarget = path.Join(id, "merged")
 	}
 	flags, data := mount.ParseOptions(mountData)
+	logrus.Debugf("overlay: mount_data=%s", mountData)
 	if err := mountFunc("overlay", mountTarget, "overlay", uintptr(flags), data); err != nil {
 		return "", fmt.Errorf("error creating overlay mount to %s: %v", mountTarget, err)
 	}
@@ -975,6 +1005,7 @@ func (d *Driver) UpdateLayerIDMap(id string, toContainer, toHost *idtools.IDMapp
 	// Mount the new layer and handle ownership changes and possible copy_ups in it.
 	options := graphdriver.MountOpts{
 		MountLabel: mountLabel,
+		Options:    strings.Split(d.options.mountOptions, ","),
 	}
 	layerFs, err := d.get(id, true, options)
 	if err != nil {

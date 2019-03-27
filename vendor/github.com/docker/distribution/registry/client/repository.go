@@ -62,7 +62,7 @@ func checkHTTPRedirect(req *http.Request, via []*http.Request) error {
 }
 
 // NewRegistry creates a registry namespace which can be used to get a listing of repositories
-func NewRegistry(baseURL string, transport http.RoundTripper) (Registry, error) {
+func NewRegistry(ctx context.Context, baseURL string, transport http.RoundTripper) (Registry, error) {
 	ub, err := v2.NewURLBuilderFromString(baseURL, false)
 	if err != nil {
 		return nil, err
@@ -75,14 +75,16 @@ func NewRegistry(baseURL string, transport http.RoundTripper) (Registry, error) 
 	}
 
 	return &registry{
-		client: client,
-		ub:     ub,
+		client:  client,
+		ub:      ub,
+		context: ctx,
 	}, nil
 }
 
 type registry struct {
-	client *http.Client
-	ub     *v2.URLBuilder
+	client  *http.Client
+	ub      *v2.URLBuilder
+	context context.Context
 }
 
 // Repositories returns a lexigraphically sorted catalog given a base URL.  The 'entries' slice will be filled up to the size
@@ -131,7 +133,7 @@ func (r *registry) Repositories(ctx context.Context, entries []string, last stri
 }
 
 // NewRepository creates a new Repository for the given repository name and base URL.
-func NewRepository(name reference.Named, baseURL string, transport http.RoundTripper) (distribution.Repository, error) {
+func NewRepository(ctx context.Context, name reference.Named, baseURL string, transport http.RoundTripper) (distribution.Repository, error) {
 	ub, err := v2.NewURLBuilderFromString(baseURL, false)
 	if err != nil {
 		return nil, err
@@ -144,16 +146,18 @@ func NewRepository(name reference.Named, baseURL string, transport http.RoundTri
 	}
 
 	return &repository{
-		client: client,
-		ub:     ub,
-		name:   name,
+		client:  client,
+		ub:      ub,
+		name:    name,
+		context: ctx,
 	}, nil
 }
 
 type repository struct {
-	client *http.Client
-	ub     *v2.URLBuilder
-	name   reference.Named
+	client  *http.Client
+	ub      *v2.URLBuilder
+	context context.Context
+	name    reference.Named
 }
 
 func (r *repository) Named() reference.Named {
@@ -186,35 +190,32 @@ func (r *repository) Manifests(ctx context.Context, options ...distribution.Mani
 
 func (r *repository) Tags(ctx context.Context) distribution.TagService {
 	return &tags{
-		client: r.client,
-		ub:     r.ub,
-		name:   r.Named(),
+		client:  r.client,
+		ub:      r.ub,
+		context: r.context,
+		name:    r.Named(),
 	}
 }
 
 // tags implements remote tagging operations.
 type tags struct {
-	client *http.Client
-	ub     *v2.URLBuilder
-	name   reference.Named
+	client  *http.Client
+	ub      *v2.URLBuilder
+	context context.Context
+	name    reference.Named
 }
 
 // All returns all tags
 func (t *tags) All(ctx context.Context) ([]string, error) {
 	var tags []string
 
-	listURLStr, err := t.ub.BuildTagsURL(t.name)
-	if err != nil {
-		return tags, err
-	}
-
-	listURL, err := url.Parse(listURLStr)
+	u, err := t.ub.BuildTagsURL(t.name)
 	if err != nil {
 		return tags, err
 	}
 
 	for {
-		resp, err := t.client.Get(listURL.String())
+		resp, err := t.client.Get(u)
 		if err != nil {
 			return tags, err
 		}
@@ -234,13 +235,7 @@ func (t *tags) All(ctx context.Context) ([]string, error) {
 			}
 			tags = append(tags, tagsResponse.Tags...)
 			if link := resp.Header.Get("Link"); link != "" {
-				linkURLStr := strings.Trim(strings.Split(link, ";")[0], "<>")
-				linkURL, err := url.Parse(linkURLStr)
-				if err != nil {
-					return tags, err
-				}
-
-				listURL = listURL.ResolveReference(linkURL)
+				u = strings.Trim(strings.Split(link, ";")[0], "<>")
 			} else {
 				return tags, nil
 			}
@@ -326,8 +321,7 @@ func (t *tags) Get(ctx context.Context, tag string) (distribution.Descriptor, er
 	defer resp.Body.Close()
 
 	switch {
-	case resp.StatusCode >= 200 && resp.StatusCode < 400 && len(resp.Header.Get("Docker-Content-Digest")) > 0:
-		// if the response is a success AND a Docker-Content-Digest can be retrieved from the headers
+	case resp.StatusCode >= 200 && resp.StatusCode < 400:
 		return descriptorFromResponse(resp)
 	default:
 		// if the response is an error - there will be no body to decode.
@@ -427,22 +421,18 @@ func (ms *manifests) Get(ctx context.Context, dgst digest.Digest, options ...dis
 		ref         reference.Named
 		err         error
 		contentDgst *digest.Digest
-		mediaTypes  []string
 	)
 
 	for _, option := range options {
-		switch opt := option.(type) {
-		case distribution.WithTagOption:
+		if opt, ok := option.(distribution.WithTagOption); ok {
 			digestOrTag = opt.Tag
 			ref, err = reference.WithTag(ms.name, opt.Tag)
 			if err != nil {
 				return nil, err
 			}
-		case contentDigestOption:
+		} else if opt, ok := option.(contentDigestOption); ok {
 			contentDgst = opt.digest
-		case distribution.WithManifestMediaTypesOption:
-			mediaTypes = opt.MediaTypes
-		default:
+		} else {
 			err := option.Apply(ms)
 			if err != nil {
 				return nil, err
@@ -458,10 +448,6 @@ func (ms *manifests) Get(ctx context.Context, dgst digest.Digest, options ...dis
 		}
 	}
 
-	if len(mediaTypes) == 0 {
-		mediaTypes = distribution.ManifestMediaTypes()
-	}
-
 	u, err := ms.ub.BuildManifestURL(ref)
 	if err != nil {
 		return nil, err
@@ -472,7 +458,7 @@ func (ms *manifests) Get(ctx context.Context, dgst digest.Digest, options ...dis
 		return nil, err
 	}
 
-	for _, t := range mediaTypes {
+	for _, t := range distribution.ManifestMediaTypes() {
 		req.Header.Add("Accept", t)
 	}
 

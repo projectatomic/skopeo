@@ -23,6 +23,8 @@ type copyOptions struct {
 	removeSignatures  bool            // Do not copy signatures from the source image
 	signByFingerprint string          // Sign the image using a GPG key with the specified fingerprint
 	format            optionalString  // Force conversion of the image to a specified format
+	quiet             bool            // Suppress output information when copying images
+
 }
 
 func copyCmd(global *globalOptions) cli.Command {
@@ -54,6 +56,11 @@ func copyCmd(global *globalOptions) cli.Command {
 				Name:  "additional-tag",
 				Usage: "additional tags (supports docker-archive)",
 				Value: &opts.additionalTags, // Surprisingly StringSliceFlag does not support Destination:, but modifies Value: in place.
+			},
+			cli.BoolFlag{
+				Name:        "quiet, q",
+				Usage:       "Suppress output information when copying images",
+				Destination: &opts.quiet,
 			},
 			cli.BoolFlag{
 				Name:        "remove-signatures",
@@ -132,6 +139,9 @@ func (opts *copyOptions) run(args []string, stdout io.Writer) error {
 	ctx, cancel := opts.global.commandTimeoutContext()
 	defer cancel()
 
+	if opts.quiet {
+		stdout = nil
+	}
 	_, err = copy.Image(ctx, policyContext, destRef, srcRef, &copy.Options{
 		RemoveSignatures:      opts.removeSignatures,
 		SignBy:                opts.signByFingerprint,

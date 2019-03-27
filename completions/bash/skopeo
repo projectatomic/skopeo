@@ -5,18 +5,35 @@
 _complete_() {
     local options_with_args=$1
     local boolean_options="$2 -h --help"
+    local transports=$3
 
-    case "$prev" in
-	$options_with_args)
-	    return
-	    ;;
-    esac
+    local option_with_args
+    for option_with_args in $options_with_args $transports
+    do
+        if [ "$option_with_args" == "$prev" -o "$option_with_args" == "$cur" ]
+        then
+            return
+        fi
+    done
 
     case "$cur" in
-	-*)
-	    COMPREPLY=( $( compgen -W "$boolean_options $options_with_args" -- "$cur" ) )
-	    ;;
+        -*)
+            COMPREPLY=( $( compgen -W "$boolean_options $options_with_args" -- "$cur" ) )
+            ;;
+        *)
+            if [ -n "$transports" ]
+            then
+                compopt -o nospace
+                COMPREPLY=( $( compgen -W "$transports" -- "$cur" ) )
+            fi
+            ;;
     esac
+}
+
+_skopeo_supported_transports() {
+    local subcommand=$1
+
+    ${PROG} $subcommand --help | grep "Supported transports" -A 1 | tail -n 1 | sed -e 's/,/:/g' -e 's/$/:/'
 }
 
 _skopeo_copy() {
@@ -40,7 +57,11 @@ _skopeo_copy() {
     --remove-signatures
     "
 
-    _complete_ "$options_with_args" "$boolean_options"
+    local transports="
+    $(_skopeo_supported_transports $(echo $FUNCNAME | sed 's/_skopeo_//'))
+    "
+
+    _complete_ "$options_with_args" "$boolean_options" "$transports"
 }
 
 _skopeo_inspect() {
@@ -53,12 +74,17 @@ _skopeo_inspect() {
      --raw
      --tls-verify
     "
-    _complete_ "$options_with_args" "$boolean_options"
+
+    local transports="
+    $(_skopeo_supported_transports $(echo $FUNCNAME | sed 's/_skopeo_//'))
+    "
+
+    _complete_ "$options_with_args" "$boolean_options" "$transports"
 }
 
 _skopeo_standalone_sign() {
      local options_with_args="
-	   -o --output
+       -o --output
      "
      local boolean_options="
      "
@@ -90,49 +116,54 @@ _skopeo_delete() {
      local boolean_options="
      --tls-verify
      "
-    _complete_ "$options_with_args" "$boolean_options"
+
+    local transports="
+    $(_skopeo_supported_transports $(echo $FUNCNAME | sed 's/_skopeo_//'))
+    "
+
+    _complete_ "$options_with_args" "$boolean_options" "$transports"
 }
 
 _skopeo_layers() {
      local options_with_args="
-	   --creds
-	   --cert-dir
+       --creds
+       --cert-dir
      "
      local boolean_options="
-	   --tls-verify
+       --tls-verify
      "
     _complete_ "$options_with_args" "$boolean_options"
 }
 
 _skopeo_skopeo() {
      local options_with_args="
-	   --policy
-	   --registries.d
+       --policy
+       --registries.d
        --override-arch
        --override-os
        --command-timeout
      "
      local boolean_options="
-	   --insecure-policy
-	   --debug
-	   --version -v
-	   --help -h
+       --insecure-policy
+       --debug
+       --version -v
+       --help -h
      "
      commands=$( ${COMP_WORDS[@]:0:$COMP_CWORD} --generate-bash-completion )
 
      case "$prev" in
-	 $main_options_with_args_glob )
-	     return
-	     ;;
+         $main_options_with_args_glob )
+             return
+             ;;
      esac
 
      case "$cur" in
-	 -*)
-	     COMPREPLY=( $( compgen -W "$boolean_options $options_with_args" -- "$cur" ) )
-	     ;;
-	 *)
-	     COMPREPLY=( $( compgen -W "${commands[*]} help" -- "$cur" ) )
-	     ;;
+         -*)
+             COMPREPLY=( $( compgen -W "$boolean_options $options_with_args" -- "$cur" ) )
+             ;;
+         *)
+             COMPREPLY=( $( compgen -W "${commands[*]} help" -- "$cur" ) )
+             ;;
      esac
 }
 
@@ -150,15 +181,17 @@ _cli_bash_autocomplete() {
      local counter=1
      counter=1
      while [ $counter -lt $cword ]; do
-	 case "!${words[$counter]}" in
-	     *)
-		 command=$(echo "${words[$counter]}" | sed 's/-/_/g')
-		 cpos=$counter
-		 (( cpos++ ))
-		 break
-		 ;;
-	 esac
-	 (( counter++ ))
+         case "${words[$counter]}" in
+             -*)
+                ;;
+             *)
+                 command=$(echo "${words[$counter]}" | sed 's/-/_/g')
+                 cpos=$counter
+                 (( cpos++ ))
+                 break
+                 ;;
+         esac
+         (( counter++ ))
      done
 
      local completions_func=_skopeo_${command}

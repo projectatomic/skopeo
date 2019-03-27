@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/docker/distribution"
-	prometheus "github.com/docker/distribution/metrics"
 	"github.com/opencontainers/go-digest"
 )
 
@@ -39,11 +38,6 @@ type cachedBlobStatter struct {
 	tracker MetricsTracker
 }
 
-var (
-	// cacheCount is the number of total cache request received/hits/misses
-	cacheCount = prometheus.StorageNamespace.NewLabeledCounter("cache", "The number of cache request received", "type")
-)
-
 // NewCachedBlobStatter creates a new statter which prefers a cache and
 // falls back to a backend.
 func NewCachedBlobStatter(cache distribution.BlobDescriptorService, backend distribution.BlobDescriptorService) distribution.BlobDescriptorService {
@@ -64,7 +58,6 @@ func NewCachedBlobStatterWithMetrics(cache distribution.BlobDescriptorService, b
 }
 
 func (cbds *cachedBlobStatter) Stat(ctx context.Context, dgst digest.Digest) (distribution.Descriptor, error) {
-	cacheCount.WithValues("Request").Inc(1)
 	desc, err := cbds.cache.Stat(ctx, dgst)
 	if err != nil {
 		if err != distribution.ErrBlobUnknown {
@@ -73,13 +66,12 @@ func (cbds *cachedBlobStatter) Stat(ctx context.Context, dgst digest.Digest) (di
 
 		goto fallback
 	}
-	cacheCount.WithValues("Hit").Inc(1)
+
 	if cbds.tracker != nil {
 		cbds.tracker.Hit()
 	}
 	return desc, nil
 fallback:
-	cacheCount.WithValues("Miss").Inc(1)
 	if cbds.tracker != nil {
 		cbds.tracker.Miss()
 	}

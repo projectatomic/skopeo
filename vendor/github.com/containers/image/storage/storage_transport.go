@@ -4,6 +4,7 @@ package storage
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -180,7 +181,10 @@ func (s *storageTransport) GetStore() (storage.Store, error) {
 	// Return the transport's previously-set store.  If we don't have one
 	// of those, initialize one now.
 	if s.store == nil {
-		options := storage.DefaultStoreOptions
+		options, err := storage.DefaultStoreOptions(os.Getuid() != 0, os.Getuid())
+		if err != nil {
+			return nil, err
+		}
 		options.UIDMap = s.defaultUIDMap
 		options.GIDMap = s.defaultGIDMap
 		store, err := storage.GetStore(options)
@@ -284,11 +288,6 @@ func (s storageTransport) GetStoreImage(store storage.Store, ref types.ImageRefe
 		}
 	}
 	if sref, ok := ref.(*storageReference); ok {
-		if sref.id != "" {
-			if img, err := store.Image(sref.id); err == nil {
-				return img, nil
-			}
-		}
 		tmpRef := *sref
 		if img, err := tmpRef.resolveImage(); err == nil {
 			return img, nil

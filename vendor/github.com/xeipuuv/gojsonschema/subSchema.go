@@ -79,6 +79,7 @@ const (
 )
 
 type subSchema struct {
+	draft *Draft
 
 	// basic subSchema meta properties
 	id          *gojsonreference.JsonReference
@@ -102,11 +103,11 @@ type subSchema struct {
 	propertiesChildren          []*subSchema
 
 	// validation : number / integer
-	multipleOf       *big.Float
-	maximum          *big.Float
-	exclusiveMaximum bool
-	minimum          *big.Float
-	exclusiveMinimum bool
+	multipleOf       *big.Rat
+	maximum          *big.Rat
+	exclusiveMaximum *big.Rat
+	minimum          *big.Rat
+	exclusiveMinimum *big.Rat
 
 	// validation : string
 	minLength *int

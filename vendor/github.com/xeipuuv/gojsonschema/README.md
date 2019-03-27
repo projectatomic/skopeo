@@ -55,7 +55,6 @@ func main() {
             fmt.Printf("- %s\n", desc)
         }
     }
-
 }
 
 
@@ -149,6 +148,7 @@ To check the result :
     }
 ```
 
+
 ## Loading local schemas
 
 By default `file` and `http(s)` references to external schemas are loaded automatically via the file system or via http(s). An external schema can also be loaded using a `SchemaLoader`.
@@ -189,10 +189,45 @@ It's also possible to pass a `ReferenceLoader` to the `Compile` function that re
 
 ```go
 err = sl.AddSchemas(loader3)
-schema,err := sl.Compile(NewReferenceLoader("http://some_host.com/main.json"))
+schema, err := sl.Compile(gojsonschema.NewReferenceLoader("http://some_host.com/main.json"))
 ``` 
 
-Schemas added by `AddSchema` and `AddSchemas` are only validated when the entire schema is compiled. Returned errors only contain errors about invalid URIs or if a URI is associated with multiple schemas. This may change in the future.
+Schemas added by `AddSchema` and `AddSchemas` are only validated when the entire schema is compiled, unless meta-schema validation is used.
+
+## Using a specific draft
+By default `gojsonschema` will try to detect the draft of a schema by using the `$schema` keyword and parse it in a strict draft-04, draft-06 or draft-07 mode. If `$schema` is missing, or the draft version is not explicitely set, a hybrid mode is used which merges together functionality of all drafts into one mode.
+
+Autodectection can be turned off with the `AutoDetect` property. Specific draft versions can be specified with the `Draft` property.
+
+```go
+sl := gojsonschema.NewSchemaLoader()
+sl.Draft = gojsonschema.Draft7
+sl.AutoDetect = false
+```
+
+If autodetection is on (default), a draft-07 schema can savely reference draft-04 schemas and vice-versa, as long as `$schema` is specified in all schemas.
+
+## Meta-schema validation
+Schemas that are added using the `AddSchema`, `AddSchemas` and `Compile` can be validated against their meta-schema by setting the `Validate` property.
+
+The following example will produce an error as `multipleOf` must be a number. If `Validate` is off (default), this error is only returned at the `Compile` step. 
+
+```go
+sl := gojsonschema.NewSchemaLoader()
+sl.Validate = true
+err := sl.AddSchemas(gojsonschema.NewStringLoader(`{
+     $id" : "http://some_host.com/invalid.json",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "multipleOf" : true
+}`))
+ ```
+``` 
+ ```
+
+Errors returned by meta-schema validation are more readable and contain more information, which helps significantly if you are developing a schema.
+
+Meta-schema validation also works with a custom `$schema`. In case `$schema` is missing, or `AutoDetect` is set to `false`, the meta-schema of the used draft is used.
+
 
 ## Working with Errors
 

@@ -10,7 +10,6 @@ import (
 
 	"github.com/docker/distribution/reference"
 	"github.com/opencontainers/go-digest"
-	"github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 var (
@@ -67,18 +66,11 @@ type Descriptor struct {
 	Size int64 `json:"size,omitempty"`
 
 	// Digest uniquely identifies the content. A byte stream can be verified
-	// against this digest.
+	// against against this digest.
 	Digest digest.Digest `json:"digest,omitempty"`
 
 	// URLs contains the source URLs of this content.
 	URLs []string `json:"urls,omitempty"`
-
-	// Annotations contains arbitrary metadata relating to the targeted content.
-	Annotations map[string]string `json:"annotations,omitempty"`
-
-	// Platform describes the platform which the image in the manifest runs on.
-	// This should only be used when referring to a manifest.
-	Platform *v1.Platform `json:"platform,omitempty"`
 
 	// NOTE: Before adding a field here, please ensure that all
 	// other options have been exhausted. Much of the type relationships
