@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -156,6 +157,21 @@ func getTomlStorage(storeOptions *StoreOptions) *tomlConfig {
 	}
 
 	return config
+}
+
+func getRootlessUID() int {
+	uidEnv := os.Getenv("_CONTAINERS_ROOTLESS_UID")
+	if uidEnv != "" {
+		u, _ := strconv.Atoi(uidEnv)
+		return u
+	}
+	return os.Geteuid()
+}
+
+// DefaultStoreOptionsAutoDetectUID returns the default storage ops for containers
+func DefaultStoreOptionsAutoDetectUID() (StoreOptions, error) {
+	uid := getRootlessUID()
+	return DefaultStoreOptions(uid != 0, uid)
 }
 
 // DefaultStoreOptions returns the default storage ops for containers

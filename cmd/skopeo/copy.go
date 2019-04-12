@@ -50,6 +50,7 @@ func copyCmd(global *globalOptions) cli.Command {
 	`, strings.Join(transports.ListNames(), ", ")),
 		ArgsUsage: "SOURCE-IMAGE DESTINATION-IMAGE",
 		Action:    commandAction(opts.run),
+		Before:    needsRexec,
 		// FIXME: Do we need to namespace the GPG aspect?
 		Flags: append(append(append([]cli.Flag{
 			cli.StringSliceFlag{

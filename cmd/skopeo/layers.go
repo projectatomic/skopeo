@@ -32,6 +32,7 @@ func layersCmd(global *globalOptions) cli.Command {
 		Name:      "layers",
 		Usage:     "Get layers of IMAGE-NAME",
 		ArgsUsage: "IMAGE-NAME [LAYER...]",
+		Before:    needsRexec,
 		Hidden:    true,
 		Action:    commandAction(opts.run),
 		Flags:     append(sharedFlags, imageFlags...),

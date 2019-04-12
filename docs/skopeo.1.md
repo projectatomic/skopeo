@@ -81,11 +81,11 @@ Most commands refer to container images, using a _transport_`:`_details_ format.
 ## FILES
   **/etc/containers/policy.json**
   Default trust policy file, if **--policy** is not specified.
-  The policy format is documented in https://github.com/containers/image/blob/master/docs/policy.json.md .
+  The policy format is documented in https://github.com/containers/image/blob/master/docs/containers-policy.json.5.md .
 
   **/etc/containers/registries.d**
   Default directory containing registry configuration, if **--registries.d** is not specified.
-  The contents of this directory are documented in https://github.com/containers/image/blob/master/docs/registries.d.md .
+  The contents of this directory are documented in https://github.com/containers/image/blob/master/docs/containers-policy.json.5.md .
 
 ## SEE ALSO
 podman-login(1), docker-login(1)

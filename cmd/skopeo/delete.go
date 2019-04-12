@@ -24,8 +24,9 @@ func deleteCmd(global *globalOptions) cli.Command {
 		image:  imageOpts,
 	}
 	return cli.Command{
-		Name:  "delete",
-		Usage: "Delete image IMAGE-NAME",
+		Before: needsRexec,
+		Name:   "delete",
+		Usage:  "Delete image IMAGE-NAME",
 		Description: fmt.Sprintf(`
 	Delete an "IMAGE_NAME" from a transport
 

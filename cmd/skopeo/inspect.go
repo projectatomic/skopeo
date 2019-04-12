@@ -62,6 +62,7 @@ func inspectCmd(global *globalOptions) cli.Command {
 				Destination: &opts.raw,
 			},
 		}, sharedFlags...), imageFlags...),
+		Before: needsRexec,
 		Action: commandAction(opts.run),
 	}
 }

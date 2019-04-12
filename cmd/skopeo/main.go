@@ -99,7 +99,7 @@ func createApp() (*cli.App, *globalOptions) {
 }
 
 // before is run by the cli package for any command, before running the command-specific handler.
-func (opts *globalOptions) before(_ *cli.Context) error {
+func (opts *globalOptions) before(ctx *cli.Context) error {
 	if opts.debug {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
