@@ -1,4 +1,5 @@
-.PHONY: all binary build-container docs docs-in-container build-local clean install install-binary install-completions shell test-integration .install.vndr vendor
+.PHONY: all binary build-container docs docs-in-container build-local clean install install-binary install-completions shell test-integration .install.vndr vendor image.docs
+
 
 export GO15VENDOREXPERIMENT=1
 
@@ -25,6 +26,7 @@ BASHINSTALLDIR=${PREFIX}/share/bash-completion/completions
 GO ?= go
 CONTAINER_RUNTIME := $(shell command -v podman 2> /dev/null || echo docker)
 GOMD2MAN ?= $(shell command -v go-md2man || echo '$(GOBIN)/go-md2man')
+IMAGEVERSION := $(shell grep ^github.com/containers/image vendor.conf  | cut -f2 -d ' ')
 
 ifeq ($(DEBUG), 1)
   override GOGCFLAGS += -N -l
@@ -106,7 +108,13 @@ build-container:
 $(MANPAGES): %: %.md
 	@sed -e 's/\((skopeo.*\.md)\)//' -e 's/\[\(skopeo.*\)\]/\1/' $<  | $(GOMD2MAN) -in /dev/stdin -out $@
 
-docs: $(MANPAGES)
+image.docs: vendor.conf
+	@git clone https://github.com/containers/image.git image.docs 2>/dev/null || true
+	@(cd image.docs; \
+	  git checkout ${IMAGEVERSION} 2>/dev/null || git checkout ${IMAGEVERSION} -b ${IMAGEVERSION}; \
+	for i in docs/*.md; do $(GOMD2MAN) -in $$i -out $${i//.md}; done)
+
+docs: $(MANPAGES) image.docs
 
 docs-in-container:
 	${CONTAINER_RUNTIME} build ${BUILD_ARGS} -f Dockerfile.build -t skopeobuildimage .
@@ -114,7 +122,7 @@ docs-in-container:
 		skopeobuildimage make docs $(if $(DEBUG),DEBUG=$(DEBUG)) BUILDTAGS='$(BUILDTAGS)'
 
 clean:
-	rm -f skopeo docs/*.1
+	rm -rf skopeo docs/*.1 image.docs
 
 install: install-binary install-docs install-completions
 	install -d -m 755 ${SIGSTOREDIR}
@@ -130,6 +138,8 @@ install-binary: ./skopeo
 install-docs: docs
 	install -d -m 755 ${MANINSTALLDIR}/man1
 	install -m 644 docs/*.1 ${MANINSTALLDIR}/man1/
+	install -d -m 755 ${MANINSTALLDIR}/man5
+	install -m 644 image.docs/docs/*.5 ${MANINSTALLDIR}/man5/
 
 install-completions:
 	install -m 755 -d ${BASHINSTALLDIR}
