@@ -94,6 +94,7 @@ func createApp() (*cli.App, *globalOptions) {
 	app.Before = opts.before
 	app.Commands = []cli.Command{
 		copyCmd(&opts),
+		listCmd(&opts),
 		inspectCmd(&opts),
 		layersCmd(&opts),
 		deleteCmd(&opts),
