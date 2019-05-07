@@ -1,10 +1,10 @@
-% atomic-signature(5) Atomic signature format
+% container-signature(5) Container signature format
 % Miloslav Trmač
 % March 2017
 
-# Atomic signature format
+# Container signature format
 
-This document describes the format of “atomic” container signatures,
+This document describes the format of container signatures,
 as implemented by the `github.com/containers/image/signature` package.
 
 Most users should be able to consume these signatures by using the `github.com/containers/image/signature` package
@@ -21,7 +21,7 @@ an automated build system as a result of an automated build,
 a company IT department approving the image for production) under a specified _identity_
 (e.g. an OS base image / specific application, with a specific version).
 
-An atomic container signature consists of a cryptographic signature which identifies
+A container signature consists of a cryptographic signature which identifies
 and authenticates who signed the image, and carries as a signed payload a JSON document.
 The JSON document identifies the image being signed, claims a specific identity of the
 image and if applicable, contains other information about the image.
@@ -34,7 +34,7 @@ associating more than one signature with an image.
 
 ## The cryptographic signature
 
-As distributed, the atomic container signature is a blob which contains a cryptographic signature
+As distributed, the container signature is a blob which contains a cryptographic signature
 in an industry-standard format, carrying a signed JSON payload (i.e. the blob contains both the
 JSON document and a signature of the JSON document; it is not a “detached signature” with
 independent blobs containing the JSON document and a cryptographic signature).
@@ -46,7 +46,7 @@ that this is not necessary and the configured expected public key provides anoth
 of the expected cryptographic signature format. Such metadata may be added in the future for
 newly added cryptographic signature formats, if necessary.)
 
-Consumers of atomic container signatures SHOULD verify the cryptographic signature
+Consumers of container signatures SHOULD verify the cryptographic signature
 against one or more trusted public keys
 (e.g. defined in a [policy.json signature verification policy file](policy.json.md))
 before parsing or processing the JSON payload in _any_ way,
@@ -89,7 +89,7 @@ and if the semantics of the invalid document, as created by such an implementati
 The top-level value of the JSON document MUST be a JSON object with exactly two members, `critical` and `optional`,
 each a JSON object.
 
-The `critical` object MUST contain a `type` member identifying the document as an atomic container signature
+The `critical` object MUST contain a `type` member identifying the document as a container signature
 (as defined [below](#criticaltype))
 and signature consumers MUST reject signatures which do not have this member or in which this member does not have the expected value.
 
@@ -210,7 +210,7 @@ Consumers still SHOULD reject any signature where a member of an `optional` obje
 
 If present, this MUST be a JSON string, identifying the name and version of the software which has created the signature.
 
-The contents of this string is not defined in detail; however each implementation creating atomic container signatures:
+The contents of this string is not defined in detail; however each implementation creating container signatures:
 
 - SHOULD define the contents to unambiguously define the software in practice (e.g. it SHOULD contain the name of the software, not only the version number)
 - SHOULD use a build and versioning process which ensures that the contents of this string (e.g. an included version number)
@@ -221,7 +221,7 @@ The contents of this string is not defined in detail; however each implementatio
   (e.g. the version of the implementation SHOULD NOT be only a git hash, because they don’t have an easily defined ordering;
   the string should contain a version number, or at least a date of the commit).
 
-Consumers of atomic container signatures MAY recognize specific values or sets of values of `optional.creator`
+Consumers of container signatures MAY recognize specific values or sets of values of `optional.creator`
 (perhaps augmented with `optional.timestamp`),
 and MAY change their processing of the signature based on these values
 (usually to acommodate violations of this specification in past versions of the signing software which cannot be fixed retroactively),

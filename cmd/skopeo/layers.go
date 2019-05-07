@@ -121,12 +121,19 @@ func (opts *layersOptions) run(args []string, stdout io.Writer) (retErr error) {
 		}
 	}()
 
+	layerIndex := 0
 	for _, bd := range blobDigests {
 		r, blobSize, err := rawSource.GetBlob(ctx, types.BlobInfo{Digest: bd.digest, Size: -1}, cache)
 		if err != nil {
 			return err
 		}
-		if _, err := dest.PutBlob(ctx, r, types.BlobInfo{Digest: bd.digest, Size: blobSize}, cache, bd.isConfig); err != nil {
+		index := layerIndex
+		if bd.isConfig {
+			index = -1
+		} else {
+			layerIndex++
+		}
+		if _, err := dest.PutBlob(ctx, r, types.BlobInfo{Digest: bd.digest, Size: blobSize}, index, cache, bd.isConfig, nil); err != nil {
 			if closeErr := r.Close(); closeErr != nil {
 				return errors.Wrapf(err, " (close error: %v)", closeErr)
 			}
