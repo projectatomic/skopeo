@@ -97,6 +97,13 @@ func (s *CopySuite) TestCopyWithManifestList(c *check.C) {
 	assertSkopeoSucceeds(c, "", "copy", "docker://estesp/busybox:latest", "dir:"+dir)
 }
 
+func (s *CopySuite) TestCopyWithDuplicateBlob(c *check.C) {
+	dir, err := ioutil.TempDir("", "copy-duplicate-blob")
+	c.Assert(err, check.IsNil)
+	defer os.RemoveAll(dir)
+	assertSkopeoSucceeds(c, "", "copy", "docker://quay.io/libpod/alpine_nginx:latest", "dir:"+dir)
+}
+
 func (s *CopySuite) TestCopyFailsWhenImageOSDoesntMatchRuntimeOS(c *check.C) {
 	c.Skip("can't run this on Travis")
 	assertSkopeoFails(c, `.*image operating system "windows" cannot be used on "linux".*`, "copy", "docker://microsoft/windowsservercore", "containers-storage:test")
