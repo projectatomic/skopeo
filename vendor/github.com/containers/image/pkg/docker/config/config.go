@@ -31,6 +31,7 @@ var (
 	xdgRuntimeDirPath       = filepath.FromSlash("containers/auth.json")
 	dockerHomePath          = filepath.FromSlash(".docker/config.json")
 	dockerLegacyHomePath    = ".dockercfg"
+	dockerConfigEnvVar      = "DOCKER_CONFIG"
 
 	// ErrNotLoggedIn is returned for users not logged into a registry
 	// that they are trying to logout of
@@ -71,6 +72,10 @@ func GetAuthentication(sys *types.SystemContext, registry string) (string, strin
 		logrus.Warnf("%v: Trying to pull image in the event that it is a public image.", err)
 	}
 	paths = append(paths, filepath.Join(homedir.Get(), dockerHomePath), dockerLegacyPath)
+
+	if dockerConfig := os.Getenv(dockerConfigEnvVar); dockerConfig != "" {
+		paths = append(paths, filepath.Join(dockerConfig, "config.json"))
+	}
 
 	for _, path := range paths {
 		legacyFormat := path == dockerLegacyPath
