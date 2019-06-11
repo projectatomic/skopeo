@@ -1,8 +1,14 @@
 FROM ubuntu:18.10
 
-RUN apt-get update && apt-get install -y \
-    golang \
-    libbtrfs-dev \
+RUN apt-get update && apt-get install -y wget
+RUN wget -P /tmp/ https://dl.google.com/go/go1.11.linux-amd64.tar.gz && \
+    tar -xvf /tmp/go1.11.linux-amd64.tar.gz -C /usr/local/
+
+ENV GOROOT /usr/local/go
+ENV GOPATH /
+ENV PATH $GOPATH/bin:$GOROOT/bin:$PATH
+
+RUN apt-get install -y libbtrfs-dev \
     git-core \
     libdevmapper-dev \
     libgpgme11-dev \
@@ -10,5 +16,4 @@ RUN apt-get update && apt-get install -y \
     libglib2.0-dev \
     libostree-dev
 
-ENV GOPATH=/
 WORKDIR /src/github.com/containers/skopeo
