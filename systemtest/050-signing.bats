@@ -97,7 +97,7 @@ END_POLICY_JSON
 
     # Push a bunch of images. Do so *without* --policy flag; this lets us
     # sign or not, creating images that will or won't conform to policy.
-    while read path sig comments; do
+    while IFS=$' \t\n' read path sig comments; do
         local sign_opt=
         if [[ $sig != '-' ]]; then
             sign_opt="--sign-by=${sig}@test.redhat.com"
@@ -118,7 +118,7 @@ END_PUSH
     # Done pushing. Now try to fetch. From here on we use the --policy option.
     # The table below lists the paths to fetch, and the expected errors (or
     # none, if we expect them to pass).
-    while read path expected_error; do
+    while IFS=$' \t\n' read path expected_error; do
         expected_rc=
         if [[ -n $expected_error ]]; then
             expected_rc=1
