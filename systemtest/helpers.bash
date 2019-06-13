@@ -310,6 +310,7 @@ start_registry() {
     fi
 
     $PODMAN run -d --name $name "${reg_args[@]}" registry:2
+    sleep 10 # Allow the registry container to start up and accept connections
 }
 
 # END   helpers for starting/stopping registries
