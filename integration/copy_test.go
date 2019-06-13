@@ -14,7 +14,7 @@ import (
 	"github.com/containers/image/manifest"
 	"github.com/containers/image/signature"
 	"github.com/go-check/check"
-	"github.com/opencontainers/go-digest"
+	digest "github.com/opencontainers/go-digest"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/opencontainers/image-tools/image"
 )
@@ -64,7 +64,7 @@ func (s *CopySuite) SetUpSuite(c *check.C) {
 	os.Setenv("GNUPGHOME", s.gpgHome)
 
 	for _, key := range []string{"personal", "official"} {
-		batchInput := fmt.Sprintf("Key-Type: RSA\nName-Real: Test key - %s\nName-email: %s@example.com\n%%commit\n",
+		batchInput := fmt.Sprintf("Key-Type: RSA\nName-Real: Test key - %s\nName-email: %s@example.com\n%%no-protection\n%%commit\n",
 			key, key)
 		runCommandWithInput(c, batchInput, gpgBinary, "--batch", "--gen-key")
 

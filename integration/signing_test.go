@@ -44,7 +44,7 @@ func (s *SigningSuite) SetUpSuite(c *check.C) {
 	c.Assert(err, check.IsNil)
 	os.Setenv("GNUPGHOME", s.gpgHome)
 
-	runCommandWithInput(c, "Key-Type: RSA\nName-Real: Testing user\n%commit\n", gpgBinary, "--homedir", s.gpgHome, "--batch", "--gen-key")
+	runCommandWithInput(c, "Key-Type: RSA\nName-Real: Testing user\n%no-protection\n%commit\n", gpgBinary, "--homedir", s.gpgHome, "--batch", "--gen-key")
 
 	lines, err := exec.Command(gpgBinary, "--homedir", s.gpgHome, "--with-colons", "--no-permission-warning", "--fingerprint").Output()
 	c.Assert(err, check.IsNil)
