@@ -103,6 +103,9 @@ type Layer struct {
 	// for use inside of a user namespace where UID mapping is being used.
 	UIDMap []idtools.IDMap `json:"uidmap,omitempty"`
 	GIDMap []idtools.IDMap `json:"gidmap,omitempty"`
+
+	// ReadOnly is true if this layer resides in a read-only layer store.
+	ReadOnly bool `json:"-"`
 }
 
 type layerMountPoint struct {
@@ -259,6 +262,7 @@ func copyLayer(l *Layer) *Layer {
 		UncompressedDigest: l.UncompressedDigest,
 		UncompressedSize:   l.UncompressedSize,
 		CompressionType:    l.CompressionType,
+		ReadOnly:           l.ReadOnly,
 		Flags:              copyStringInterfaceMap(l.Flags),
 		UIDMap:             copyIDMap(l.UIDMap),
 		GIDMap:             copyIDMap(l.GIDMap),
@@ -318,6 +322,7 @@ func (r *layerStore) Load() error {
 			if layer.MountLabel != "" {
 				label.ReserveLabel(layer.MountLabel)
 			}
+			layer.ReadOnly = !r.IsReadWrite()
 		}
 		err = nil
 	}
@@ -402,11 +407,9 @@ func (r *layerStore) Save() error {
 	if err != nil {
 		return err
 	}
+	defer r.Touch()
 	if err := ioutils.AtomicWriteFile(rpath, jldata, 0600); err != nil {
 		return err
-	}
-	if !r.IsReadWrite() {
-		return nil
 	}
 	r.mountsLockfile.Lock()
 	defer r.mountsLockfile.Unlock()
@@ -614,6 +617,7 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 	opts := drivers.CreateOpts{
 		MountLabel: mountLabel,
 		StorageOpt: options,
+		IDMappings: idMappings,
 	}
 	if moreOptions.TemplateLayer != "" {
 		if err = r.driver.CreateFromTemplate(id, moreOptions.TemplateLayer, templateIDMappings, parent, parentMappings, &opts, writeable); err != nil {
@@ -1303,6 +1307,10 @@ func (r *layerStore) LayersByUncompressedDigest(d digest.Digest) ([]Layer, error
 
 func (r *layerStore) Lock() {
 	r.lockfile.Lock()
+}
+
+func (r *layerStore) RecursiveLock() {
+	r.lockfile.RecursiveLock()
 }
 
 func (r *layerStore) RLock() {

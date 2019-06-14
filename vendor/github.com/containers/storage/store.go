@@ -1197,18 +1197,20 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 		}
 		imageID = cimage.ID
 
-		createMappedLayer := imageHomeStore == istore
+		if cimage.TopLayer != "" {
+			createMappedLayer := imageHomeStore == istore
+			ilayer, err := s.imageTopLayerForMapping(cimage, imageHomeStore, createMappedLayer, rlstore, lstores, idMappingsOptions)
+			if err != nil {
+				return nil, err
+			}
+			imageTopLayer = ilayer
 
-		ilayer, err := s.imageTopLayerForMapping(cimage, imageHomeStore, createMappedLayer, rlstore, lstores, idMappingsOptions)
-		if err != nil {
-			return nil, err
-		}
-		imageTopLayer = ilayer
-		if !options.HostUIDMapping && len(options.UIDMap) == 0 {
-			uidMap = ilayer.UIDMap
-		}
-		if !options.HostGIDMapping && len(options.GIDMap) == 0 {
-			gidMap = ilayer.GIDMap
+			if !options.HostUIDMapping && len(options.UIDMap) == 0 {
+				uidMap = ilayer.UIDMap
+			}
+			if !options.HostGIDMapping && len(options.GIDMap) == 0 {
+				gidMap = ilayer.GIDMap
+			}
 		}
 	} else {
 		rlstore.Lock()
@@ -3396,12 +3398,18 @@ func init() {
 	ReloadConfigurationFile(defaultConfigFile, &defaultStoreOptions)
 }
 
+// GetDefaultMountOptions returns the default mountoptions defined in container/storage
 func GetDefaultMountOptions() ([]string, error) {
+	return GetMountOptions(defaultStoreOptions.GraphDriverName, defaultStoreOptions.GraphDriverOptions)
+}
+
+// GetMountOptions returns the mountoptions for the specified driver and graphDriverOptions
+func GetMountOptions(driver string, graphDriverOptions []string) ([]string, error) {
 	mountOpts := []string{
 		".mountopt",
-		fmt.Sprintf("%s.mountopt", defaultStoreOptions.GraphDriverName),
+		fmt.Sprintf("%s.mountopt", driver),
 	}
-	for _, option := range defaultStoreOptions.GraphDriverOptions {
+	for _, option := range graphDriverOptions {
 		key, val, err := parsers.ParseKeyValueOpt(option)
 		if err != nil {
 			return nil, err
