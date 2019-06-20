@@ -18,7 +18,7 @@ func TestGetAuthTypeNone(t *testing.T) {
 	}))
 	defer func() { testServer.Close() }()
 
-	reg := NewRegistry(testServer.URL)
+	reg, _ := NewRegistry(testServer.URL)
 	reg.getAuthType()
 	assert.Contains(t, reg.authType, noneAuth)
 }
@@ -30,7 +30,7 @@ func TestGetAuthTypeToken(t *testing.T) {
 	}))
 	defer func() { testServer.Close() }()
 
-	reg := NewRegistry(testServer.URL)
+	reg, _ := NewRegistry(testServer.URL)
 	reg.getAuthType()
 	assert.Contains(t, reg.authType, tokenAuth)
 }
@@ -68,7 +68,7 @@ func TestGetRepoTags(t *testing.T) {
 	}))
 	defer func() { testServer.Close() }()
 
-	reg := NewRegistry(testServer.URL)
+	reg, _ := NewRegistry(testServer.URL)
 	reg.getAuthType()
 	repoTags := reg.getRepoTags(repo)
 	assert.Contains(t, repoTags, "15.1")
@@ -85,7 +85,7 @@ func TestGetV2Catalog(t *testing.T) {
 	}))
 	defer func() { testServer.Close() }()
 
-	reg := NewRegistry(testServer.URL)
+	reg, _ := NewRegistry(testServer.URL)
 	reg.authType = noneAuth
 	reg.getV2Catalog()
 	assert.Contains(t, reg.repos, "opensuse/tumbleweed")
@@ -103,7 +103,7 @@ func TestGetAllReposWithTags(t *testing.T) {
 	}))
 	defer func() { testServer.Close() }()
 
-	reg := NewRegistry(testServer.URL)
+	reg, _ := NewRegistry(testServer.URL)
 
 	// Capture Stdout
 	rescueStdout := os.Stdout

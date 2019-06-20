@@ -33,30 +33,30 @@ const (
 )
 
 // NewRegistry creates a new Registry struct with parsed/sanitized URLs
-func NewRegistry(rawURL string) Registry {
+func NewRegistry(rawURL string) (Registry, error) {
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
-		fmt.Errorf("Failed to parse URL: %v", err)
+		return Registry{}, fmt.Errorf("Failed to parse Registry URL: %v", err)
 	}
 	baseURL := parsedURL.String()
 	parsedURL.Path = path.Join(parsedURL.Path, "v2/_catalog")
 	catalogURL := parsedURL.String()
 
-	return Registry{baseURL: baseURL, catalogURL: catalogURL}
+	return Registry{baseURL: baseURL, catalogURL: catalogURL}, nil
 }
 
 // Determines auth type to optimize later registry calls
-func (r *Registry) getAuthType() {
+func (r *Registry) getAuthType() error {
 	resp, err := http.Get(r.catalogURL)
 	if err != nil {
-		fmt.Errorf("Failed to connect to Catalog URL: %v", err)
+		return fmt.Errorf("Failed to connect to Catalog URL: %v", err)
 	}
 
 	headerAuth := resp.Header.Get("www-authenticate")
 	headerAuthLower := strings.ToLower(headerAuth)
 
 	if strings.Count(headerAuthLower, "bearer") > 0 {
-		fmt.Println("Using Bearer Auth")
+		fmt.Println("Using Token Auth")
 		r.authType = tokenAuth
 	} else if strings.Count(headerAuthLower, "basic") > 0 {
 		fmt.Println("Using Basic Auth")
@@ -65,10 +65,11 @@ func (r *Registry) getAuthType() {
 		fmt.Println("Using No Auth")
 		r.authType = noneAuth
 	}
+	return nil
 }
 
 // Uses r.authType to abstract Authentication
-func (r *Registry) applyAuth(req *http.Request) {
+func (r *Registry) applyAuth(req *http.Request) error {
 	if r.authType == tokenAuth {
 		var token string
 		// Each catalog request returns a limit of 100 repos at a time.
@@ -79,7 +80,12 @@ func (r *Registry) applyAuth(req *http.Request) {
 		if len(r.catalogToken) > 0 {
 			token = r.catalogToken
 		} else {
-			token = getToken(req.URL.String())
+			// err must be declared to prevent token from being re-declared with ":=" below
+			var err error
+			token, err = getToken(req.URL.String())
+			if err != nil {
+				return err
+			}
 			r.catalogToken = token
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -88,11 +94,15 @@ func (r *Registry) applyAuth(req *http.Request) {
 	} else {
 		// Do Nothing
 	}
+	return nil
 }
 
 // Prints list of registry repos with all available tags
-func (r *Registry) getAllReposWithTags() {
-	r.getAuthType()
+func (r *Registry) getAllReposWithTags() error {
+	err := r.getAuthType()
+	if err != nil {
+		return err
+	}
 	r.getV2Catalog()
 
 	var wg sync.WaitGroup
@@ -106,7 +116,7 @@ func (r *Registry) getAllReposWithTags() {
 	for _, repo := range r.repos {
 		go func(repo string) {
 			defer wg.Done()
-			tags := r.getRepoTags(repo)
+			tags, _ := r.getRepoTags(repo)
 			lock.Lock()
 			reposWithTags[repo] = tags
 			lock.Unlock()
@@ -122,49 +132,72 @@ func (r *Registry) getAllReposWithTags() {
 	fmt.Fprintln(w, "\t - - - - - - - - - - \t - - - - - - - - - - \t")
 	for _, repo := range r.repos {
 		tags := strings.Join(reposWithTags[repo], "  ")
-		// Shorten tag output for testing
-		// if len(tags) > 45 {
-		// 	fmt.Fprintf(w, "\t %s\t %v\t\n", repo, tags[:45])
-		// } else {
-		// 	fmt.Fprintf(w, "\t %s\t %v\t\n", repo, tags)
-		// }
 		fmt.Fprintf(w, "\t %s\t %v\t\n", repo, tags)
 	}
 	w.Flush()
+	return nil
 }
 
 // Gets repo catalog from a registry
-func (r *Registry) getV2Catalog() {
+func (r *Registry) getV2Catalog() error {
 	req, err := http.NewRequest("GET", r.catalogURL, nil)
 	if err != nil {
-		fmt.Errorf("Failed to connect to Catalog URL: %v", err)
+		return fmt.Errorf("Failed to build requset when retrieving repo catalog: %v", err)
 	}
 
 	r.applyAuth(req)
 
-	res, _ := http.DefaultClient.Do(req)
-	bodyBytes, _ := ioutil.ReadAll(res.Body)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("Failed to connect to Catalog URL: %v", err)
+	}
+
+	bodyBytes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return fmt.Errorf("Failed to parse Catalog URL response body: %v", err)
+	}
 
 	var repositories []string
 	var replacer = strings.NewReplacer("<", "", ">", "")
 
 	if res.StatusCode >= 200 && res.StatusCode <= 299 {
 		var f map[string][]string
-		_ = json.Unmarshal(bodyBytes, &f)
+		err = json.Unmarshal(bodyBytes, &f)
+		if err != nil {
+			return fmt.Errorf("Failed to unmarshal Catalog URL response body: %v", err)
+		}
 		repositories = append(repositories, f["repositories"]...)
 		// Look for more paginated repo link in header and follow
 		headerLink := res.Header.Get("Link")
 		for len(headerLink) != 0 {
 			guardedLink := strings.Split(headerLink, ";")[0]
 			cleanedLink := replacer.Replace(guardedLink)
-			parsedBaseURL, _ := url.Parse(r.baseURL)
+			parsedBaseURL, err := url.Parse(r.baseURL)
+			if err != nil {
+				return fmt.Errorf("Failed to parse link URL from Catalog header: %v", err)
+			}
 			parsedBaseURL.Path = path.Join(parsedBaseURL.Path, cleanedLink)
-			unescapedURL, _ := url.QueryUnescape(parsedBaseURL.String())
-			req2, _ := http.NewRequest("GET", unescapedURL, nil)
+			unescapedURL, err := url.QueryUnescape(parsedBaseURL.String())
+			if err != nil {
+				return fmt.Errorf("Failed to unescape link URL from Catalog header: %v", err)
+			}
+			req2, err := http.NewRequest("GET", unescapedURL, nil)
+			if err != nil {
+				return fmt.Errorf("Failed to build requset when retrieving repo catalog: %v", err)
+			}
 			r.applyAuth(req2)
-			res2, _ := http.DefaultClient.Do(req2)
-			bodyBytes2, _ := ioutil.ReadAll(res2.Body)
-			_ = json.Unmarshal(bodyBytes2, &f)
+			res2, err := http.DefaultClient.Do(req2)
+			if err != nil {
+				return fmt.Errorf("Failed to connect to Catalog URL: %v", err)
+			}
+			bodyBytes2, err := ioutil.ReadAll(res2.Body)
+			if err != nil {
+				return fmt.Errorf("Failed to parse Catalog URL response body: %v", err)
+			}
+			err = json.Unmarshal(bodyBytes2, &f)
+			if err != nil {
+				return fmt.Errorf("Failed to unmarshal Catalog URL response body: %v", err)
+			}
 			repositories = append(repositories, f["repositories"]...)
 			headerLink = res2.Header.Get("Link")
 		}
@@ -172,31 +205,44 @@ func (r *Registry) getV2Catalog() {
 		fmt.Println("Failed to get repository list")
 	}
 
-	// fmt.Println(len(repositories))  // Remove later
 	r.repos = repositories
 	r.catalogToken = ""
+	return nil
 }
 
 // Gets tags for a repo
-func (r *Registry) getRepoTags(repo string) []string {
-	parsedURL, _ := url.Parse(r.baseURL)
+func (r *Registry) getRepoTags(repo string) ([]string, error) {
+	parsedURL, err := url.Parse(r.baseURL)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to parse URL when getting tags for %s: %v", repo, err)
+	}
 	parsedURL.Path = path.Join(parsedURL.Path, "v2/", repo, "/tags/list")
-	req, _ := http.NewRequest("GET", parsedURL.String(), nil)
+	req, err := http.NewRequest("GET", parsedURL.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to build requset when retrieving tags for %s: %v", err)
+	}
 	r.applyAuth(req)
-	res, _ := http.DefaultClient.Do(req)
-	bodyBytes, _ := ioutil.ReadAll(res.Body)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to connect to tag URL for %s: %v", repo, err)
+	}
+	bodyBytes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to parse tag URL response body for %s: %v", repo, err)
+	}
 	var f map[string][]string
+	// Unmarshal responds with errors here even when output appears OK
 	_ = json.Unmarshal(bodyBytes, &f)
 
-	return f["tags"]
+	return f["tags"], nil
 }
 
 // Gets Bearer Token for registries using Token Authentication
-func getToken(baseURL string) string {
+func getToken(baseURL string) (string, error) {
 	// Request to gather auth parameters
 	resp, err := http.Get(baseURL)
 	if err != nil {
-		fmt.Errorf("Failed to connect to Base URL: %v", err)
+		return "", fmt.Errorf("Failed to connect to Base URL: %v", err)
 	}
 
 	headerAuth := resp.Header.Get("www-authenticate")
@@ -210,7 +256,7 @@ func getToken(baseURL string) string {
 		elem := strings.Replace(elem, "\"", "", -1)
 		elemSplit := strings.Split(elem, "=")
 		if len(elemSplit) != 2 {
-			fmt.Printf("Incorrectly formatted Header Auth: %s\n", headerAuth)
+			return "", fmt.Errorf("Incorrectly formatted Header Auth: %s", headerAuth)
 		}
 		authKey := elemSplit[0]
 		authValue := elemSplit[1]
@@ -226,7 +272,7 @@ func getToken(baseURL string) string {
 
 	parsedRealm, err := url.Parse(authRealm)
 	if err != nil {
-		fmt.Errorf("Failed to parse Auth Realm URL: %v", err)
+		return "", fmt.Errorf("Failed to parse Auth Realm URL: %v", err)
 	}
 
 	// Build query for token
@@ -238,14 +284,20 @@ func getToken(baseURL string) string {
 	// Make request for token
 	resp2, err := http.Get(parsedRealm.String())
 	if err != nil {
-		fmt.Errorf("Failed to connect to Auth Realm URL: %v", err)
+		return "", fmt.Errorf("Failed to connect to Auth Realm URL: %v", err)
 	}
 
 	// Extract token
-	body, _ := ioutil.ReadAll(resp2.Body)
+	body, err := ioutil.ReadAll(resp2.Body)
+	if err != nil {
+		return "", fmt.Errorf("Failed to parse token URL response body: %v", err)
+	}
 	var f map[string]string
-	_ = json.Unmarshal(body, &f)
+	err = json.Unmarshal(body, &f)
+	if err != nil {
+		return "", fmt.Errorf("Failed to unmarshal token URL response body: %v", err)
+	}
 	token := f["token"]
 
-	return token
+	return token, nil
 }

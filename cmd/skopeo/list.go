@@ -33,7 +33,6 @@ func listCmd(global *globalOptions) cli.Command {
 		See skopeo(1) section "REGISTRY-NAMES" for the expected format
 		`),
 		ArgsUsage: "REGISTRY-NAME",
-		Before:    needsRexec,
 		Action:    commandAction(opts.run),
 		// Flags:     append(sharedFlags, imageFlags...),
 		Flags: append(append([]cli.Flag{
@@ -56,7 +55,10 @@ func (opts *listOptions) run(args []string, stdout io.Writer) error {
 		return errors.New("Usage: list registryURL")
 	}
 
-	reg := NewRegistry(args[0])
+	reg, err := NewRegistry(args[0])
+	if err != nil {
+		return err
+	}
 	reg.getAllReposWithTags()
 
 	return nil
