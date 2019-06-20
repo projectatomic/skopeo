@@ -219,7 +219,7 @@ func (r *Registry) getRepoTags(repo string) ([]string, error) {
 	parsedURL.Path = path.Join(parsedURL.Path, "v2/", repo, "/tags/list")
 	req, err := http.NewRequest("GET", parsedURL.String(), nil)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to build requset when retrieving tags for %s: %v", err)
+		return nil, fmt.Errorf("Failed to build requset when retrieving tags for %s: %v", repo, err)
 	}
 	r.applyAuth(req)
 	res, err := http.DefaultClient.Do(req)

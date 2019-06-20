@@ -51,7 +51,7 @@ func TestGetToken(t *testing.T) {
 	}))
 	defer func() { testServer2.Close() }()
 
-	token := getToken(testServer2.URL)
+	token, _ := getToken(testServer2.URL)
 	assert.Equal(t, "abcdefg", token)
 }
 
@@ -70,7 +70,7 @@ func TestGetRepoTags(t *testing.T) {
 
 	reg, _ := NewRegistry(testServer.URL)
 	reg.getAuthType()
-	repoTags := reg.getRepoTags(repo)
+	repoTags, _ := reg.getRepoTags(repo)
 	assert.Contains(t, repoTags, "15.1")
 }
 
