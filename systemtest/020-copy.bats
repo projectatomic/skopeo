@@ -70,6 +70,17 @@ function setup() {
                docker://localhost:5000/foo
 }
 
+# Don't copy the image again if the image already exists in the destination registry
+@test "copy: don't copy the same image twice" {
+    local output
+    local remote_image=docker://busybox:latest
+    local localimg=docker://localhost:5000/busybox:unsigned
+
+    run_skopeo copy --dest-tls-verify=false $remote_image $localimg
+    output=$(run_skopeo --debug copy --dest-tls-verify=false $remote_image $localimg)
+    echo $output | grep "Using blob info cache"
+}
+
 teardown() {
     podman rm -f reg
 
