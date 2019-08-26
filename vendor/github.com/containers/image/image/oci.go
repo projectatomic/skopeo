@@ -3,6 +3,7 @@ package image
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 
 	"github.com/containers/image/docker/reference"
@@ -187,7 +188,18 @@ func (m *manifestOCI1) convertToManifestSchema2() (types.Image, error) {
 	layers := make([]manifest.Schema2Descriptor, len(m.m.Layers))
 	for idx := range layers {
 		layers[idx] = schema2DescriptorFromOCI1Descriptor(m.m.Layers[idx])
-		layers[idx].MediaType = manifest.DockerV2Schema2LayerMediaType
+		switch layers[idx].MediaType {
+		case imgspecv1.MediaTypeImageLayerNonDistributable:
+			layers[idx].MediaType = manifest.DockerV2Schema2ForeignLayerMediaType
+		case imgspecv1.MediaTypeImageLayer:
+			layers[idx].MediaType = manifest.DockerV2SchemaLayerMediaTypeUncompressed
+		case imgspecv1.MediaTypeImageLayerGzip:
+			layers[idx].MediaType = manifest.DockerV2Schema2LayerMediaType
+		case imgspecv1.MediaTypeImageLayerZstd:
+			layers[idx].MediaType = manifest.DockerV2Schema2LayerMediaTypeZstd
+		default:
+			return nil, fmt.Errorf("Unknown media type during manifest conversion: %q", layers[idx].MediaType)
+		}
 	}
 
 	// Rather than copying the ConfigBlob now, we just pass m.src to the

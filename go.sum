@@ -93,6 +93,9 @@ github.com/opencontainers/go-digest v1.0.0-rc1 h1:WzifXhOVOEOuFYOJAW6aQqW0TooG2i
 github.com/opencontainers/go-digest v1.0.0-rc1/go.mod h1:cMLVZDEM3+U2I4VmLI6N8jQYUd2OVphdqWwCJHrFt2s=
 github.com/opencontainers/image-spec v0.0.0-20180918080442-7b1e489870ac h1:Y0AqP4onEqgQST60GE172L61SAFMZMHQgXbwLMyj418=
 github.com/opencontainers/image-spec v0.0.0-20180918080442-7b1e489870ac/go.mod h1:BtxoFyWECRxE4U/7sNtV5W15zMzWCbyJoFRP3s7yZA0=
+github.com/opencontainers/image-spec v1.0.0-rc6.0.20190823105129-775207bd45b6 h1:ei890tQPW79pEqhXh5KhTjjFndyo/Xrmn1h1HjiVO/g=
+github.com/opencontainers/image-spec v1.0.0-rc6.0.20190823105129-775207bd45b6/go.mod h1:BtxoFyWECRxE4U/7sNtV5W15zMzWCbyJoFRP3s7yZA0=
+github.com/opencontainers/image-spec v1.0.1 h1:JMemWkRwHx4Zj+fVxWoMCFm/8sYGGrUVojFA6h/TRcI=
 github.com/opencontainers/image-tools v0.0.0-20170926011501-6d941547fa1d h1:X9WSFjjZNqYRqO2MenUgqE2nj/oydcfIzXJ0R/SVnnA=
 github.com/opencontainers/image-tools v0.0.0-20170926011501-6d941547fa1d/go.mod h1:A9btVpZLzttF4iFaKNychhPyrhfOjJ1OF5KrA8GcLj4=
 github.com/opencontainers/runc v1.0.0-rc6 h1:7AoN22rYxxkmsJS48wFaziH/n0OvrZVqL/TglgHKbKQ=
@@ -156,6 +159,8 @@ github.com/vrothberg/image v0.0.0-20190717060034-cd5ce8239f51 h1:u4Hw4D3PLODtsZJ
 github.com/vrothberg/image v0.0.0-20190717060034-cd5ce8239f51/go.mod h1:/hIyjuUvIY6X2wGj/fbsA9zwlfAize8B2DLPishEHHg=
 github.com/vrothberg/image v0.0.0-20190718162835-cdafe647d2d8 h1:LpqO8V+oaT3eXrvKSminmqKWo2vhOdLgu1kp2/+fHAI=
 github.com/vrothberg/image v0.0.0-20190718162835-cdafe647d2d8/go.mod h1:/hIyjuUvIY6X2wGj/fbsA9zwlfAize8B2DLPishEHHg=
+github.com/vrothberg/image v0.0.0-20190826083143-01d030244ab3 h1:tibP3OlRzfZgkp0DFn/SaBLIF983qpiN3sEUze4YzZs=
+github.com/vrothberg/image v0.0.0-20190826083143-01d030244ab3/go.mod h1:/hIyjuUvIY6X2wGj/fbsA9zwlfAize8B2DLPishEHHg=
 github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f h1:J9EGpcZtP0E/raorCMxlFGSTBrsSlaDGf3jU/qvAE2c=
 github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f/go.mod h1:N2zxlSyiKSe5eX1tZViRH5QA0qijqEDrYZiPEAiq3wU=
 github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 h1:EzJWgHovont7NscjpAxXsDA8S8BMYve8Y5+7cuRE7R0=

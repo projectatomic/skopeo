@@ -2,12 +2,15 @@ package manifest
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
+	"github.com/containers/image/pkg/compression"
 	"github.com/containers/image/pkg/strslice"
 	"github.com/containers/image/types"
 	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 // Schema2Descriptor is a “descriptor” in docker/distribution schema 2.
@@ -207,7 +210,28 @@ func (m *Schema2) UpdateLayerInfos(layerInfos []types.BlobInfo) error {
 	original := m.LayersDescriptors
 	m.LayersDescriptors = make([]Schema2Descriptor, len(layerInfos))
 	for i, info := range layerInfos {
-		m.LayersDescriptors[i].MediaType = original[i].MediaType
+		switch info.CompressionOperation {
+		case types.PreserveOriginal:
+			m.LayersDescriptors[i].MediaType = original[i].MediaType
+		case types.Decompress:
+			m.LayersDescriptors[i].MediaType = DockerV2SchemaLayerMediaTypeUncompressed
+		case types.Compress:
+			if info.CompressionAlgorithm == nil {
+				logrus.Debugf("Preparing updated manifest: blob %q was compressed but does not specify by which algorithm: falling back to use the original blob", info.Digest)
+				m.LayersDescriptors[i].MediaType = original[i].MediaType
+				break
+			}
+			switch info.CompressionAlgorithm.Name() {
+			case compression.Gzip:
+				m.LayersDescriptors[i].MediaType = DockerV2Schema2LayerMediaType
+			case compression.Zstd:
+				m.LayersDescriptors[i].MediaType = DockerV2Schema2LayerMediaTypeZstd
+			default:
+				return fmt.Errorf("Error preparing updated manifest: unknown compression algorithm %q fo layer %q", info.CompressionAlgorithm.Name(), info.Digest)
+			}
+		default:
+			return fmt.Errorf("Error preparing updated manifest: unknown compression operation (%d) for layer %q", info.CompressionOperation, info.Digest)
+		}
 		m.LayersDescriptors[i].Digest = info.Digest
 		m.LayersDescriptors[i].Size = info.Size
 		m.LayersDescriptors[i].URLs = info.URLs

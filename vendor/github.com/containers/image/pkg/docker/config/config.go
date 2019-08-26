@@ -32,6 +32,8 @@ var (
 	dockerHomePath          = filepath.FromSlash(".docker/config.json")
 	dockerLegacyHomePath    = ".dockercfg"
 
+	enableKeyring = false
+
 	// ErrNotLoggedIn is returned for users not logged into a registry
 	// that they are trying to logout of
 	ErrNotLoggedIn = errors.New("not logged in")
@@ -46,11 +48,11 @@ func SetAuthentication(sys *types.SystemContext, registry, username, password st
 			return false, setAuthToCredHelper(ch, registry, username, password)
 		}
 
-		// Set the credentials to kernel keyring if sys.AuthFile is not specified.
+		// Set the credentials to kernel keyring if enableKeyring is true.
 		// The keyring might not work in all environments (e.g., missing capability) and isn't supported on all platforms.
 		// Hence, we want to fall-back to using the authfile in case the keyring failed.
-		// However, if the sys.AuthFilePath is set, we want adhere to the user specification and not use the keyring.
-		if sys.AuthFilePath == "" {
+		// However, if the enableKeyring is false, we want adhere to the user specification and not use the keyring.
+		if enableKeyring {
 			err := setAuthToKernelKeyring(registry, username, password)
 			if err == nil {
 				logrus.Debugf("credentials for (%s, %s) were stored in the kernel keyring\n", registry, username)
@@ -74,10 +76,12 @@ func GetAuthentication(sys *types.SystemContext, registry string) (string, strin
 		return sys.DockerAuthConfig.Username, sys.DockerAuthConfig.Password, nil
 	}
 
-	username, password, err := getAuthFromKernelKeyring(registry)
-	if err == nil {
-		logrus.Debug("returning credentials from kernel keyring")
-		return username, password, nil
+	if enableKeyring {
+		username, password, err := getAuthFromKernelKeyring(registry)
+		if err == nil {
+			logrus.Debug("returning credentials from kernel keyring")
+			return username, password, nil
+		}
 	}
 
 	dockerLegacyPath := filepath.Join(homedir.Get(), dockerLegacyHomePath)
@@ -117,13 +121,15 @@ func RemoveAuthentication(sys *types.SystemContext, registry string) error {
 			return false, deleteAuthFromCredHelper(ch, registry)
 		}
 
-		// Next try kernel keyring
-		err := deleteAuthFromKernelKeyring(registry)
-		if err == nil {
-			logrus.Debugf("credentials for %s were deleted from the kernel keyring", registry)
-			return false, nil
+		// Next if keyring is enabled try kernel keyring
+		if enableKeyring {
+			err := deleteAuthFromKernelKeyring(registry)
+			if err == nil {
+				logrus.Debugf("credentials for %s were deleted from the kernel keyring", registry)
+				return false, nil
+			}
+			logrus.Debugf("failed to delete credentials from the kernel keyring, falling back to authfiles")
 		}
-		logrus.Debugf("failed to delete credentials from the kernel keyring, falling back to authfiles")
 
 		if _, ok := auths.AuthConfigs[registry]; ok {
 			delete(auths.AuthConfigs, registry)

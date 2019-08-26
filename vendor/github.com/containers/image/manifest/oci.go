@@ -2,12 +2,15 @@ package manifest
 
 import (
 	"encoding/json"
+	"fmt"
 
+	"github.com/containers/image/pkg/compression"
 	"github.com/containers/image/types"
 	"github.com/opencontainers/go-digest"
 	"github.com/opencontainers/image-spec/specs-go"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 // BlobInfoFromOCI1Descriptor returns a types.BlobInfo based on the input OCI1 descriptor.
@@ -81,7 +84,28 @@ func (m *OCI1) UpdateLayerInfos(layerInfos []types.BlobInfo) error {
 	original := m.Layers
 	m.Layers = make([]imgspecv1.Descriptor, len(layerInfos))
 	for i, info := range layerInfos {
-		m.Layers[i].MediaType = original[i].MediaType
+		switch info.CompressionOperation {
+		case types.PreserveOriginal:
+			m.Layers[i].MediaType = original[i].MediaType
+		case types.Decompress:
+			m.Layers[i].MediaType = imgspecv1.MediaTypeImageLayer
+		case types.Compress:
+			if info.CompressionAlgorithm == nil {
+				logrus.Debugf("Preparing updated manifest: blob %q was compressed but does not specify by which algorithm: falling back to use the original blob", info.Digest)
+				m.Layers[i].MediaType = original[i].MediaType
+				break
+			}
+			switch info.CompressionAlgorithm.Name() {
+			case compression.Gzip:
+				m.Layers[i].MediaType = imgspecv1.MediaTypeImageLayerGzip
+			case compression.Zstd:
+				m.Layers[i].MediaType = imgspecv1.MediaTypeImageLayerZstd
+			default:
+				return fmt.Errorf("Error preparing updated manifest: unknown compression algorithm %q for layer %q", info.CompressionAlgorithm.Name(), info.Digest)
+			}
+		default:
+			return fmt.Errorf("Error preparing updated manifest: unknown compression operation (%d) for layer %q", info.CompressionOperation, info.Digest)
+		}
 		m.Layers[i].Digest = info.Digest
 		m.Layers[i].Size = info.Size
 		m.Layers[i].Annotations = info.Annotations

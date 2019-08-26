@@ -59,7 +59,7 @@ func (factory *fsLoaderFactory) refContents(ref gojsonreference.JsonReference) (
 		}
 	}
 	if path == "" {
-		return nil, fmt.Errorf("Schema reference %#v unexpectedly not available in fsLoaderFactory with namespaces %#v", path, factory.namespaces)
+		return nil, fmt.Errorf("schema reference %#v unexpectedly not available in fsLoaderFactory with namespaces %#v", path, factory.namespaces)
 	}
 
 	f, err := factory.fs.Open(path)

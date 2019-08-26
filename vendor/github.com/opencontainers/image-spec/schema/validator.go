@@ -117,8 +117,10 @@ func validateManifest(r io.Reader) error {
 	for _, layer := range header.Layers {
 		if layer.MediaType != string(v1.MediaTypeImageLayer) &&
 			layer.MediaType != string(v1.MediaTypeImageLayerGzip) &&
+			layer.MediaType != string(v1.MediaTypeImageLayerZstd) &&
 			layer.MediaType != string(v1.MediaTypeImageLayerNonDistributable) &&
-			layer.MediaType != string(v1.MediaTypeImageLayerNonDistributableGzip) {
+			layer.MediaType != string(v1.MediaTypeImageLayerNonDistributableGzip) &&
+			layer.MediaType != string(v1.MediaTypeImageLayerNonDistributableZstd) {
 			fmt.Printf("warning: layer %s has an unknown media type: %s\n", layer.Digest, layer.MediaType)
 		}
 	}

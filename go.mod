@@ -24,7 +24,7 @@ require (
 	github.com/mattn/go-isatty v0.0.4 // indirect
 	github.com/mtrmac/gpgme v0.0.0-20170102180018-b2432428689c // indirect
 	github.com/opencontainers/go-digest v1.0.0-rc1
-	github.com/opencontainers/image-spec v0.0.0-20180918080442-7b1e489870ac
+	github.com/opencontainers/image-spec v1.0.0-rc6.0.20190823105129-775207bd45b6
 	github.com/opencontainers/image-tools v0.0.0-20170926011501-6d941547fa1d
 	github.com/opencontainers/runtime-spec v1.0.0 // indirect
 	github.com/pborman/uuid v0.0.0-20160209185913-a97ce2ca70fa // indirect
@@ -44,3 +44,5 @@ require (
 	gopkg.in/yaml.v2 v2.0.0-20141029210843-d466437aa4ad // indirect
 	k8s.io/client-go v0.0.0-20181219152756-3dd551c0f083 // indirect
 )
+
+replace github.com/containers/image => github.com/vrothberg/image v0.0.0-20190826083143-01d030244ab3
