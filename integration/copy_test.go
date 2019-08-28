@@ -97,6 +97,43 @@ func (s *CopySuite) TestCopyWithManifestList(c *check.C) {
 	assertSkopeoSucceeds(c, "", "copy", "docker://estesp/busybox:latest", "dir:"+dir)
 }
 
+func (s *CopySuite) TestCopyWithManifestListStorage(c *check.C) {
+	storage, err := ioutil.TempDir("", "copy-manifest-list-storage")
+	c.Assert(err, check.IsNil)
+	defer os.RemoveAll(storage)
+	storage = fmt.Sprintf("[vfs@%s/root+%s/runroot]", storage, storage)
+	dir1, err := ioutil.TempDir("", "copy-manifest-list-storage-dir")
+	c.Assert(err, check.IsNil)
+	defer os.RemoveAll(dir1)
+	dir2, err := ioutil.TempDir("", "copy-manifest-list-storage-dir")
+	c.Assert(err, check.IsNil)
+	defer os.RemoveAll(dir2)
+	assertSkopeoSucceeds(c, "", "copy", "docker://estesp/busybox:latest", "containers-storage:"+storage+"test")
+	assertSkopeoSucceeds(c, "", "copy", "docker://estesp/busybox:latest", "dir:"+dir1)
+	assertSkopeoSucceeds(c, "", "copy", "containers-storage:"+storage+"test", "dir:"+dir2)
+	runDecompressDirs(c, "", dir1, dir2)
+	assertDirImagesAreEqual(c, dir1, dir2)
+}
+
+func (s *CopySuite) TestCopyWithManifestListStorageMultiple(c *check.C) {
+	storage, err := ioutil.TempDir("", "copy-manifest-list-storage-multiple")
+	c.Assert(err, check.IsNil)
+	defer os.RemoveAll(storage)
+	storage = fmt.Sprintf("[vfs@%s/root+%s/runroot]", storage, storage)
+	dir1, err := ioutil.TempDir("", "copy-manifest-list-storage-multiple-dir")
+	c.Assert(err, check.IsNil)
+	defer os.RemoveAll(dir1)
+	dir2, err := ioutil.TempDir("", "copy-manifest-list-storage-multiple-dir")
+	c.Assert(err, check.IsNil)
+	defer os.RemoveAll(dir2)
+	assertSkopeoSucceeds(c, "", "--override-arch", "amd64", "copy", "docker://estesp/busybox:latest", "containers-storage:"+storage+"test")
+	assertSkopeoSucceeds(c, "", "--override-arch", "arm64", "copy", "docker://estesp/busybox:latest", "containers-storage:"+storage+"test")
+	assertSkopeoSucceeds(c, "", "--override-arch", "arm64", "copy", "docker://estesp/busybox:latest", "dir:"+dir1)
+	assertSkopeoSucceeds(c, "", "copy", "containers-storage:"+storage+"test", "dir:"+dir2)
+	runDecompressDirs(c, "", dir1, dir2)
+	assertDirImagesAreEqual(c, dir1, dir2)
+}
+
 func (s *CopySuite) TestCopyFailsWhenImageOSDoesntMatchRuntimeOS(c *check.C) {
 	c.Skip("can't run this on Travis")
 	assertSkopeoFails(c, `.*image operating system "windows" cannot be used on "linux".*`, "copy", "docker://microsoft/windowsservercore", "containers-storage:test")

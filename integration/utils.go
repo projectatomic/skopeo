@@ -13,6 +13,7 @@ import (
 )
 
 const skopeoBinary = "skopeo"
+const decompressDirsBinary = "./decompress-dirs.sh"
 
 // consumeAndLogOutputStream takes (f, err) from an exec.*Pipe(), and causes all output to it to be logged to c.
 func consumeAndLogOutputStream(c *check.C, id string, f io.ReadCloser, err error) {
@@ -173,4 +174,15 @@ func fileFromFixture(c *check.C, inputPath string, edits map[string]string) stri
 	err = file.Close()
 	c.Assert(err, check.IsNil)
 	return path
+}
+
+// runDecompressDirs runs decompress-dirs.sh using exec.Command().CombinedOutput, verifies that the exit status is 0,
+// and optionally that the output matches a multi-line regexp if it is nonempty; or terminates c on failure
+func runDecompressDirs(c *check.C, regexp string, args ...string) {
+	c.Logf("Running %s %s", decompressDirsBinary, strings.Join(args, " "))
+	out, err := exec.Command(decompressDirsBinary, args...).CombinedOutput()
+	c.Assert(err, check.IsNil, check.Commentf("%s", out))
+	if regexp != "" {
+		c.Assert(string(out), check.Matches, "(?s)"+regexp) // (?s) : '.' will also match newlines
+	}
 }
