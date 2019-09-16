@@ -269,17 +269,11 @@ func (k *ecPrivateKey) Sign(data io.Reader, hashID crypto.Hash) (signature []byt
 	// The given hashId is only a suggestion, and since EC keys only support
 	// on signature/hash algorithm given the curve name, we disregard it for
 	// the elliptic curve JWK signature implementation.
-	hasher := k.signatureAlgorithm.HashID().New()
-	_, err = io.Copy(hasher, data)
-	if err != nil {
-		return nil, "", fmt.Errorf("error reading data to sign: %s", err)
-	}
-	hash := hasher.Sum(nil)
-
-	r, s, err := ecdsa.Sign(rand.Reader, k.PrivateKey, hash)
+	r, s, err := k.sign(data, hashID)
 	if err != nil {
 		return nil, "", fmt.Errorf("error producing signature: %s", err)
 	}
+
 	rBytes, sBytes := r.Bytes(), s.Bytes()
 	octetLength := (k.ecPublicKey.Params().BitSize + 7) >> 3
 	// MUST include leading zeros in the output

@@ -27,6 +27,8 @@ github.com/containers/image v3.0.0+incompatible h1:pdUHY//H+3jYNnoTt+rqY8NsStX4Z
 github.com/containers/image v3.0.0+incompatible/go.mod h1:8Vtij257IWSanUQKe1tAeNOm2sRVkSqQTVQ1IlwI3+M=
 github.com/containers/image v3.0.1+incompatible h1:VlNEQUI1JHa1SJfJ4jz/GBt7gpk+aRYGR6TUKsxXMkU=
 github.com/containers/image v3.0.1+incompatible/go.mod h1:8Vtij257IWSanUQKe1tAeNOm2sRVkSqQTVQ1IlwI3+M=
+github.com/containers/libtrust v0.0.0-20190913040956-14b96171aa3b h1:Q8ePgVfHDplZ7U33NwHZkrVELsZP5fYj9pM5WBZB2GE=
+github.com/containers/libtrust v0.0.0-20190913040956-14b96171aa3b/go.mod h1:9rfv8iPl1ZP7aqh9YA68wnZv2NUDbXdcdPHVz0pFbPY=
 github.com/containers/storage v1.12.10 h1:vw1aiLsZ1LvO09ELMxVBTe35tThRiMftI2cPeH+G5ow=
 github.com/containers/storage v1.12.10/go.mod h1:+RirK6VQAqskQlaTBrOG6ulDvn4si2QjFE1NZCn06MM=
 github.com/containers/storage v1.13.0 h1:jd0lLiGYzE3k1tMR4PB6/WDfenNd0Db0E/m9QSVaroI=
