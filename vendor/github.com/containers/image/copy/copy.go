@@ -182,11 +182,10 @@ func Image(ctx context.Context, policyContext *signature.PolicyContext, destRef,
 		// FIXME? The cache is used for sources and destinations equally, but we only have a SourceCtx and DestinationCtx.
 		// For now, use DestinationCtx (because blob reuse changes the behavior of the destination side more); eventually
 		// we might want to add a separate CommonCtx — or would that be too confusing?
-		blobInfoCache:    blobinfocache.DefaultCache(options.DestinationCtx),
-		compressionLevel: options.DestinationCtx.CompressionLevel,
+		blobInfoCache: blobinfocache.DefaultCache(options.DestinationCtx),
 	}
 	// Default to using gzip compression unless specified otherwise.
-	if options.DestinationCtx.CompressionFormat == nil {
+	if options.DestinationCtx == nil || options.DestinationCtx.CompressionFormat == nil {
 		algo, err := compression.AlgorithmByName("gzip")
 		if err != nil {
 			return nil, err
@@ -194,6 +193,10 @@ func Image(ctx context.Context, policyContext *signature.PolicyContext, destRef,
 		c.compressionFormat = algo
 	} else {
 		c.compressionFormat = *options.DestinationCtx.CompressionFormat
+	}
+	if options.DestinationCtx != nil {
+		// Note that the compressionLevel can be nil.
+		c.compressionLevel = options.DestinationCtx.CompressionLevel
 	}
 
 	unparsedToplevel := image.UnparsedInstance(rawSource, nil)
@@ -682,7 +685,7 @@ type diffIDResult struct {
 	err    error
 }
 
-// copyLayer copies a layer with srcInfo (with known Digest and possibly known Size) in src to dest, perhaps compressing it if canCompress,
+// copyLayer copies a layer with srcInfo (with known Digest and Annotations and possibly known Size) in src to dest, perhaps compressing it if canCompress,
 // and returns a complete blobInfo of the copied layer, and a value for LayerDiffIDs if diffIDIsNeeded
 func (ic *imageCopier) copyLayer(ctx context.Context, srcInfo types.BlobInfo, pool *mpb.Progress) (types.BlobInfo, digest.Digest, error) {
 	cachedDiffID := ic.c.blobInfoCache.UncompressedDigest(srcInfo.Digest) // May be ""
@@ -711,7 +714,7 @@ func (ic *imageCopier) copyLayer(ctx context.Context, srcInfo types.BlobInfo, po
 
 	bar := ic.c.createProgressBar(pool, srcInfo, "blob", "done")
 
-	blobInfo, diffIDChan, err := ic.copyLayerFromStream(ctx, srcStream, types.BlobInfo{Digest: srcInfo.Digest, Size: srcBlobSize}, diffIDIsNeeded, bar)
+	blobInfo, diffIDChan, err := ic.copyLayerFromStream(ctx, srcStream, types.BlobInfo{Digest: srcInfo.Digest, Size: srcBlobSize, Annotations: srcInfo.Annotations}, diffIDIsNeeded, bar)
 	if err != nil {
 		return types.BlobInfo{}, "", err
 	}
@@ -738,7 +741,7 @@ func (ic *imageCopier) copyLayer(ctx context.Context, srcInfo types.BlobInfo, po
 }
 
 // copyLayerFromStream is an implementation detail of copyLayer; mostly providing a separate “defer” scope.
-// it copies a blob with srcInfo (with known Digest and possibly known Size) from srcStream to dest,
+// it copies a blob with srcInfo (with known Digest and Annotations and possibly known Size) from srcStream to dest,
 // perhaps compressing the stream if canCompress,
 // and returns a complete blobInfo of the copied blob and perhaps a <-chan diffIDResult if diffIDIsNeeded, to be read by the caller.
 func (ic *imageCopier) copyLayerFromStream(ctx context.Context, srcStream io.Reader, srcInfo types.BlobInfo,
@@ -797,7 +800,7 @@ func computeDiffID(stream io.Reader, decompressor compression.DecompressorFunc) 
 	return digest.Canonical.FromReader(stream)
 }
 
-// copyBlobFromStream copies a blob with srcInfo (with known Digest and possibly known Size) from srcStream to dest,
+// copyBlobFromStream copies a blob with srcInfo (with known Digest and Annotations and possibly known Size) from srcStream to dest,
 // perhaps sending a copy to an io.Writer if getOriginalLayerCopyWriter != nil,
 // perhaps compressing it if canCompress,
 // and returns a complete blobInfo of the copied blob.
@@ -906,6 +909,14 @@ func (c *copier) copyBlobFromStream(ctx context.Context, srcStream io.Reader, sr
 	uploadedInfo, err := c.dest.PutBlob(ctx, destStream, inputInfo, c.blobInfoCache, isConfig)
 	if err != nil {
 		return types.BlobInfo{}, errors.Wrap(err, "Error writing blob")
+	}
+
+	uploadedInfo.Annotations = srcInfo.Annotations
+
+	uploadedInfo.CompressionOperation = compressionOperation
+	// If we can modify the layer's blob, set the desired algorithm for it to be set in the manifest.
+	if canModifyBlob && !isConfig {
+		uploadedInfo.CompressionAlgorithm = &desiredCompressionFormat
 	}
 
 	// This is fairly horrible: the writer from getOriginalLayerCopyWriter wants to consumer
