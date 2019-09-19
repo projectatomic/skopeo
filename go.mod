@@ -24,4 +24,4 @@ require (
 	k8s.io/client-go v0.0.0-20181219152756-3dd551c0f083 // indirect
 )
 
-replace github.com/containers/image => github.com/lsm5/containers-image v1.5.2-0.20190919123810-0efe035577ee
+replace github.com/containers/image => github.com/lsm5/containers-image v1.5.2-0.20190919132054-e1660958533c

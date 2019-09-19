@@ -28,6 +28,8 @@ github.com/containers/image v3.0.0+incompatible h1:pdUHY//H+3jYNnoTt+rqY8NsStX4Z
 github.com/containers/image v3.0.0+incompatible/go.mod h1:8Vtij257IWSanUQKe1tAeNOm2sRVkSqQTVQ1IlwI3+M=
 github.com/containers/image v3.0.1+incompatible h1:VlNEQUI1JHa1SJfJ4jz/GBt7gpk+aRYGR6TUKsxXMkU=
 github.com/containers/image v3.0.1+incompatible/go.mod h1:8Vtij257IWSanUQKe1tAeNOm2sRVkSqQTVQ1IlwI3+M=
+github.com/containers/libtrust v0.0.0-20190912201859-3efffce6cabc h1:t6X2ScgMWeJ17cPdcT8ZUPy83WoQ51gbET5i7ycvEFc=
+github.com/containers/libtrust v0.0.0-20190912201859-3efffce6cabc/go.mod h1:9rfv8iPl1ZP7aqh9YA68wnZv2NUDbXdcdPHVz0pFbPY=
 github.com/containers/libtrust v0.0.0-20190913040956-14b96171aa3b h1:Q8ePgVfHDplZ7U33NwHZkrVELsZP5fYj9pM5WBZB2GE=
 github.com/containers/libtrust v0.0.0-20190913040956-14b96171aa3b/go.mod h1:9rfv8iPl1ZP7aqh9YA68wnZv2NUDbXdcdPHVz0pFbPY=
 github.com/containers/storage v1.12.10 h1:vw1aiLsZ1LvO09ELMxVBTe35tThRiMftI2cPeH+G5ow=
@@ -111,6 +113,7 @@ github.com/lsm5/containers-image v1.5.2-0.20190916194126-2529ee26cce3 h1:9UGu/4A
 github.com/lsm5/containers-image v1.5.2-0.20190916194126-2529ee26cce3/go.mod h1:xeWGbCz4mhg0kyHNTYJVqOuek+ojiv1dGu2sIX8gIws=
 github.com/lsm5/containers-image v1.5.2-0.20190919123810-0efe035577ee h1:auTDl3YGkdF/0SeShdf42s8CYuRKo5S1EVdu7gzSAS4=
 github.com/lsm5/containers-image v1.5.2-0.20190919123810-0efe035577ee/go.mod h1:xeWGbCz4mhg0kyHNTYJVqOuek+ojiv1dGu2sIX8gIws=
+github.com/lsm5/containers-image v1.5.2-0.20190919132054-e1660958533c/go.mod h1:unszDl4bGu1TzbuWZ1hs5WcV0e23K/C++zarbiZddHQ=
 github.com/mattn/go-isatty v0.0.4 h1:bnP0vzxcAdeI1zdubAl5PjU6zsERjGZb7raWodagDYs=
 github.com/mattn/go-isatty v0.0.4/go.mod h1:M+lRXTBqGeGNdLjl/ufCoiOlB5xdOkqRJdNxMWT7Zi4=
 github.com/mattn/go-shellwords v1.0.5 h1:JhhFTIOslh5ZsPrpa3Wdg8bF0WI3b44EMblmU9wIsXc=
