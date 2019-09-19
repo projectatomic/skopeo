@@ -7,6 +7,7 @@ require (
 	github.com/containerd/continuity v0.0.0-20180216233310-d8fb8589b0e8 // indirect
 	github.com/containers/buildah v1.8.4
 	github.com/containers/image v1.5.2-0.20190821161828-0cc0e97405db
+	github.com/containers/libtrust v0.0.0-20190913040956-14b96171aa3b // indirect
 	github.com/containers/storage v1.13.0
 	github.com/docker/distribution v0.0.0-20170817175659-5f6282db7d65 // indirect
 	github.com/docker/docker v0.0.0-20180522102801-da99009bbb11
@@ -44,3 +45,5 @@ require (
 	gopkg.in/yaml.v2 v2.0.0-20141029210843-d466437aa4ad // indirect
 	k8s.io/client-go v0.0.0-20181219152756-3dd551c0f083 // indirect
 )
+
+replace github.com/containers/image => github.com/lsm5/containers-image v3.0.1-0.20190919193558-5a432e0439a2+incompatible

@@ -26,7 +26,7 @@ github.com/VividCortex/ewma
 github.com/containerd/continuity/pathdriver
 # github.com/containers/buildah v1.8.4
 github.com/containers/buildah/pkg/unshare
-# github.com/containers/image v1.5.2-0.20190821161828-0cc0e97405db
+# github.com/containers/image v1.5.2-0.20190821161828-0cc0e97405db => github.com/lsm5/containers-image v3.0.1-0.20190919193558-5a432e0439a2+incompatible
 github.com/containers/image/copy
 github.com/containers/image/directory
 github.com/containers/image/docker
@@ -62,6 +62,8 @@ github.com/containers/image/pkg/keyctl
 github.com/containers/image/pkg/blobinfocache/internal/prioritize
 github.com/containers/image/docker/tarfile
 github.com/containers/image/oci/internal
+# github.com/containers/libtrust v0.0.0-20190913040956-14b96171aa3b
+github.com/containers/libtrust
 # github.com/containers/storage v1.13.0
 github.com/containers/storage/pkg/reexec
 github.com/containers/storage/pkg/idtools
@@ -147,8 +149,6 @@ github.com/docker/go-connections/sockets
 github.com/docker/go-connections/nat
 # github.com/docker/go-units v0.4.0
 github.com/docker/go-units
-# github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7
-github.com/docker/libtrust
 # github.com/etcd-io/bbolt v1.3.2
 github.com/etcd-io/bbolt
 # github.com/ghodss/yaml v0.0.0-20150909031657-73d445a93680
