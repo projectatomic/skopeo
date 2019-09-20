@@ -21,6 +21,8 @@ github.com/containers/image v1.5.2-0.20190821113801-e003ccfc74de h1:6M4DvYlNvVUJ
 github.com/containers/image v1.5.2-0.20190821113801-e003ccfc74de/go.mod h1:8Vtij257IWSanUQKe1tAeNOm2sRVkSqQTVQ1IlwI3+M=
 github.com/containers/image v1.5.2-0.20190821161828-0cc0e97405db h1:ZtTWr+vb7qTLWjEW0CNP56ltYuj5t6y8AUkCxQAfH+Y=
 github.com/containers/image v1.5.2-0.20190821161828-0cc0e97405db/go.mod h1:8Vtij257IWSanUQKe1tAeNOm2sRVkSqQTVQ1IlwI3+M=
+github.com/containers/image v1.5.2-0.20190823161458-713c8d43f997 h1:sRa1sTNEq/kZzhfnaPjG0DIqYcnmuS8i9SrwD7y84B4=
+github.com/containers/image v1.5.2-0.20190823161458-713c8d43f997/go.mod h1:8Vtij257IWSanUQKe1tAeNOm2sRVkSqQTVQ1IlwI3+M=
 github.com/containers/image v2.0.0+incompatible h1:FTr6Br7jlIKNCKMjSOMbAxKp2keQ0//jzJaYNTVhauk=
 github.com/containers/image v2.0.0+incompatible/go.mod h1:8Vtij257IWSanUQKe1tAeNOm2sRVkSqQTVQ1IlwI3+M=
 github.com/containers/image v3.0.0+incompatible h1:pdUHY//H+3jYNnoTt+rqY8NsStX4ZBLKzPTlMC+XvnU=

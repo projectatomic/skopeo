@@ -6,7 +6,7 @@ require (
 	github.com/VividCortex/ewma v1.1.1 // indirect
 	github.com/containerd/continuity v0.0.0-20180216233310-d8fb8589b0e8 // indirect
 	github.com/containers/buildah v1.8.4
-	github.com/containers/image v1.5.2-0.20190821161828-0cc0e97405db
+	github.com/containers/image v1.5.2-0.20190823161458-713c8d43f997
 	github.com/containers/storage v1.13.0
 	github.com/docker/distribution v0.0.0-20170817175659-5f6282db7d65 // indirect
 	github.com/docker/docker v0.0.0-20180522102801-da99009bbb11

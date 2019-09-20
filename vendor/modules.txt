@@ -26,7 +26,7 @@ github.com/VividCortex/ewma
 github.com/containerd/continuity/pathdriver
 # github.com/containers/buildah v1.8.4
 github.com/containers/buildah/pkg/unshare
-# github.com/containers/image v1.5.2-0.20190821161828-0cc0e97405db
+# github.com/containers/image v1.5.2-0.20190823161458-713c8d43f997
 github.com/containers/image/copy
 github.com/containers/image/directory
 github.com/containers/image/docker
