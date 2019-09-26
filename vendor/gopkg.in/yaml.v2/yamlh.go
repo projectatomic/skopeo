@@ -296,7 +296,7 @@ const (
 
 	// Not in original libyaml.
 	yaml_BINARY_TAG = "tag:yaml.org,2002:binary"
-	yaml_MERGE_TAG = "tag:yaml.org,2002:merge"
+	yaml_MERGE_TAG  = "tag:yaml.org,2002:merge"
 
 	yaml_DEFAULT_SCALAR_TAG   = yaml_STR_TAG // The default scalar tag is !!str.
 	yaml_DEFAULT_SEQUENCE_TAG = yaml_SEQ_TAG // The default sequence tag is !!seq.
@@ -508,7 +508,7 @@ type yaml_parser_t struct {
 
 	problem string // Error description.
 
-	// The byte about which the problem occured.
+	// The byte about which the problem occurred.
 	problem_offset int
 	problem_value  int
 	problem_mark   yaml_mark_t

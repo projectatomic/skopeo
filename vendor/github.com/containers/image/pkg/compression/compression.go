@@ -13,6 +13,46 @@ import (
 	"github.com/ulikunitz/xz"
 )
 
+// Algorithm is a compression algorithm that can be used for CompressStream.
+type Algorithm struct {
+	name         string
+	prefix       []byte
+	decompressor DecompressorFunc
+	compressor   compressorFunc
+}
+
+var (
+	// Gzip compression.
+	Gzip = Algorithm{"gzip", []byte{0x1F, 0x8B, 0x08}, GzipDecompressor, gzipCompressor}
+	// Bzip2 compression.
+	Bzip2 = Algorithm{"bzip2", []byte{0x42, 0x5A, 0x68}, Bzip2Decompressor, bzip2Compressor}
+	// Xz compression.
+	Xz = Algorithm{"Xz", []byte{0xFD, 0x37, 0x7A, 0x58, 0x5A, 0x00}, XzDecompressor, xzCompressor}
+	// Zstd compression.
+	Zstd = Algorithm{"zstd", []byte{0x28, 0xb5, 0x2f, 0xfd}, ZstdDecompressor, zstdCompressor}
+
+	compressionAlgorithms = map[string]Algorithm{
+		Gzip.name:  Gzip,
+		Bzip2.name: Bzip2,
+		Xz.name:    Xz,
+		Zstd.name:  Zstd,
+	}
+)
+
+// Name returns the name for the compression algorithm.
+func (c Algorithm) Name() string {
+	return c.name
+}
+
+// AlgorithmByName returns the compressor by its name
+func AlgorithmByName(name string) (Algorithm, error) {
+	algorithm, ok := compressionAlgorithms[name]
+	if ok {
+		return algorithm, nil
+	}
+	return Algorithm{}, fmt.Errorf("cannot find compressor for %q", name)
+}
+
 // DecompressorFunc returns the decompressed stream, given a compressed stream.
 // The caller must call Close() on the decompressed stream (even if the compressed input stream does not need closing!).
 type DecompressorFunc func(io.Reader) (io.ReadCloser, error)
@@ -58,37 +98,6 @@ func xzCompressor(r io.Writer, level *int) (io.WriteCloser, error) {
 	return xz.NewWriter(r)
 }
 
-// Algorithm is a compression algorithm that can be used for CompressStream.
-type Algorithm struct {
-	name         string
-	prefix       []byte
-	decompressor DecompressorFunc
-	compressor   compressorFunc
-}
-
-// Name returns the name for the compression algorithm.
-func (c Algorithm) Name() string {
-	return c.name
-}
-
-// compressionAlgos is an internal implementation detail of DetectCompression
-var compressionAlgos = []Algorithm{
-	{"gzip", []byte{0x1F, 0x8B, 0x08}, GzipDecompressor, gzipCompressor},             // gzip (RFC 1952)
-	{"bzip2", []byte{0x42, 0x5A, 0x68}, Bzip2Decompressor, bzip2Compressor},          // bzip2 (decompress.c:BZ2_decompress)
-	{"xz", []byte{0xFD, 0x37, 0x7A, 0x58, 0x5A, 0x00}, XzDecompressor, xzCompressor}, // xz (/usr/share/doc/xz/xz-file-format.txt)
-	{"zstd", []byte{0x28, 0xb5, 0x2f, 0xfd}, ZstdDecompressor, zstdCompressor},       // zstd (http://www.zstd.net)
-}
-
-// AlgorithmByName returns the compressor by its name
-func AlgorithmByName(name string) (Algorithm, error) {
-	for _, c := range compressionAlgos {
-		if c.name == name {
-			return c, nil
-		}
-	}
-	return Algorithm{}, fmt.Errorf("cannot find compressor for %q", name)
-}
-
 // CompressStream returns the compressor by its name
 func CompressStream(dest io.Writer, algo Algorithm, level *int) (io.WriteCloser, error) {
 	return algo.compressor(dest, level)
@@ -108,7 +117,7 @@ func DetectCompressionFormat(input io.Reader) (Algorithm, DecompressorFunc, io.R
 
 	var retAlgo Algorithm
 	var decompressor DecompressorFunc
-	for _, algo := range compressionAlgos {
+	for _, algo := range compressionAlgorithms {
 		if bytes.HasPrefix(buffer[:n], algo.prefix) {
 			logrus.Debugf("Detected compression format %s", algo.name)
 			retAlgo = algo
