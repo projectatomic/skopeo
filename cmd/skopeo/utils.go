@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/containers/image/pkg/compression"
@@ -137,6 +138,13 @@ func (opts *imageOptions) newSystemContext() (*types.SystemContext, error) {
 	}
 	if opts.credsOption.present && opts.noCreds {
 		return nil, errors.New("creds and no-creds cannot be specified at the same time")
+	}
+	if envCreds := os.Getenv("SKOPEO_CREDS"); envCreds != "" {
+		var err error
+		ctx.DockerAuthConfig, err = getDockerAuth(envCreds)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if opts.credsOption.present {
 		var err error
