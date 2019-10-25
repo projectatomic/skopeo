@@ -6,7 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/containers/image/v4/manifest"
+	"github.com/containers/image/v5/manifest"
 	"github.com/urfave/cli"
 )
 

@@ -7,7 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/containers/image/v4/signature"
+	"github.com/containers/image/v5/signature"
 	"github.com/urfave/cli"
 )
 

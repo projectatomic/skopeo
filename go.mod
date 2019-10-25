@@ -4,7 +4,8 @@ go 1.12
 
 require (
 	github.com/containers/buildah v1.8.4
-	github.com/containers/image/v4 v4.0.2-0.20191021195858-69340234bfc6
+	github.com/containers/image/v4 v4.0.2-0.20191021195858-69340234bfc6 // indirect
+	github.com/containers/image/v5 v5.0.0-20191024192050-266a8d7d1025
 	github.com/containers/storage v1.13.4
 	github.com/docker/docker v0.0.0-20180522102801-da99009bbb11
 	github.com/dsnet/compress v0.0.1 // indirect
@@ -24,3 +25,5 @@ require (
 	go4.org v0.0.0-20190218023631-ce4c26f7be8e // indirect
 	k8s.io/client-go v0.0.0-20181219152756-3dd551c0f083 // indirect
 )
+
+replace github.com/containers/image/v5 => github.com/mtrmac/image/v5 v5.0.0-20191025204748-a40e6b800d77

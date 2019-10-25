@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/containers/image/v4/signature"
+	"github.com/containers/image/v5/signature"
 	"github.com/containers/skopeo/version"
 	"github.com/containers/storage/pkg/reexec"
 	"github.com/sirupsen/logrus"

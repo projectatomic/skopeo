@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/containers/image/v4/signature"
+	"github.com/containers/image/v5/signature"
 	"github.com/go-check/check"
 )
 

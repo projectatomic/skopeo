@@ -11,9 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/containers/image/v4/manifest"
-	"github.com/containers/image/v4/signature"
-	"github.com/containers/image/v4/types"
+	"github.com/containers/image/v5/manifest"
+	"github.com/containers/image/v5/signature"
+	"github.com/containers/image/v5/types"
 	"github.com/go-check/check"
 	digest "github.com/opencontainers/go-digest"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"

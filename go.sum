@@ -93,6 +93,8 @@ github.com/mtrmac/image/v4 v4.0.0-20191003181245-f4c983e93262 h1:HMUEnWU3OPT09JR
 github.com/mtrmac/image/v4 v4.0.0-20191003181245-f4c983e93262/go.mod h1:0ASJH1YgJiX/eqFZObqepgsvIA4XjCgpyfwn9pDGafA=
 github.com/mtrmac/image/v4 v4.0.0-20191003205427-4e53c7e04270 h1:pDOlOCB9naHCcv/RXWO129Dd03r710hQ2N83egZIf7A=
 github.com/mtrmac/image/v4 v4.0.0-20191003205427-4e53c7e04270/go.mod h1:0ASJH1YgJiX/eqFZObqepgsvIA4XjCgpyfwn9pDGafA=
+github.com/mtrmac/image/v5 v5.0.0-20191025204748-a40e6b800d77 h1:IEMiKX2ItzlU/YUTcx5420htf+xKGvVLhXUqNs3csjs=
+github.com/mtrmac/image/v5 v5.0.0-20191025204748-a40e6b800d77/go.mod h1:MgiLzCfIeo8lrHi+4Lb8HP+rh513sm0Mlk6RrhjFOLY=
 github.com/opencontainers/go-digest v1.0.0-rc1 h1:WzifXhOVOEOuFYOJAW6aQqW0TooG2iki3E3Ii+WN7gQ=
 github.com/opencontainers/go-digest v1.0.0-rc1/go.mod h1:cMLVZDEM3+U2I4VmLI6N8jQYUd2OVphdqWwCJHrFt2s=
 github.com/opencontainers/image-spec v1.0.2-0.20190823105129-775207bd45b6 h1:yN8BPXVwMBAm3Cuvh1L5XE8XpvYRMdsVLd82ILprhUU=
