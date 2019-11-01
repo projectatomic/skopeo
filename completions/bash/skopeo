@@ -51,6 +51,7 @@ _skopeo_copy() {
     "
 
     local boolean_options="
+    --all
     --dest-compress
     --remove-signatures
     --src-no-creds

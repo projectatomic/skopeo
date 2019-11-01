@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/containers/buildah/pkg/unshare"
-	"github.com/containers/image/storage"
-	"github.com/containers/image/transports/alltransports"
+	"github.com/containers/image/v5/storage"
+	"github.com/containers/image/v5/transports/alltransports"
 	"github.com/pkg/errors"
 	"github.com/syndtr/gocapability/capability"
 )

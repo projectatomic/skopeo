@@ -17,6 +17,12 @@ Uses the system's trust policy to validate images, rejects images not trusted by
 
 ## OPTIONS
 
+**--all**
+
+If _source-image_ refers to a list of images, instead of copying just the image which matches the current OS and
+architecture (subject to the use of the global --override-os and --override-arch options), attempt to copy all of
+the images in the list, and the list itself.
+
 **--authfile** _path_
 
 Path of the authentication file. Default is ${XDG_RUNTIME\_DIR}/containers/auth.json, which is set using `podman login`.
@@ -77,7 +83,7 @@ $ ls /var/lib/images/busybox/*
 To copy and sign an image:
 
 ```sh
-$ skopeo copy --sign-by dev@example.com atomic:example/busybox:streaming atomic:example/busybox:gold
+# skopeo copy --sign-by dev@example.com container-storage:example/busybox:streaming docker://example/busybox:gold
 ```
 
 ## SEE ALSO

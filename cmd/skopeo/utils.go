@@ -7,9 +7,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/containers/image/pkg/compression"
-	"github.com/containers/image/transports/alltransports"
-	"github.com/containers/image/types"
+	"github.com/containers/image/v5/pkg/compression"
+	"github.com/containers/image/v5/transports/alltransports"
+	"github.com/containers/image/v5/types"
 	"github.com/urfave/cli"
 )
 

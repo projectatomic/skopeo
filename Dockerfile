@@ -1,6 +1,6 @@
 FROM fedora
 
-RUN dnf -y update && dnf install -y make git golang golang-github-cpuguy83-go-md2man \
+RUN dnf -y update && dnf install -y make git golang golang-github-cpuguy83-md2man \
 	# storage deps
 	btrfs-progs-devel \
 	device-mapper-devel \

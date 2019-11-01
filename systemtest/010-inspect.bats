@@ -79,4 +79,38 @@ END_EXPECT
     done
 }
 
+@test "inspect: image manifest list w/ diff platform" {
+    # When --raw is provided, can inspect show the raw manifest list, w/o
+    # requiring any particular platform to be present
+    # To test whether container image can be inspected successfully w/o
+    # platform dependency.
+    #    1) Get current platform arch
+    #    2) Inspect container image is different from current platform arch
+    #    3) Compare output w/ expected result
+    arch=$(podman info --format '{{.host.arch}}')
+    case $arch in
+        "amd64")
+            diff_arch_list="s390x ppc64le"
+            ;;
+        "s390x")
+            diff_arch_list="amd64 ppc64le"
+            ;;
+        "ppc64le")
+            diff_arch_list="amd64 s390x"
+            ;;
+        "*")
+            diff_arch_list="amd64 s390x ppc64le"
+            ;;
+    esac
+
+    for arch in $diff_arch_list; do
+        remote_image=docker://docker.io/$arch/golang
+        run_skopeo inspect --tls-verify=false --raw $remote_image
+        remote=$(echo "$output" | jq -r '.manifests[0]["platform"]')
+        expect=$(echo "{\"architecture\":\"$arch\",\"os\":\"linux\"}" | jq)
+        expect_output --from="$remote" --substring "$expect" \
+                  "platform arch is not expected"
+    done
+}
+
 # vim: filetype=sh

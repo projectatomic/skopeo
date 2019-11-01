@@ -6,11 +6,11 @@ import (
 	"io"
 	"strings"
 
-	"github.com/containers/image/copy"
-	"github.com/containers/image/docker/reference"
-	"github.com/containers/image/manifest"
-	"github.com/containers/image/transports"
-	"github.com/containers/image/transports/alltransports"
+	"github.com/containers/image/v5/copy"
+	"github.com/containers/image/v5/docker/reference"
+	"github.com/containers/image/v5/manifest"
+	"github.com/containers/image/v5/transports"
+	"github.com/containers/image/v5/transports/alltransports"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/urfave/cli"
 )
@@ -24,7 +24,7 @@ type copyOptions struct {
 	signByFingerprint string          // Sign the image using a GPG key with the specified fingerprint
 	format            optionalString  // Force conversion of the image to a specified format
 	quiet             bool            // Suppress output information when copying images
-
+	all               bool            // Copy all of the images if the source is a list
 }
 
 func copyCmd(global *globalOptions) cli.Command {
@@ -61,6 +61,11 @@ func copyCmd(global *globalOptions) cli.Command {
 				Name:        "quiet, q",
 				Usage:       "Suppress output information when copying images",
 				Destination: &opts.quiet,
+			},
+			cli.BoolFlag{
+				Name:        "all, a",
+				Usage:       "Copy all images if SOURCE-IMAGE is a list",
+				Destination: &opts.all,
 			},
 			cli.BoolFlag{
 				Name:        "remove-signatures",
@@ -147,6 +152,10 @@ func (opts *copyOptions) run(args []string, stdout io.Writer) error {
 	if opts.quiet {
 		stdout = nil
 	}
+	imageListSelection := copy.CopySystemImage
+	if opts.all {
+		imageListSelection = copy.CopyAllImages
+	}
 	_, err = copy.Image(ctx, policyContext, destRef, srcRef, &copy.Options{
 		RemoveSignatures:      opts.removeSignatures,
 		SignBy:                opts.signByFingerprint,
@@ -154,6 +163,7 @@ func (opts *copyOptions) run(args []string, stdout io.Writer) error {
 		SourceCtx:             sourceCtx,
 		DestinationCtx:        destinationCtx,
 		ForceManifestMIMEType: manifestType,
+		ImageListSelection:    imageListSelection,
 	})
 	return err
 }

@@ -1202,7 +1202,7 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 			}
 		}
 		if cimage == nil {
-			return nil, ErrImageUnknown
+			return nil, errors.Wrapf(ErrImageUnknown, "error locating image with ID %q", id)
 		}
 		imageID = cimage.ID
 
@@ -1437,7 +1437,7 @@ func (s *store) ListImageBigData(id string) ([]string, error) {
 			return bigDataNames, err
 		}
 	}
-	return nil, ErrImageUnknown
+	return nil, errors.Wrapf(ErrImageUnknown, "error locating image with ID %q", id)
 }
 
 func (s *store) ImageBigDataSize(id, key string) (int64, error) {
@@ -1502,6 +1502,7 @@ func (s *store) ImageBigData(id, key string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	foundImage := false
 	for _, s := range append([]ROImageStore{istore}, istores...) {
 		store := s
 		store.RLock()
@@ -1515,8 +1516,14 @@ func (s *store) ImageBigData(id, key string) ([]byte, error) {
 		if err == nil {
 			return data, nil
 		}
+		if store.Exists(id) {
+			foundImage = true
+		}
 	}
-	return nil, ErrImageUnknown
+	if foundImage {
+		return nil, errors.Wrapf(os.ErrNotExist, "error locating item named %q for image with ID %q", key, id)
+	}
+	return nil, errors.Wrapf(ErrImageUnknown, "error locating image with ID %q", id)
 }
 
 func (s *store) SetImageBigData(id, key string, data []byte, digestManifest func([]byte) (digest.Digest, error)) error {
@@ -1587,10 +1594,12 @@ func (s *store) ImageSize(id string) (int64, error) {
 		return -1, errors.Wrapf(ErrImageUnknown, "error locating image with ID %q", id)
 	}
 
-	// Start with a list of the image's top layers.
+	// Start with a list of the image's top layers, if it has any.
 	queue := make(map[string]struct{})
 	for _, layerID := range append([]string{image.TopLayer}, image.MappedTopLayers...) {
-		queue[layerID] = struct{}{}
+		if layerID != "" {
+			queue[layerID] = struct{}{}
+		}
 	}
 	visited := make(map[string]struct{})
 	// Walk all of the layers.
@@ -2891,7 +2900,7 @@ func (s *store) Image(id string) (*Image, error) {
 			return image, nil
 		}
 	}
-	return nil, ErrImageUnknown
+	return nil, errors.Wrapf(ErrImageUnknown, "error locating image with ID %q", id)
 }
 
 func (s *store) ImagesByTopLayer(id string) ([]*Image, error) {
@@ -2953,7 +2962,7 @@ func (s *store) ImagesByDigest(d digest.Digest) ([]*Image, error) {
 			}
 		}
 		imageList, err := store.ByDigest(d)
-		if err != nil && err != ErrImageUnknown {
+		if err != nil && errors.Cause(err) != ErrImageUnknown {
 			return nil, err
 		}
 		images = append(images, imageList...)

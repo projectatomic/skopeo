@@ -45,7 +45,7 @@ function setup() {
 }
 
 # Compression zstd
-@test "copy: oci, round trip" {
+@test "copy: oci, round trip, zstd" {
     local remote_image=docker://busybox:latest
 
     local dir=$TESTDIR/dir
@@ -74,6 +74,15 @@ function setup() {
 
     # ...which should differ only in the tag. (But that's too hard to check)
     grep '"org.opencontainers.image.ref.name":"withtag"' $dir2/index.json
+}
+
+# Registry -> storage -> oci-archive
+@test "copy: registry -> storage -> oci-archive" {
+    local alpine=docker.io/library/alpine:latest
+    local tmp=$TESTDIR/oci
+
+    run_skopeo copy docker://$alpine containers-storage:$alpine
+    run_skopeo copy containers-storage:$alpine oci-archive:$tmp
 }
 
 # This one seems unlikely to get fixed

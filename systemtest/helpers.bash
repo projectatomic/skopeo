@@ -106,6 +106,23 @@ function run_skopeo() {
     fi
 }
 
+#################
+#  log_and_run  #  log a command for later debugging, then run it
+#################
+#
+# When diagnosing a test failure,  it can be really nice to see the
+# more important commands that have been run in test setup: openssl,
+# podman registry, other complex commands that can give one a boost
+# when trying to reproduce problems. This simple wrapper takes a
+# command as its arg, echoes it to stdout (with a '$' prefix),
+# then runs the command. BATS does not show stdout unless there's
+# an error. Use this judiciously.
+#
+function log_and_run() {
+    echo "\$ $*"
+    "$@"
+}
+
 #########
 #  die  #  Abort with helpful message
 #########
@@ -282,7 +299,7 @@ start_registry() {
         fi
 
         if ! egrep -q "^$testuser:" $AUTHDIR/htpasswd; then
-            $PODMAN run --rm --entrypoint htpasswd registry:2 \
+            log_and_run $PODMAN run --rm --entrypoint htpasswd registry:2 \
                    -Bbn $testuser $testpassword >> $AUTHDIR/htpasswd
         fi
 
@@ -297,7 +314,7 @@ start_registry() {
     if [[ -n $create_cert ]]; then
         CERT=$AUTHDIR/domain.crt
         if [ ! -e $CERT ]; then
-            openssl req -newkey rsa:4096 -nodes -sha256 \
+            log_and_run openssl req -newkey rsa:4096 -nodes -sha256 \
                     -keyout $AUTHDIR/domain.key -x509 -days 2 \
                     -out $CERT \
                     -subj "/C=US/ST=Foo/L=Bar/O=Red Hat, Inc./CN=localhost"
@@ -312,15 +329,15 @@ start_registry() {
         # test the client. (If client sees a matching .key file, it fails)
         # Thanks to Miloslav Trmac for this hint.
         mkdir -p $TESTDIR/client-auth
-        cp $CERT $TESTDIR/client-auth/
+        log_and_run cp $CERT $TESTDIR/client-auth/
     fi
 
-    $PODMAN run -d --name $name "${reg_args[@]}" registry:2
+    log_and_run $PODMAN run -d --name $name "${reg_args[@]}" registry:2
 
     # Wait for registry to actually come up
     timeout=10
     while [[ $timeout -ge 1 ]]; do
-        if curl localhost:$port/; then
+        if echo -n >/dev/tcp/127.0.0.1/$port; then
             return
         fi
 

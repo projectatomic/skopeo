@@ -7,10 +7,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/containers/image/directory"
-	"github.com/containers/image/image"
-	"github.com/containers/image/pkg/blobinfocache"
-	"github.com/containers/image/types"
+	"github.com/containers/image/v5/directory"
+	"github.com/containers/image/v5/image"
+	"github.com/containers/image/v5/pkg/blobinfocache"
+	"github.com/containers/image/v5/types"
 	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
@@ -142,9 +142,9 @@ func (opts *layersOptions) run(args []string, stdout io.Writer) (retErr error) {
 	if err != nil {
 		return err
 	}
-	if err := dest.PutManifest(ctx, manifest); err != nil {
+	if err := dest.PutManifest(ctx, manifest, nil); err != nil {
 		return err
 	}
 
-	return dest.Commit(ctx)
+	return dest.Commit(ctx, image.UnparsedInstance(rawSource, nil))
 }

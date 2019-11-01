@@ -226,7 +226,15 @@ func (d *Driver) Remove(id string) error {
 // Get returns the directory for the given id.
 func (d *Driver) Get(id string, options graphdriver.MountOpts) (_ string, retErr error) {
 	dir := d.dir(id)
-	if len(options.Options) > 0 {
+	switch len(options.Options) {
+	case 0:
+	case 1:
+		if options.Options[0] == "ro" {
+			// ignore "ro" option
+			break
+		}
+		fallthrough
+	default:
 		return "", fmt.Errorf("vfs driver does not support mount options")
 	}
 	if st, err := os.Stat(dir); err != nil {
