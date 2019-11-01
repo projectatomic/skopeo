@@ -7,8 +7,7 @@ RUN apt-get update && apt-get install -y \
     libdevmapper-dev \
     libgpgme11-dev \
     go-md2man \
-    libglib2.0-dev \
-    libostree-dev
+    libglib2.0-dev
 
 ENV GOPATH=/
 WORKDIR /src/github.com/containers/skopeo

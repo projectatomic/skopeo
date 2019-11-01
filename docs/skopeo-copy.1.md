@@ -54,8 +54,6 @@ If the authorization state is not found there, $HOME/.docker/config.json is chec
 
 **--dest-no-creds** _bool-value_  Access the registry anonymously.
 
-**--dest-ostree-tmp-dir** _path_ Directory to use for OSTree temporary files.
-
 **--dest-tls-verify** _bool-value_ Require HTTPS and verify certificates when talking to container destination registry or daemon (defaults to true)
 
 **--src-daemon-host** _host_ Copy from docker daemon at _host_. If _host_ starts with `tcp://`, HTTPS is enabled by default. To use plain HTTP, use the form `http://` (default is `unix:///var/run/docker.sock`).

@@ -44,7 +44,6 @@ _skopeo_copy() {
     --src-tls-verify
     --dest-creds --dcreds
     --dest-cert-dir
-    --dest-ostree-tmp-dir
     --dest-tls-verify
     --src-daemon-host
     --dest-daemon-host

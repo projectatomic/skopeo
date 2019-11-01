@@ -155,7 +155,6 @@ func (opts *imageOptions) newSystemContext() (*types.SystemContext, error) {
 // imageDestOptions is a superset of imageOptions specialized for iamge destinations.
 type imageDestOptions struct {
 	*imageOptions
-	osTreeTmpDir                string      // A directory to use for OSTree temporary files
 	dirForceCompression         bool        // Compress layers when saving to the dir: transport
 	ociAcceptUncompressedLayers bool        // Whether to accept uncompressed layers in the oci: transport
 	compressionFormat           string      // Format to use for the compression
@@ -168,11 +167,6 @@ func imageDestFlags(global *globalOptions, shared *sharedImageOptions, flagPrefi
 	opts := imageDestOptions{imageOptions: genericOptions}
 
 	return append(genericFlags, []cli.Flag{
-		cli.StringFlag{
-			Name:        flagPrefix + "ostree-tmp-dir",
-			Usage:       "`DIRECTORY` to use for OSTree temporary files",
-			Destination: &opts.osTreeTmpDir,
-		},
 		cli.BoolFlag{
 			Name:        flagPrefix + "compress",
 			Usage:       "Compress tarball image layers when saving to directory using the 'dir' transport. (default is same compression type as source)",
@@ -204,7 +198,6 @@ func (opts *imageDestOptions) newSystemContext() (*types.SystemContext, error) {
 		return nil, err
 	}
 
-	ctx.OSTreeTmpDirPath = opts.osTreeTmpDir
 	ctx.DirForceCompress = opts.dirForceCompression
 	ctx.OCIAcceptUncompressedLayers = opts.ociAcceptUncompressedLayers
 	if opts.compressionFormat != "" {

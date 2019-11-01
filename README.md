@@ -37,9 +37,6 @@ Skopeo works with API V2 registries such as Docker registries, the Atomic regist
  * oci:path:tag
          An image tag in a directory compliant with "Open Container Image Layout Specification" at path.
 
- * ostree:image[@/absolute/repo/path]
-         An image in local OSTree repository.  /absolute/repo/path defaults to /ostree/repo.
-
 Inspecting a repository
 -
 `skopeo` is able to _inspect_ a repository on a Docker registry and fetch images layers.
@@ -177,10 +174,10 @@ Building without a container requires a bit more manual work and setup in your e
 Install the necessary dependencies:
 ```sh
 # Fedora:
-sudo dnf install gpgme-devel libassuan-devel btrfs-progs-devel device-mapper-devel ostree-devel
+sudo dnf install gpgme-devel libassuan-devel btrfs-progs-devel device-mapper-devel
 
 # Ubuntu (`libbtrfs-dev` requires Ubuntu 18.10 and above):
-sudo apt install libgpgme-dev libassuan-dev libbtrfs-dev libdevmapper-dev libostree-dev
+sudo apt install libgpgme-dev libassuan-dev libbtrfs-dev libdevmapper-dev
 
 # macOS:
 brew install gpgme
@@ -205,7 +202,7 @@ Building in a container is simpler, but more restrictive:
 $ make binary # Or (make all) to also build documentation, see below.
 ```
 
-To build a pure-Go static binary (disables ostree, devicemapper, btrfs, and gpgme):
+To build a pure-Go static binary (disables devicemapper, btrfs, and gpgme):
 
 ```sh
 $ make binary-static DISABLE_CGO=1
