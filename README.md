@@ -157,6 +157,10 @@ for openSUSE:
 ```sh
 $ sudo zypper install skopeo
 ```
+on alpine: 
+```sh
+$ sudo apk add skopeo
+```
 
 
 Otherwise, read on for building and installing it from source:
