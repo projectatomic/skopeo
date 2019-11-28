@@ -6,7 +6,7 @@ require (
 	github.com/containers/buildah v1.11.5
 	github.com/containers/image/v5 v5.0.1-0.20191126085826-502848a1358b
 	github.com/containers/ocicrypt v0.0.0-20190930154801-b87a4a69c741
-	github.com/containers/storage v1.14.0
+	github.com/containers/storage v1.15.0
 	github.com/docker/docker v1.4.2-0.20191101170500-ac7306503d23
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/go-check/check v0.0.0-20180628173108-788fd7840127
