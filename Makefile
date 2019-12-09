@@ -22,7 +22,13 @@ CONTAINERSSYSCONFIGDIR=${DESTDIR}/etc/containers
 REGISTRIESDDIR=${CONTAINERSSYSCONFIGDIR}/registries.d
 SIGSTOREDIR=${DESTDIR}/var/lib/containers/sigstore
 BASHINSTALLDIR=${PREFIX}/share/bash-completion/completions
+
 GO ?= go
+GOBIN := $(shell $(GO) env GOBIN)
+ifeq ($(GOBIN),)
+GOBIN := $(GOPATH)/bin
+endif
+
 CONTAINER_RUNTIME := $(shell command -v podman 2> /dev/null || echo docker)
 GOMD2MAN ?= $(shell command -v go-md2man || echo '$(GOBIN)/go-md2man')
 
