@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/containers/buildah/pkg/unshare"
-	"github.com/containers/image/v5/storage"
 	"github.com/containers/image/v5/transports/alltransports"
 	"github.com/pkg/errors"
 	"github.com/syndtr/gocapability/capability"
@@ -36,10 +35,12 @@ func maybeReexec() error {
 }
 
 func reexecIfNecessaryForImages(imageNames ...string) error {
-	// Check if container-storage are used before doing unshare
+	// Check if container-storage is used before doing unshare
 	for _, imageName := range imageNames {
 		transport := alltransports.TransportFromImageName(imageName)
-		if transport != nil && transport.Name() == storage.Transport.Name() {
+		// Hard-code the storage name to avoid a reference on c/image/storage.
+		// See https://github.com/containers/skopeo/issues/771#issuecomment-563125006.
+		if transport != nil && transport.Name() == "containers-storage" {
 			return maybeReexec()
 		}
 	}
