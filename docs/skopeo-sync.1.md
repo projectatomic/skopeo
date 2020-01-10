@@ -37,6 +37,14 @@ name can be stored at _destination_.
 Path of the authentication file. Default is ${XDG\_RUNTIME\_DIR}/containers/auth.json, which is set using `podman login`.
 If the authorization state is not found there, $HOME/.docker/config.json is checked, which is set using `docker login`.
 
+**--src-authfile** _path_
+
+Path of the authentication file for the source registry. Uses path given by `--authfile`, if not provided.
+
+**--dest-authfile** _path_
+
+Path of the authentication file for the destination registry. Uses path given by `--authfile`, if not provided.
+
 **--src** _transport_ Transport for the source repository.
 
 **--dest** _transport_ Destination transport.

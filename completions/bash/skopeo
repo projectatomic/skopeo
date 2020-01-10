@@ -37,6 +37,8 @@ _skopeo_supported_transports() {
 _skopeo_copy() {
     local options_with_args="
     --authfile
+    --src-authfile
+    --dest-authfile
     --format -f
     --sign-by
     --src-creds --screds

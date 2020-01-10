@@ -1,3 +1,6 @@
 *.1
 /layers-*
 /skopeo
+
+# ignore JetBrains IDEs (GoLand) config folder
+.idea

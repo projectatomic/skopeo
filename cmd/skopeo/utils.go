@@ -56,6 +56,7 @@ func sharedImageFlags() ([]cli.Flag, *sharedImageOptions) {
 type dockerImageOptions struct {
 	global         *globalOptions      // May be shared across several imageOptions instances.
 	shared         *sharedImageOptions // May be shared across several imageOptions instances.
+	authFilePath   optionalString      // Path to a */containers/auth.json (prefixed version to override shared image option).
 	credsOption    optionalString      // username[:password] for accessing a registry
 	dockerCertPath string              // A directory using Docker-like *.{crt,cert,key} files for connecting to a registry or a daemon
 	tlsVerify      optionalBool        // Require HTTPS and verify certificates (for docker: and docker-daemon:)
@@ -87,7 +88,18 @@ func dockerImageFlags(global *globalOptions, shared *sharedImageOptions, flagPre
 		credsOptionExtra += "," + credsOptionAlias
 	}
 
-	return []cli.Flag{
+	var flags []cli.Flag
+	if flagPrefix != "" {
+		// the non-prefixed flag is handled by a shared flag.
+		flags = append(flags,
+			cli.GenericFlag{
+				Name:  flagPrefix + "authfile",
+				Usage: "path of the authentication file. Default is ${XDG_RUNTIME_DIR}/containers/auth.json",
+				Value: newOptionalStringValue(&opts.authFilePath),
+			},
+		)
+	}
+	flags = append(flags,
 		cli.GenericFlag{
 			Name:  flagPrefix + "creds" + credsOptionExtra,
 			Usage: "Use `USERNAME[:PASSWORD]` for accessing the registry",
@@ -108,7 +120,8 @@ func dockerImageFlags(global *globalOptions, shared *sharedImageOptions, flagPre
 			Usage:       "Access the registry anonymously",
 			Destination: &opts.noCreds,
 		},
-	}, &opts
+	)
+	return flags, &opts
 }
 
 // imageFlags prepares a collection of CLI flags writing into imageOptions, and the managed imageOptions structure.
@@ -142,6 +155,9 @@ func (opts *imageOptions) newSystemContext() (*types.SystemContext, error) {
 		DockerDaemonHost:         opts.dockerDaemonHost,
 		DockerDaemonCertPath:     opts.dockerCertPath,
 		SystemRegistriesConfPath: opts.global.registriesConfPath,
+	}
+	if opts.dockerImageOptions.authFilePath.present {
+		ctx.AuthFilePath = opts.dockerImageOptions.authFilePath.value
 	}
 	if opts.tlsVerify.present {
 		ctx.DockerDaemonInsecureSkipTLSVerify = !opts.tlsVerify.value

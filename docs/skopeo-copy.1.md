@@ -28,6 +28,14 @@ the images in the list, and the list itself.
 Path of the authentication file. Default is ${XDG_RUNTIME\_DIR}/containers/auth.json, which is set using `podman login`.
 If the authorization state is not found there, $HOME/.docker/config.json is checked, which is set using `docker login`.
 
+**--src-authfile** _path_
+
+Path of the authentication file for the source registry. Uses path given by `--authfile`, if not provided.
+
+**--dest-authfile** _path_
+
+Path of the authentication file for the destination registry. Uses path given by `--authfile`, if not provided.
+
 **--format, -f** _manifest-type_ Manifest type (oci, v2s1, or v2s2) to use when saving image to directory using the 'dir:' transport (default is manifest type of source)
 
 **--quiet, -q** suppress output information when copying images

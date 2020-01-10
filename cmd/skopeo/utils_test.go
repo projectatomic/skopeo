@@ -54,6 +54,7 @@ func TestImageOptionsNewSystemContext(t *testing.T) {
 		"--override-os", "overridden-os",
 	}, []string{
 		"--authfile", "/srv/authfile",
+		"--dest-authfile", "/srv/dest-authfile",
 		"--dest-cert-dir", "/srv/cert-dir",
 		"--dest-shared-blob-dir", "/srv/shared-blob-dir",
 		"--dest-daemon-host", "daemon-host.example.com",
@@ -64,7 +65,7 @@ func TestImageOptionsNewSystemContext(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, &types.SystemContext{
 		RegistriesDirPath:                 "/srv/registries.d",
-		AuthFilePath:                      "/srv/authfile",
+		AuthFilePath:                      "/srv/dest-authfile",
 		ArchitectureChoice:                "overridden-arch",
 		OSChoice:                          "overridden-os",
 		OCISharedBlobDirPath:              "/srv/shared-blob-dir",
@@ -179,4 +180,48 @@ func TestImageDestOptionsNewSystemContext(t *testing.T) {
 	opts = fakeImageDestOptions(t, "dest-", []string{}, []string{"--dest-creds", ""})
 	_, err = opts.newSystemContext()
 	assert.Error(t, err)
+}
+
+// since there is a shared authfile image option and a non-shared (prefixed) one, make sure the override logic
+// works correctly.
+func TestImageOptionsAuthfileOverride(t *testing.T) {
+
+	for _, testCase := range []struct {
+		flagPrefix           string
+		cmdFlags             []string
+		expectedAuthfilePath string
+	}{
+		// if there is no prefix, only authfile is allowed.
+		{"",
+			[]string{
+				"--authfile", "/srv/authfile",
+			}, "/srv/authfile"},
+		// if authfile and dest-authfile is provided, dest-authfile wins
+		{"dest-",
+			[]string{
+				"--authfile", "/srv/authfile",
+				"--dest-authfile", "/srv/dest-authfile",
+			}, "/srv/dest-authfile",
+		},
+		// if only the shared authfile is provided, authfile must be present in system context
+		{"dest-",
+			[]string{
+				"--authfile", "/srv/authfile",
+			}, "/srv/authfile",
+		},
+		// if only the dest authfile is provided, dest-authfile must be present in system context
+		{"dest-",
+			[]string{
+				"--dest-authfile", "/srv/dest-authfile",
+			}, "/srv/dest-authfile",
+		},
+	} {
+		opts := fakeImageOptions(t, testCase.flagPrefix, []string{}, testCase.cmdFlags)
+		res, err := opts.newSystemContext()
+		require.NoError(t, err)
+
+		assert.Equal(t, &types.SystemContext{
+			AuthFilePath: testCase.expectedAuthfilePath,
+		}, res)
+	}
 }
