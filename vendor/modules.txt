@@ -36,7 +36,7 @@ github.com/containerd/containerd/log
 github.com/containerd/containerd/platforms
 # github.com/containers/common v0.0.7
 github.com/containers/common/pkg/unshare
-# github.com/containers/image/v5 v5.0.1-0.20191126085826-502848a1358b
+# github.com/containers/image/v5 v5.1.0
 github.com/containers/image/v5/copy
 github.com/containers/image/v5/directory
 github.com/containers/image/v5/directory/explicitfilepath
@@ -87,7 +87,7 @@ github.com/containers/ocicrypt/keywrap/pgp
 github.com/containers/ocicrypt/keywrap/pkcs7
 github.com/containers/ocicrypt/spec
 github.com/containers/ocicrypt/utils
-# github.com/containers/storage v1.15.3
+# github.com/containers/storage v1.15.5
 github.com/containers/storage
 github.com/containers/storage/drivers
 github.com/containers/storage/drivers/aufs
@@ -213,8 +213,6 @@ github.com/konsorten/go-windows-terminal-sequences
 github.com/kr/pretty
 # github.com/kr/text v0.1.0
 github.com/kr/text
-# github.com/mattn/go-isatty v0.0.4
-github.com/mattn/go-isatty
 # github.com/mattn/go-shellwords v1.0.6
 github.com/mattn/go-shellwords
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
@@ -242,7 +240,7 @@ github.com/opencontainers/selinux/go-selinux/label
 # github.com/ostreedev/ostree-go v0.0.0-20190702140239-759a8c1ac913
 github.com/ostreedev/ostree-go/pkg/glibobject
 github.com/ostreedev/ostree-go/pkg/otbuiltin
-# github.com/pkg/errors v0.8.1
+# github.com/pkg/errors v0.9.0
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
 github.com/pmezard/go-difflib/difflib
@@ -289,11 +287,11 @@ github.com/urfave/cli
 github.com/vbatts/tar-split/archive/tar
 github.com/vbatts/tar-split/tar/asm
 github.com/vbatts/tar-split/tar/storage
-# github.com/vbauerster/mpb v3.4.0+incompatible
-github.com/vbauerster/mpb
-github.com/vbauerster/mpb/cwriter
-github.com/vbauerster/mpb/decor
-github.com/vbauerster/mpb/internal
+# github.com/vbauerster/mpb/v4 v4.11.1
+github.com/vbauerster/mpb/v4
+github.com/vbauerster/mpb/v4/cwriter
+github.com/vbauerster/mpb/v4/decor
+github.com/vbauerster/mpb/v4/internal
 # github.com/xeipuuv/gojsonpointer v0.0.0-20190809123943-df4f5c81cb3b
 github.com/xeipuuv/gojsonpointer
 # github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415
@@ -308,7 +306,7 @@ go.opencensus.io/trace/internal
 go.opencensus.io/trace/tracestate
 # go4.org v0.0.0-20190218023631-ce4c26f7be8e
 go4.org/errorutil
-# golang.org/x/crypto v0.0.0-20190927123631-a832865fa7ad
+# golang.org/x/crypto v0.0.0-20191112222119-e1110fd1c708
 golang.org/x/crypto/cast5
 golang.org/x/crypto/ed25519
 golang.org/x/crypto/ed25519/internal/edwards25519
@@ -320,7 +318,7 @@ golang.org/x/crypto/openpgp/packet
 golang.org/x/crypto/openpgp/s2k
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/net v0.0.0-20190628185345-da137c7871d7
+# golang.org/x/net v0.0.0-20191004110552-13f9640d40b9
 golang.org/x/net/context
 golang.org/x/net/http/httpguts
 golang.org/x/net/http2

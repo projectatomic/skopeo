@@ -9,6 +9,7 @@ import (
 	"github.com/containers/storage/pkg/archive"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 type ociArchiveImageDestination struct {
@@ -43,7 +44,10 @@ func (d *ociArchiveImageDestination) Reference() types.ImageReference {
 // Close removes resources associated with an initialized ImageDestination, if any
 // Close deletes the temp directory of the oci-archive image
 func (d *ociArchiveImageDestination) Close() error {
-	defer d.tempDirRef.deleteTempDir()
+	defer func() {
+		err := d.tempDirRef.deleteTempDir()
+		logrus.Debugf("Error deleting temporary directory: %v", err)
+	}()
 	return d.unpackedDest.Close()
 }
 

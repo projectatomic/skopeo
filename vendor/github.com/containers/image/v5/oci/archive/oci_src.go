@@ -9,6 +9,7 @@ import (
 	digest "github.com/opencontainers/go-digest"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 type ociArchiveImageSource struct {
@@ -53,7 +54,10 @@ func LoadManifestDescriptorWithContext(sys *types.SystemContext, imgRef types.Im
 	if err != nil {
 		return imgspecv1.Descriptor{}, errors.Wrap(err, "error creating temp directory")
 	}
-	defer tempDirRef.deleteTempDir()
+	defer func() {
+		err := tempDirRef.deleteTempDir()
+		logrus.Debugf("Error deleting temporary directory: %v", err)
+	}()
 
 	descriptor, err := ocilayout.LoadManifestDescriptor(tempDirRef.ociRefExtracted)
 	if err != nil {
@@ -70,7 +74,10 @@ func (s *ociArchiveImageSource) Reference() types.ImageReference {
 // Close removes resources associated with an initialized ImageSource, if any.
 // Close deletes the temporary directory at dst
 func (s *ociArchiveImageSource) Close() error {
-	defer s.tempDirRef.deleteTempDir()
+	defer func() {
+		err := s.tempDirRef.deleteTempDir()
+		logrus.Debugf("error deleting tmp dir: %v", err)
+	}()
 	return s.unpackedSrc.Close()
 }
 

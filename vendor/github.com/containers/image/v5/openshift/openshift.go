@@ -491,6 +491,9 @@ sigExists:
 			Content:    newSig,
 		}
 		body, err := json.Marshal(sig)
+		if err != nil {
+			return err
+		}
 		_, err = d.client.doRequest(ctx, "POST", "/oapi/v1/imagesignatures", body)
 		if err != nil {
 			return err

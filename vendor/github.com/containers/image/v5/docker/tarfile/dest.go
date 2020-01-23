@@ -121,7 +121,7 @@ func (d *Destination) PutBlob(ctx context.Context, stream io.Reader, inputInfo t
 		if err != nil {
 			return types.BlobInfo{}, err
 		}
-		_, err = streamCopy.Seek(0, os.SEEK_SET)
+		_, err = streamCopy.Seek(0, io.SeekStart)
 		if err != nil {
 			return types.BlobInfo{}, err
 		}

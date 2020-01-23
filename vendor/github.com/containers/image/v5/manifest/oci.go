@@ -238,7 +238,9 @@ func (m *OCI1) Inspect(configGetter func(types.BlobInfo) ([]byte, error)) (*type
 		return nil, err
 	}
 	d1 := &Schema2V1Image{}
-	json.Unmarshal(config, d1)
+	if err := json.Unmarshal(config, d1); err != nil {
+		return nil, err
+	}
 	i := &types.ImageInspectInfo{
 		Tag:           "",
 		Created:       v1.Created,

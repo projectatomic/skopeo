@@ -470,7 +470,7 @@ const (
 // OptionalBoolFalse.  The function is meant to avoid boilerplate code of users.
 func NewOptionalBool(b bool) OptionalBool {
 	o := OptionalBoolFalse
-	if b == true {
+	if b {
 		o = OptionalBoolTrue
 	}
 	return o

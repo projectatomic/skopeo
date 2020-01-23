@@ -27,8 +27,8 @@ import (
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"github.com/vbauerster/mpb"
-	"github.com/vbauerster/mpb/decor"
+	"github.com/vbauerster/mpb/v4"
+	"github.com/vbauerster/mpb/v4/decor"
 	"golang.org/x/crypto/ssh/terminal"
 	"golang.org/x/sync/semaphore"
 )
@@ -833,7 +833,10 @@ func (ic *imageCopier) copyLayers(ctx context.Context) error {
 		defer progressCleanup()
 
 		for i, srcLayer := range srcInfos {
-			copySemaphore.Acquire(ctx, 1)
+			err = copySemaphore.Acquire(ctx, 1)
+			if err != nil {
+				logrus.Debug("Can't acquire semaphoer", err)
+			}
 			go copyLayerHelper(i, srcLayer, encLayerBitmap[i], progressPool)
 		}
 
@@ -925,7 +928,7 @@ func (ic *imageCopier) copyUpdatedConfigAndManifest(ctx context.Context, instanc
 // The caller must eventually call the returned cleanup function after the pool will no longer be updated.
 func (c *copier) newProgressPool(ctx context.Context) (*mpb.Progress, func()) {
 	ctx, cancel := context.WithCancel(ctx)
-	pool := mpb.New(mpb.WithWidth(40), mpb.WithOutput(c.progressOutput), mpb.WithContext(ctx))
+	pool := mpb.NewWithContext(ctx, mpb.WithWidth(40), mpb.WithOutput(c.progressOutput))
 	return pool, func() {
 		cancel()
 		pool.Wait()
@@ -945,6 +948,9 @@ func (c *copier) createProgressBar(pool *mpb.Progress, info types.BlobInfo, kind
 		prefix = prefix[:maxPrefixLen]
 	}
 
+	// onComplete will replace prefix once the bar/spinner has completed
+	onComplete = prefix + " " + onComplete
+
 	// Use a normal progress bar when we know the size (i.e., size > 0).
 	// Otherwise, use a spinner to indicate that something's happening.
 	var bar *mpb.Bar
@@ -952,10 +958,10 @@ func (c *copier) createProgressBar(pool *mpb.Progress, info types.BlobInfo, kind
 		bar = pool.AddBar(info.Size,
 			mpb.BarClearOnComplete(),
 			mpb.PrependDecorators(
-				decor.Name(prefix),
+				decor.OnComplete(decor.Name(prefix), onComplete),
 			),
 			mpb.AppendDecorators(
-				decor.OnComplete(decor.CountersKibiByte("%.1f / %.1f"), " "+onComplete),
+				decor.OnComplete(decor.CountersKibiByte("%.1f / %.1f"), ""),
 			),
 		)
 	} else {
@@ -964,10 +970,7 @@ func (c *copier) createProgressBar(pool *mpb.Progress, info types.BlobInfo, kind
 			mpb.BarClearOnComplete(),
 			mpb.SpinnerStyle([]string{".", "..", "...", "....", ""}),
 			mpb.PrependDecorators(
-				decor.Name(prefix),
-			),
-			mpb.AppendDecorators(
-				decor.OnComplete(decor.Name(""), " "+onComplete),
+				decor.OnComplete(decor.Name(prefix), onComplete),
 			),
 		)
 	}
@@ -1084,7 +1087,7 @@ func (ic *imageCopier) copyLayerFromStream(ctx context.Context, srcStream io.Rea
 		diffIDChan = make(chan diffIDResult, 1) // Buffered, so that sending a value after this or our caller has failed and exited does not block.
 		pipeReader, pipeWriter := io.Pipe()
 		defer func() { // Note that this is not the same as {defer pipeWriter.CloseWithError(err)}; we need err to be evaluated lazily.
-			pipeWriter.CloseWithError(err) // CloseWithError(nil) is equivalent to Close()
+			_ = pipeWriter.CloseWithError(err) // CloseWithError(nil) is equivalent to Close(), always returns nil
 		}()
 
 		getDiffIDRecorder = func(decompressor compression.DecompressorFunc) io.Writer {
@@ -1371,7 +1374,7 @@ func (c *copier) copyBlobFromStream(ctx context.Context, srcStream io.Reader, sr
 func (c *copier) compressGoroutine(dest *io.PipeWriter, src io.Reader, compressionFormat compression.Algorithm) {
 	err := errors.New("Internal error: unexpected panic in compressGoroutine")
 	defer func() { // Note that this is not the same as {defer dest.CloseWithError(err)}; we need err to be evaluated lazily.
-		dest.CloseWithError(err) // CloseWithError(nil) is equivalent to Close()
+		_ = dest.CloseWithError(err) // CloseWithError(nil) is equivalent to Close(), always returns nil
 	}()
 
 	compressor, err := compression.CompressStream(dest, compressionFormat, c.compressionLevel)
