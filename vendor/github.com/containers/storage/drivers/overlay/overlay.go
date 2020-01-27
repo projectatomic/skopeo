@@ -142,8 +142,7 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 	if opts.mountProgram == "" {
 		switch fsMagic {
 		case graphdriver.FsMagicAufs, graphdriver.FsMagicZfs, graphdriver.FsMagicOverlay, graphdriver.FsMagicEcryptfs:
-			logrus.Errorf("'overlay' is not supported over %s", backingFs)
-			return nil, errors.Wrapf(graphdriver.ErrIncompatibleFS, "'overlay' is not supported over %s", backingFs)
+			return nil, errors.Wrapf(graphdriver.ErrIncompatibleFS, "'overlay' is not supported over %s, a mount_program is required", backingFs)
 		}
 	}
 
@@ -402,9 +401,8 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 			if err == nil {
 				logrus.Debugf("overlay test mount with multiple lowers succeeded")
 				return supportsDType, nil
-			} else {
-				logrus.Debugf("overlay test mount with multiple lowers failed %v", err)
 			}
+			logrus.Debugf("overlay test mount with multiple lowers failed %v", err)
 		}
 		flags = fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", lower1Dir, upperDir, workDir)
 		if len(flags) < unix.Getpagesize() {
@@ -412,9 +410,8 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 			if err == nil {
 				logrus.Errorf("overlay test mount with multiple lowers failed, but succeeded with a single lower")
 				return supportsDType, errors.Wrap(graphdriver.ErrNotSupported, "kernel too old to provide multiple lowers feature for overlay")
-			} else {
-				logrus.Debugf("overlay test mount with a single lower failed %v", err)
 			}
+			logrus.Debugf("overlay test mount with a single lower failed %v", err)
 		}
 		logrus.Errorf("'overlay' is not supported over %s at %q", backingFs, home)
 		return supportsDType, errors.Wrapf(graphdriver.ErrIncompatibleFS, "'overlay' is not supported over %s at %q", backingFs, home)
@@ -811,15 +808,6 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		return "", err
 	}
 	readWrite := true
-	// fuse-overlayfs doesn't support working without an upperdir.
-	if d.options.mountProgram == "" {
-		for _, o := range options.Options {
-			if o == "ro" {
-				readWrite = false
-				break
-			}
-		}
-	}
 
 	lowers, err := ioutil.ReadFile(path.Join(dir, lowerFile))
 	if err != nil && !os.IsNotExist(err) {
