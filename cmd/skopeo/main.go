@@ -27,6 +27,7 @@ type globalOptions struct {
 	overrideOS         string        // OS to use for choosing images, instead of the runtime one
 	commandTimeout     time.Duration // Timeout for the command execution
 	registriesConfPath string        // Path to the "registries.conf" file
+	bigFilesTemporaryDir string      // Path to use for big temporary files
 }
 
 // createApp returns a cli.App, and the underlying globalOptions object, to be run or tested.

@@ -36,6 +36,7 @@ func commandAction(handler func(args []string, stdout io.Writer) error) cli.Acti
 // This really should be a part of globalOptions, but that would break existing users of (skopeo copy --authfile=).
 type sharedImageOptions struct {
 	authFilePath string // Path to a */containers/auth.json
+	bigFilesTemporaryDir string          // A directory to use for big temporary files
 }
 
 // imageFlags prepares a collection of CLI flags writing into sharedImageOptions, and the managed sharedImageOptions structure.
@@ -46,6 +47,11 @@ func sharedImageFlags() ([]cli.Flag, *sharedImageOptions) {
 			Name:        "authfile",
 			Usage:       "path of the authentication file. Default is ${XDG_RUNTIME_DIR}/containers/auth.json",
 			Destination: &opts.authFilePath,
+		},
+		cli.StringFlag{
+			Name:        "big-files-temporary-dir",
+			Usage:       "`DIRECTORY` to use for temporary big files",
+			Destination: &opts.bigFilesTemporaryDir,
 		},
 	}, &opts
 }
@@ -155,6 +161,7 @@ func (opts *imageOptions) newSystemContext() (*types.SystemContext, error) {
 		DockerDaemonHost:         opts.dockerDaemonHost,
 		DockerDaemonCertPath:     opts.dockerCertPath,
 		SystemRegistriesConfPath: opts.global.registriesConfPath,
+		BigFilesTemporaryDir:     opts.shared.bigFilesTemporaryDir,
 	}
 	if opts.dockerImageOptions.authFilePath.present {
 		ctx.AuthFilePath = opts.dockerImageOptions.authFilePath.value
