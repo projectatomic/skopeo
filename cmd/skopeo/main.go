@@ -18,16 +18,16 @@ import (
 var gitCommit = ""
 
 type globalOptions struct {
-	debug              bool          // Enable debug output
-	tlsVerify          optionalBool  // Require HTTPS and verify certificates (for docker: and docker-daemon:)
-	policyPath         string        // Path to a signature verification policy file
-	insecurePolicy     bool          // Use an "allow everything" signature verification policy
-	registriesDirPath  string        // Path to a "registries.d" registry configuration directory
-	overrideArch       string        // Architecture to use for choosing images, instead of the runtime one
-	overrideOS         string        // OS to use for choosing images, instead of the runtime one
-	commandTimeout     time.Duration // Timeout for the command execution
-	registriesConfPath string        // Path to the "registries.conf" file
-	bigFilesTemporaryDir string      // Path to use for big temporary files
+	debug                bool          // Enable debug output
+	tlsVerify            optionalBool  // Require HTTPS and verify certificates (for docker: and docker-daemon:)
+	policyPath           string        // Path to a signature verification policy file
+	insecurePolicy       bool          // Use an "allow everything" signature verification policy
+	registriesDirPath    string        // Path to a "registries.d" registry configuration directory
+	overrideArch         string        // Architecture to use for choosing images, instead of the runtime one
+	overrideOS           string        // OS to use for choosing images, instead of the runtime one
+	commandTimeout       time.Duration // Timeout for the command execution
+	registriesConfPath   string        // Path to the "registries.conf" file
+	bigFilesTemporaryDir string        // Path to use for big temporary files
 }
 
 // createApp returns a cli.App, and the underlying globalOptions object, to be run or tested.

@@ -35,8 +35,8 @@ func commandAction(handler func(args []string, stdout io.Writer) error) cli.Acti
 // sharedImageOptions collects CLI flags which are image-related, but do not change across images.
 // This really should be a part of globalOptions, but that would break existing users of (skopeo copy --authfile=).
 type sharedImageOptions struct {
-	authFilePath string // Path to a */containers/auth.json
-	bigFilesTemporaryDir string          // A directory to use for big temporary files
+	authFilePath         string // Path to a */containers/auth.json
+	bigFilesTemporaryDir string // A directory to use for big temporary files
 }
 
 // imageFlags prepares a collection of CLI flags writing into sharedImageOptions, and the managed sharedImageOptions structure.
