@@ -38,7 +38,7 @@ github.com/containerd/containerd/log
 github.com/containerd/containerd/platforms
 # github.com/containers/common v0.1.4
 github.com/containers/common/pkg/unshare
-# github.com/containers/image/v5 v5.2.0
+# github.com/containers/image/v5 v5.2.1
 github.com/containers/image/v5/copy
 github.com/containers/image/v5/directory
 github.com/containers/image/v5/directory/explicitfilepath
@@ -222,7 +222,7 @@ github.com/mattn/go-shellwords
 github.com/matttproud/golang_protobuf_extensions/pbutil
 # github.com/mistifyio/go-zfs v2.1.1+incompatible
 github.com/mistifyio/go-zfs
-# github.com/mtrmac/gpgme v0.1.1
+# github.com/mtrmac/gpgme v0.1.2
 github.com/mtrmac/gpgme
 # github.com/opencontainers/go-digest v1.0.0-rc1
 github.com/opencontainers/go-digest
