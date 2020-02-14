@@ -70,6 +70,8 @@ github.com/containers/common v0.1.4 h1:6tizbvX9BJTnJ0S3pe65Vcu8gJagbm6oFBCmwUIiO
 github.com/containers/common v0.1.4/go.mod h1:ss8uGpUsaDE4DPmaVFOjzKrlgf5eUnSAWL+d/PYGaoM=
 github.com/containers/common v0.2.0 h1:umTbAiX39/0oNxHn10ia0RyXrZCs/CnjJQlRiTdiXb8=
 github.com/containers/common v0.2.0/go.mod h1:ss8uGpUsaDE4DPmaVFOjzKrlgf5eUnSAWL+d/PYGaoM=
+github.com/containers/common v0.2.1 h1:sEMQm9S+Z7zaQNaSJYbJ5DeR539rk8qscH11RMYw9Fk=
+github.com/containers/common v0.2.1/go.mod h1:ss8uGpUsaDE4DPmaVFOjzKrlgf5eUnSAWL+d/PYGaoM=
 github.com/containers/image/v5 v5.0.0/go.mod h1:MgiLzCfIeo8lrHi+4Lb8HP+rh513sm0Mlk6RrhjFOLY=
 github.com/containers/image/v5 v5.0.1-0.20191126085826-502848a1358b h1:xUXa/0+KWQY1PAGuvfqXh1U18qTRYvHzhiys/BpZG4c=
 github.com/containers/image/v5 v5.0.1-0.20191126085826-502848a1358b/go.mod h1:NNGElTgKPvARdKeiJIE/IF+ddvHmNwaLPBupsoZI8eI=
