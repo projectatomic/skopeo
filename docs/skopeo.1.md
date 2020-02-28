@@ -75,6 +75,7 @@ Most commands refer to container images, using a _transport_`:`_details_ format.
 | [skopeo-standalone-sign(1)](skopeo-standalone-sign.1.md)    | Sign an image.                                               |
 | [skopeo-standalone-verify(1)](skopeo-standalone-verify.1.md)| Verify an image.                                             |
 | [skopeo-sync(1)](skopeo-sync.1.md)| Copy images from one or more repositories to a user specified destination.             |
+| [skopeo-list-tags(1)](skopeo-list-tags.1.md)  | List the tags for the given transport/repository.                           |
 
 ## FILES
   **/etc/containers/policy.json**

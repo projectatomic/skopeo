@@ -553,6 +553,15 @@ func (s *CopySuite) TestCopyEncryption(c *check.C) {
 	defer os.RemoveAll(keysDir)
 	undecryptedImgDir, err := ioutil.TempDir("", "copy-5")
 	defer os.RemoveAll(undecryptedImgDir)
+	multiLayerImageDir, err := ioutil.TempDir("", "copy-6")
+	c.Assert(err, check.IsNil)
+	defer os.RemoveAll(multiLayerImageDir)
+	partiallyEncryptedImgDir, err := ioutil.TempDir("", "copy-7")
+	c.Assert(err, check.IsNil)
+	defer os.RemoveAll(partiallyEncryptedImgDir)
+	partiallyDecryptedImgDir, err := ioutil.TempDir("", "copy-8")
+	c.Assert(err, check.IsNil)
+	defer os.RemoveAll(partiallyDecryptedImgDir)
 
 	// Create RSA key pair
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
@@ -577,7 +586,7 @@ func (s *CopySuite) TestCopyEncryption(c *check.C) {
 		"oci:"+encryptedImgDir+":encrypted", "oci:"+decryptedImgDir+":decrypted")
 
 	// Copy a standard busybox image locally
-	assertSkopeoSucceeds(c, "", "copy", "docker://busybox", "oci:"+originalImageDir+":latest")
+	assertSkopeoSucceeds(c, "", "copy", "docker://busybox:1.31.1", "oci:"+originalImageDir+":latest")
 
 	// Encrypt the image
 	assertSkopeoSucceeds(c, "", "copy", "--encryption-key",
@@ -597,7 +606,7 @@ func (s *CopySuite) TestCopyEncryption(c *check.C) {
 	assertSkopeoSucceeds(c, "", "copy", "oci:"+encryptedImgDir+":encrypted", "oci:"+undecryptedImgDir+":encrypted")
 	// Original busybox image has gzipped layers. But encrypted busybox layers should
 	// not be of gzip type
-	matchLayerBlobBinaryType(c, undecryptedImgDir+"/blobs/sha256", "application/x-gzip", false)
+	matchLayerBlobBinaryType(c, undecryptedImgDir+"/blobs/sha256", "application/x-gzip", 0)
 
 	// Decrypt the image
 	assertSkopeoSucceeds(c, "", "copy", "--decryption-key", keysDir+"/private.key",
@@ -605,13 +614,32 @@ func (s *CopySuite) TestCopyEncryption(c *check.C) {
 
 	// After successful decryption we should find the gzipped layer from the
 	// busybox image
-	matchLayerBlobBinaryType(c, decryptedImgDir+"/blobs/sha256", "application/x-gzip", true)
+	matchLayerBlobBinaryType(c, decryptedImgDir+"/blobs/sha256", "application/x-gzip", 1)
+
+	// Copy a standard multi layer nginx image locally
+	assertSkopeoSucceeds(c, "", "copy", "docker://nginx:1.17.8", "oci:"+multiLayerImageDir+":latest")
+
+	// Partially encrypt the image
+	assertSkopeoSucceeds(c, "", "copy", "--encryption-key", "jwe:"+keysDir+"/public.key",
+		"--encrypt-layer", "1", "oci:"+multiLayerImageDir+":latest", "oci:"+partiallyEncryptedImgDir+":encrypted")
+
+	// Since the image is partially encrypted we should find layers that aren't encrypted
+	matchLayerBlobBinaryType(c, partiallyEncryptedImgDir+"/blobs/sha256", "application/x-gzip", 2)
+
+	// Decrypt the partically encrypted image
+	assertSkopeoSucceeds(c, "", "copy", "--decryption-key", keysDir+"/private.key",
+		"oci:"+partiallyEncryptedImgDir+":encrypted", "oci:"+partiallyDecryptedImgDir+":decrypted")
+
+	// After successful decryption we should find the gzipped layers from the nginx image
+	matchLayerBlobBinaryType(c, partiallyDecryptedImgDir+"/blobs/sha256", "application/x-gzip", 3)
+
 }
 
-func matchLayerBlobBinaryType(c *check.C, ociImageDirPath string, contentType string, shouldMatch bool) {
+func matchLayerBlobBinaryType(c *check.C, ociImageDirPath string, contentType string, matchCount int) {
 	files, err := ioutil.ReadDir(ociImageDirPath)
 	c.Assert(err, check.IsNil)
-	blobFound := false
+
+	foundCount := 0
 	for _, f := range files {
 		fileContent, err := os.Open(ociImageDirPath + "/" + f.Name())
 		c.Assert(err, check.IsNil)
@@ -619,13 +647,11 @@ func matchLayerBlobBinaryType(c *check.C, ociImageDirPath string, contentType st
 		c.Assert(err, check.IsNil)
 
 		if layerContentType == contentType {
-			blobFound = true
-			break
+			foundCount = foundCount + 1
 		}
 	}
 
-	c.Assert(blobFound, check.Equals, shouldMatch)
-
+	c.Assert(foundCount, check.Equals, matchCount)
 }
 
 func getFileContentType(out *os.File) (string, error) {

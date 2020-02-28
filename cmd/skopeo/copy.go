@@ -28,6 +28,7 @@ type copyOptions struct {
 	format            optionalString  // Force conversion of the image to a specified format
 	quiet             bool            // Suppress output information when copying images
 	all               bool            // Copy all of the images if the source is a list
+	encryptLayer      cli.IntSlice    // The list of layers to encrypt
 	encryptionKeys    cli.StringSlice // Keys needed to encrypt the image
 	decryptionKeys    cli.StringSlice // Keys needed to decrypt the image
 }
@@ -91,6 +92,11 @@ func copyCmd(global *globalOptions) cli.Command {
 				Name:  "encryption-key",
 				Usage: "*Experimental* key with the encryption protocol to use needed to encrypt the image (e.g. jwe:/path/to/key.pem)",
 				Value: &opts.encryptionKeys,
+			},
+			cli.IntSliceFlag{
+				Name:  "encrypt-layer",
+				Usage: "*Experimental* the 0-indexed layer indices, with support for negative indexing (e.g. 0 is the first layer, -1 is the last layer)",
+				Value: &opts.encryptLayer,
 			},
 			cli.StringSliceFlag{
 				Name:  "decryption-key",
@@ -180,9 +186,14 @@ func (opts *copyOptions) run(args []string, stdout io.Writer) error {
 	var encConfig *encconfig.EncryptConfig
 	var decConfig *encconfig.DecryptConfig
 
+	if len(opts.encryptLayer.Value()) > 0 && len(opts.encryptionKeys.Value()) == 0 {
+		return fmt.Errorf("--encrypt-layer can only be used with --encryption-key")
+	}
+
 	if len(opts.encryptionKeys.Value()) > 0 {
 		// encryption
-		encLayers = &[]int{}
+		p := opts.encryptLayer.Value()
+		encLayers = &p
 		encryptionKeys := opts.encryptionKeys.Value()
 		ecc, err := enchelpers.CreateCryptoConfig(encryptionKeys, []string{})
 		if err != nil {

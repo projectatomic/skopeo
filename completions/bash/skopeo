@@ -144,6 +144,20 @@ _skopeo_layers() {
     _complete_ "$options_with_args" "$boolean_options"
 }
 
+_skopeo_list_repository_tags() {
+     local options_with_args="
+     --authfile
+     --creds
+     --cert-dir
+     "
+
+     local boolean_options="
+     --tls-verify
+     --no-creds
+     "
+    _complete_ "$options_with_args" "$boolean_options"
+}
+
 _skopeo_skopeo() {
      # XXX: Changes here need to be refleceted in the manually expanded
      # string in the `case` statement below as well.
@@ -194,7 +208,7 @@ _cli_bash_autocomplete() {
      local counter=1
      while [ $counter -lt "$cword" ]; do
          case "${words[$counter]}" in
-             skopeo|copy|inspect|delete|manifest-digest|standalone-sign|standalone-verify|help|h)
+             skopeo|copy|inspect|delete|manifest-digest|standalone-sign|standalone-verify|help|h|list-repository-tags)
                  command="${words[$counter]//-/_}"
                  cpos=$counter
                  (( cpos++ ))
