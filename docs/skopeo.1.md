@@ -58,6 +58,8 @@ Most commands refer to container images, using a _transport_`:`_details_ format.
 
   **--override-os** _OS_ Use _OS_ instead of the running OS for choosing images.
 
+  **--override-variant** _VARIANT_ Use _VARIANT_ instead of the running architecture variant for choosing images.
+
   **--command-timeout** _duration_ Timeout for the command execution.
 
   **--help**|**-h** Show help

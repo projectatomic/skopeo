@@ -469,7 +469,7 @@ func (s *CopySuite) TestCopyFailsWhenImageOSDoesntMatchRuntimeOS(c *check.C) {
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(storage)
 	storage = fmt.Sprintf("[vfs@%s/root+%s/runroot]", storage, storage)
-	assertSkopeoFails(c, `.*no image found in manifest list for architecture .*, OS .*`, "copy", knownWindowsOnlyImage, "containers-storage:"+storage+"test")
+	assertSkopeoFails(c, `.*no image found in manifest list for architecture .*, variant .*, OS .*`, "copy", knownWindowsOnlyImage, "containers-storage:"+storage+"test")
 }
 
 func (s *CopySuite) TestCopySucceedsWhenImageDoesntMatchRuntimeButWeOverride(c *check.C) {

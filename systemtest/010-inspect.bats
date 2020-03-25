@@ -73,7 +73,7 @@ END_EXPECT
     #    1) Get remote image values of environment variables (the value of 'Env')
     #    2) Confirm substring in check_array and the value of 'Env' match.
     check_array=(PATH=.* )
-    remote=$(echo "$inspect_remote" | jq '.Env[]')
+    remote=$(jq '.Env[]' <<<"$inspect_remote")
     for substr in ${check_array[@]}; do
         expect_output --from="$remote" --substring "$substr"
     done
@@ -106,10 +106,8 @@ END_EXPECT
     for arch in $diff_arch_list; do
         remote_image=docker://docker.io/$arch/golang
         run_skopeo inspect --tls-verify=false --raw $remote_image
-        remote=$(echo "$output" | jq -r '.manifests[0]["platform"]')
-        expect=$(echo "{\"architecture\":\"$arch\",\"os\":\"linux\"}" | jq)
-        expect_output --from="$remote" --substring "$expect" \
-                  "platform arch is not expected"
+        remote_arch=$(jq -r '.manifests[0]["platform"]["architecture"]' <<< "$output")
+        expect_output --from="$remote_arch" "$arch" "platform arch of $remote_image"
     done
 }
 

@@ -53,6 +53,7 @@ func TestImageOptionsNewSystemContext(t *testing.T) {
 		"--registries.d", "/srv/registries.d",
 		"--override-arch", "overridden-arch",
 		"--override-os", "overridden-os",
+		"--override-variant", "overridden-variant",
 	}, []string{
 		"--authfile", "/srv/authfile",
 		"--dest-authfile", "/srv/dest-authfile",
@@ -69,6 +70,7 @@ func TestImageOptionsNewSystemContext(t *testing.T) {
 		AuthFilePath:                      "/srv/dest-authfile",
 		ArchitectureChoice:                "overridden-arch",
 		OSChoice:                          "overridden-os",
+		VariantChoice:                     "overridden-variant",
 		OCISharedBlobDirPath:              "/srv/shared-blob-dir",
 		DockerCertPath:                    "/srv/cert-dir",
 		DockerInsecureSkipTLSVerify:       types.OptionalBoolTrue,
@@ -163,6 +165,7 @@ func TestImageDestOptionsNewSystemContext(t *testing.T) {
 		"--registries.d", "/srv/registries.d",
 		"--override-arch", "overridden-arch",
 		"--override-os", "overridden-os",
+		"--override-variant", "overridden-variant",
 	}, []string{
 		"--authfile", "/srv/authfile",
 		"--dest-cert-dir", "/srv/cert-dir",
@@ -179,6 +182,7 @@ func TestImageDestOptionsNewSystemContext(t *testing.T) {
 		AuthFilePath:                      "/srv/authfile",
 		ArchitectureChoice:                "overridden-arch",
 		OSChoice:                          "overridden-os",
+		VariantChoice:                     "overridden-variant",
 		OCISharedBlobDirPath:              "/srv/shared-blob-dir",
 		DockerCertPath:                    "/srv/cert-dir",
 		DockerInsecureSkipTLSVerify:       types.OptionalBoolTrue,

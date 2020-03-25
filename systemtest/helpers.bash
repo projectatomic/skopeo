@@ -5,6 +5,9 @@ SKOPEO_BINARY=${SKOPEO_BINARY:-$(dirname ${BASH_SOURCE})/../skopeo}
 # Default timeout for a skopeo command.
 SKOPEO_TIMEOUT=${SKOPEO_TIMEOUT:-300}
 
+# Default image to run as a local registry
+REGISTRY_FQIN=${SKOPEO_TEST_REGISTRY_FQIN:-docker.io/library/registry:2}
+
 ###############################################################################
 # BEGIN setup/teardown
 
@@ -299,7 +302,7 @@ start_registry() {
         fi
 
         if ! egrep -q "^$testuser:" $AUTHDIR/htpasswd; then
-            log_and_run $PODMAN run --rm --entrypoint htpasswd registry:2 \
+            log_and_run $PODMAN run --rm --entrypoint htpasswd $REGISTRY_FQIN \
                    -Bbn $testuser $testpassword >> $AUTHDIR/htpasswd
         fi
 
@@ -332,7 +335,7 @@ start_registry() {
         log_and_run cp $CERT $TESTDIR/client-auth/
     fi
 
-    log_and_run $PODMAN run -d --name $name "${reg_args[@]}" registry:2
+    log_and_run $PODMAN run -d --name $name "${reg_args[@]}" $REGISTRY_FQIN
 
     # Wait for registry to actually come up
     timeout=10

@@ -25,6 +25,7 @@ type globalOptions struct {
 	registriesDirPath  string        // Path to a "registries.d" registry configuration directory
 	overrideArch       string        // Architecture to use for choosing images, instead of the runtime one
 	overrideOS         string        // OS to use for choosing images, instead of the runtime one
+	overrideVariant    string        // Architecture variant to use for choosing images, instead of the runtime one
 	commandTimeout     time.Duration // Timeout for the command execution
 	registriesConfPath string        // Path to the "registries.conf" file
 }
@@ -78,6 +79,11 @@ func createApp() (*cli.App, *globalOptions) {
 			Name:        "override-os",
 			Usage:       "use `OS` instead of the running OS for choosing images",
 			Destination: &opts.overrideOS,
+		},
+		cli.StringFlag{
+			Name:        "override-variant",
+			Usage:       "use `VARIANT` instead of the running architecture variant for choosing images",
+			Destination: &opts.overrideVariant,
 		},
 		cli.DurationFlag{
 			Name:        "command-timeout",

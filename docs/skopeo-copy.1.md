@@ -20,7 +20,7 @@ Uses the system's trust policy to validate images, rejects images not trusted by
 **--all**
 
 If _source-image_ refers to a list of images, instead of copying just the image which matches the current OS and
-architecture (subject to the use of the global --override-os and --override-arch options), attempt to copy all of
+architecture (subject to the use of the global --override-os, --override-arch and --override-variant options), attempt to copy all of
 the images in the list, and the list itself.
 
 **--authfile** _path_

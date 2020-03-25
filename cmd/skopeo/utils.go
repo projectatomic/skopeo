@@ -151,6 +151,7 @@ func (opts *imageOptions) newSystemContext() (*types.SystemContext, error) {
 		RegistriesDirPath:        opts.global.registriesDirPath,
 		ArchitectureChoice:       opts.global.overrideArch,
 		OSChoice:                 opts.global.overrideOS,
+		VariantChoice:            opts.global.overrideVariant,
 		DockerCertPath:           opts.dockerCertPath,
 		OCISharedBlobDirPath:     opts.sharedBlobDir,
 		AuthFilePath:             opts.shared.authFilePath,
