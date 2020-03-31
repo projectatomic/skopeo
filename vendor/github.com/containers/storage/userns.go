@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/containers/common/pkg/unshare"
 	drivers "github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/idtools"
+	"github.com/containers/storage/pkg/unshare"
 	libcontainerUser "github.com/opencontainers/runc/libcontainer/user"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"

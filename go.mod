@@ -27,3 +27,5 @@ require (
 )
 
 replace github.com/containers/image/v5 => github.com/mtrmac/image/v5 v5.0.0-20200330201958-f729385ccdbe
+
+replace github.com/containers/storage => github.com/mtrmac/storage v0.0.0-20200331151127-12128dd2ef03

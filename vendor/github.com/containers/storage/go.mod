@@ -4,7 +4,6 @@ require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/Microsoft/go-winio v0.4.15-0.20190919025122-fc70bd9a86b5
 	github.com/Microsoft/hcsshim v0.8.7
-	github.com/containers/common v0.5.0
 	github.com/docker/go-units v0.4.0
 	github.com/klauspost/compress v1.10.3
 	github.com/klauspost/pgzip v1.2.3
@@ -12,6 +11,7 @@ require (
 	github.com/mistifyio/go-zfs v2.1.1+incompatible
 	github.com/opencontainers/go-digest v1.0.0-rc1
 	github.com/opencontainers/runc v1.0.0-rc9
+	github.com/opencontainers/runtime-spec v0.1.2-0.20190507144316-5b71a03e2700
 	github.com/opencontainers/selinux v1.4.0
 	github.com/pkg/errors v0.9.1
 	github.com/pquerna/ffjson v0.0.0-20181028064349-e517b90714f7
