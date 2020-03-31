@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	github.com/containers/buildah v1.13.1 // indirect
-	github.com/containers/common v0.6.1
+	github.com/containers/common v0.7.0
 	github.com/containers/image/v5 v5.3.1
 	github.com/containers/ocicrypt v0.0.0-20190930154801-b87a4a69c741
 	github.com/containers/storage v1.16.6
