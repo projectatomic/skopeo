@@ -4,7 +4,6 @@ go 1.12
 
 require (
 	github.com/containerd/containerd v1.3.0 // indirect
-	github.com/containers/common v0.6.1
 	github.com/containers/image/v5 v5.0.0-00010101000000-000000000000
 	github.com/containers/ocicrypt v1.0.1
 	github.com/containers/storage v1.17.0

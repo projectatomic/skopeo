@@ -36,8 +36,6 @@ github.com/containerd/cgroups/stats/v1
 github.com/containerd/containerd/errdefs
 github.com/containerd/containerd/log
 github.com/containerd/containerd/platforms
-# github.com/containers/common v0.6.1
-github.com/containers/common/pkg/unshare
 # github.com/containers/image/v5 v5.0.0-00010101000000-000000000000 => github.com/mtrmac/image/v5 v5.0.0-20200330201958-f729385ccdbe
 github.com/containers/image/v5/copy
 github.com/containers/image/v5/directory
