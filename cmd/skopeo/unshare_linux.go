@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/containers/common/pkg/unshare"
 	"github.com/containers/image/v5/transports/alltransports"
+	"github.com/containers/storage/pkg/unshare"
 	"github.com/pkg/errors"
 	"github.com/syndtr/gocapability/capability"
 )
