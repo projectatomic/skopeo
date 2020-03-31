@@ -6,9 +6,9 @@ require (
 	github.com/containers/buildah v1.13.1 // indirect
 	github.com/containers/common v0.6.1
 	github.com/containers/image/v5 v5.3.1
-	github.com/containers/ocicrypt v0.0.0-20190930154801-b87a4a69c741
-	github.com/containers/storage v1.16.6
-	github.com/docker/docker v1.4.2-0.20191101170500-ac7306503d23
+	github.com/containers/ocicrypt v1.0.1
+	github.com/containers/storage v1.17.0
+	github.com/docker/docker v1.4.2-0.20191219165747-a9416c67da9f
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/go-check/check v0.0.0-20180628173108-788fd7840127
 	github.com/opencontainers/go-digest v1.0.0-rc1
@@ -25,3 +25,5 @@ require (
 	go4.org v0.0.0-20190218023631-ce4c26f7be8e // indirect
 	gopkg.in/yaml.v2 v2.2.8
 )
+
+replace github.com/containers/image/v5 => github.com/mtrmac/image/v5 v5.0.0-20200330201958-f729385ccdbe
