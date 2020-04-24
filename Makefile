@@ -128,20 +128,26 @@ docs-in-container:
 clean:
 	rm -f skopeo docs/*.1
 
-install: install-binary install-docs install-completions
+install-nobuild: install-binary-nobuild install-docs-nobuild install-completions
 	install -d -m 755 ${SIGSTOREDIR}
 	install -d -m 755 ${CONTAINERSSYSCONFIGDIR}
 	install -m 644 default-policy.json ${CONTAINERSSYSCONFIGDIR}/policy.json
 	install -d -m 755 ${REGISTRIESDDIR}
 	install -m 644 default.yaml ${REGISTRIESDDIR}/default.yaml
 
-install-binary: ./skopeo
+install: ./skopeo docs install-nobuild 
+
+install-binary-nobuild:
 	install -d -m 755 ${INSTALLDIR}
 	install -m 755 skopeo ${INSTALLDIR}/skopeo
 
-install-docs: docs
+install-binary: ./skopeo install-binary-nobuild
+
+install-docs:
 	install -d -m 755 ${MANINSTALLDIR}/man1
 	install -m 644 docs/*.1 ${MANINSTALLDIR}/man1/
+
+install-docs: docs install-docs-nobuild
 
 install-completions:
 	install -m 755 -d ${BASHINSTALLDIR}
