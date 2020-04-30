@@ -4,9 +4,9 @@ go 1.12
 
 require (
 	github.com/containerd/containerd v1.3.0 // indirect
-	github.com/containers/image/v5 v5.4.3
+	github.com/containers/image/v5 v5.4.4-0.20200504143706-d52a99c5329e
 	github.com/containers/ocicrypt v1.0.2
-	github.com/containers/storage v1.19.0
+	github.com/containers/storage v1.19.1
 	github.com/docker/docker v1.4.2-0.20191219165747-a9416c67da9f
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/go-check/check v0.0.0-20180628173108-788fd7840127
