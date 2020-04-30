@@ -20,6 +20,20 @@
                     "keyPath": "@keydir@/personal-pubkey.gpg"
                 }
             ],
+            "localhost:5006/myns/mirroring-primary": [
+                {
+                    "type": "signedBy",
+                    "keyType": "GPGKeys",
+                    "keyPath": "@keydir@/personal-pubkey.gpg"
+                }
+            ],
+            "localhost:5006/myns/mirroring-mirror": [
+                {
+                    "type": "signedBy",
+                    "keyType": "GPGKeys",
+                    "keyPath": "@keydir@/personal-pubkey.gpg"
+                }
+            ],
             "docker.io/openshift": [
                 {
                     "type": "insecureAcceptAnything"

@@ -1067,6 +1067,67 @@ func (s *CopySuite) TestCopyAtomicExtension(c *check.C) {
 	assertDirImagesAreEqual(c, filepath.Join(topDir, "dirDA"), filepath.Join(topDir, "dirDD"))
 }
 
+func (s *CopySuite) TestCopyVerifyingMirroredSignatures(c *check.C) {
+	const regPrefix = "docker://localhost:5006/myns/mirroring-"
+
+	mech, _, err := signature.NewEphemeralGPGSigningMechanism([]byte{})
+	c.Assert(err, check.IsNil)
+	defer mech.Close()
+	if err := mech.SupportsSigning(); err != nil { // FIXME? Test that verification and policy enforcement works, using signatures from fixtures
+		c.Skip(fmt.Sprintf("Signing not supported: %v", err))
+	}
+
+	topDir, err := ioutil.TempDir("", "mirrored-signatures") // FIXME: Will this be used?
+	c.Assert(err, check.IsNil)
+	defer os.RemoveAll(topDir)
+	registriesDir := filepath.Join(topDir, "registries.d") // An empty directory to disable sigstore use
+	dirDest := "dir:" + filepath.Join(topDir, "unused-dest")
+
+	policy := fileFromFixture(c, "fixtures/policy.json", map[string]string{"@keydir@": s.gpgHome})
+	defer os.Remove(policy)
+
+	// We use X-R-S-S for this testing to avoid having to deal with the sigstores.
+	// A downside is that OpenShift records signatures per image, so the error messsages below
+	// list all signatures for other tags used for the same image as well.
+	// So, make sure to never create a signature that could be considered valid in a different part of the test (i.e. don't reuse tags).
+
+	// Get an image to work with.
+	assertSkopeoSucceeds(c, "", "copy", "--dest-tls-verify=false", "docker://busybox", regPrefix+"primary:unsigned")
+	// Verify that unsigned images are rejected
+	assertSkopeoFails(c, ".*Source image rejected: A signature was required, but no signature exists.*",
+		"--policy", policy, "--registries.d", registriesDir, "--registries-conf", "fixtures/registries.conf", "copy", "--src-tls-verify=false", regPrefix+"primary:unsigned", dirDest)
+	// Sign the image for the primary location
+	assertSkopeoSucceeds(c, "", "--registries.d", registriesDir, "copy", "--src-tls-verify=false", "--dest-tls-verify=false", "--sign-by", "personal@example.com", regPrefix+"primary:unsigned", regPrefix+"primary:direct")
+	// Verify that a correctly signed image in the primary location is usable.
+	assertSkopeoSucceeds(c, "", "--policy", policy, "--registries.d", registriesDir, "--registries-conf", "fixtures/registries.conf", "copy", "--src-tls-verify=false", regPrefix+"primary:direct", dirDest)
+
+	// Sign the image for the mirror
+	assertSkopeoSucceeds(c, "", "--registries.d", registriesDir, "copy", "--src-tls-verify=false", "--dest-tls-verify=false", "--sign-by", "personal@example.com", regPrefix+"primary:unsigned", regPrefix+"mirror:mirror-signed")
+	// Verify that a correctly signed image for the mirror is acessible using the mirror's reference
+	assertSkopeoSucceeds(c, "", "--policy", policy, "--registries.d", registriesDir, "--registries-conf", "fixtures/registries.conf", "copy", "--src-tls-verify=false", regPrefix+"mirror:mirror-signed", dirDest)
+	// … but verify that while it is accessible using the primary location redirecting to the mirror, …
+	assertSkopeoSucceeds(c, "" /* no --policy */, "--registries-conf", "fixtures/registries.conf", "copy", "--src-tls-verify=false", regPrefix+"primary:mirror-signed", dirDest)
+	// … verify it is NOT accessible when requiring a signature.
+	assertSkopeoFails(c, ".*Source image rejected: None of the signatures were accepted, reasons: Signature for identity localhost:5006/myns/mirroring-primary:direct is not accepted; Signature for identity localhost:5006/myns/mirroring-mirror:mirror-signed is not accepted.*",
+		"--policy", policy, "--registries.d", registriesDir, "--registries-conf", "fixtures/registries.conf", "copy", "--src-tls-verify=false", regPrefix+"primary:mirror-signed", dirDest)
+
+	// Create a signature for mirroring-primary:primary-signed without pushing there. This should be easier than using standalone-sign.
+	signingDir := filepath.Join(topDir, "signing-temp")
+	assertSkopeoSucceeds(c, "", "copy", "--src-tls-verify=false", regPrefix+"primary:unsigned", "dir:"+signingDir)
+	c.Logf("%s", combinedOutputOfCommand(c, "ls", "-laR", signingDir))
+	assertSkopeoSucceeds(c, "^$", "standalone-sign", "-o", filepath.Join(signingDir, "signature-1"),
+		filepath.Join(signingDir, "manifest.json"), "localhost:5006/myns/mirroring-primary:primary-signed", "personal@example.com")
+	c.Logf("%s", combinedOutputOfCommand(c, "ls", "-laR", signingDir))
+	assertSkopeoSucceeds(c, "", "--registries.d", registriesDir, "copy", "--dest-tls-verify=false", "dir:"+signingDir, regPrefix+"mirror:primary-signed")
+	// Verify that a correctly signed image for the primary is accessible using the primary's reference
+	assertSkopeoSucceeds(c, "", "--policy", policy, "--registries.d", registriesDir, "--registries-conf", "fixtures/registries.conf", "copy", "--src-tls-verify=false", regPrefix+"primary:primary-signed", dirDest)
+	// … but verify that while it is accessible using the mirror location
+	assertSkopeoSucceeds(c, "" /* no --policy */, "--registries-conf", "fixtures/registries.conf", "copy", "--src-tls-verify=false", regPrefix+"mirror:primary-signed", dirDest)
+	// … verify it is NOT accessible when requiring a signature.
+	assertSkopeoFails(c, ".*Source image rejected: None of the signatures were accepted, reasons: Signature for identity localhost:5006/myns/mirroring-primary:direct is not accepted; Signature for identity localhost:5006/myns/mirroring-mirror:mirror-signed is not accepted; Signature for identity localhost:5006/myns/mirroring-primary:primary-signed is not accepted.*",
+		"--policy", policy, "--registries.d", registriesDir, "--registries-conf", "fixtures/registries.conf", "copy", "--src-tls-verify=false", regPrefix+"mirror:primary-signed", dirDest)
+}
+
 func (s *SkopeoSuite) TestCopySrcWithAuth(c *check.C) {
 	assertSkopeoSucceeds(c, "", "--tls-verify=false", "copy", "--dest-creds=testuser:testpassword", "docker://busybox", fmt.Sprintf("docker://%s/busybox:latest", s.regV2WithAuth.url))
 	dir1, err := ioutil.TempDir("", "copy-1")
