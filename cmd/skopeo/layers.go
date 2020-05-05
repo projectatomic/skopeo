@@ -13,7 +13,7 @@ import (
 	"github.com/containers/image/v5/types"
 	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
-	"github.com/urfave/cli"
+	"github.com/spf13/cobra"
 )
 
 type layersOptions struct {
@@ -21,21 +21,24 @@ type layersOptions struct {
 	image  *imageOptions
 }
 
-func layersCmd(global *globalOptions) cli.Command {
+func layersCmd(global *globalOptions) *cobra.Command {
 	sharedFlags, sharedOpts := sharedImageFlags()
 	imageFlags, imageOpts := imageFlags(global, sharedOpts, "", "")
 	opts := layersOptions{
 		global: global,
 		image:  imageOpts,
 	}
-	return cli.Command{
-		Name:      "layers",
-		Usage:     "Get layers of IMAGE-NAME",
-		ArgsUsage: "IMAGE-NAME [LAYER...]",
-		Hidden:    true,
-		Action:    commandAction(opts.run),
-		Flags:     append(sharedFlags, imageFlags...),
+	cmd := &cobra.Command{
+		Hidden: true,
+		Use:    "layers [command options] IMAGE-NAME [LAYER...]",
+		Short:  "Get layers of IMAGE-NAME",
+		RunE:   commandAction(opts.run),
 	}
+	adjustUsage(cmd)
+	flags := cmd.Flags()
+	flags.AddFlagSet(&sharedFlags)
+	flags.AddFlagSet(&imageFlags)
+	return cmd
 }
 
 func (opts *layersOptions) run(args []string, stdout io.Writer) (retErr error) {

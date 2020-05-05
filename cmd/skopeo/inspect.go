@@ -14,7 +14,7 @@ import (
 	digest "github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"github.com/urfave/cli"
+	"github.com/spf13/cobra"
 )
 
 // inspectOutput is the output format of (skopeo inspect), primarily so that we can format it with a simple json.MarshalIndent.
@@ -39,39 +39,32 @@ type inspectOptions struct {
 	config bool // Output the raw config blob instead of parsing information about the image
 }
 
-func inspectCmd(global *globalOptions) cli.Command {
+func inspectCmd(global *globalOptions) *cobra.Command {
 	sharedFlags, sharedOpts := sharedImageFlags()
 	imageFlags, imageOpts := imageFlags(global, sharedOpts, "", "")
 	opts := inspectOptions{
 		global: global,
 		image:  imageOpts,
 	}
-	return cli.Command{
-		Name:  "inspect",
-		Usage: "Inspect image IMAGE-NAME",
-		Description: fmt.Sprintf(`
-	Return low-level information about "IMAGE-NAME" in a registry/transport
+	cmd := &cobra.Command{
+		Use:   "inspect [command options] IMAGE-NAME",
+		Short: "Inspect image IMAGE-NAME",
+		Long: fmt.Sprintf(`Return low-level information about "IMAGE-NAME" in a registry/transport
+Supported transports:
+%s
 
-	Supported transports:
-	%s
-
-	See skopeo(1) section "IMAGE NAMES" for the expected format
-	`, strings.Join(transports.ListNames(), ", ")),
-		ArgsUsage: "IMAGE-NAME",
-		Flags: append(append([]cli.Flag{
-			cli.BoolFlag{
-				Name:        "raw",
-				Usage:       "output raw manifest or configuration",
-				Destination: &opts.raw,
-			},
-			cli.BoolFlag{
-				Name:        "config",
-				Usage:       "output configuration",
-				Destination: &opts.config,
-			},
-		}, sharedFlags...), imageFlags...),
-		Action: commandAction(opts.run),
+See skopeo(1) section "IMAGE NAMES" for the expected format
+`, strings.Join(transports.ListNames(), ", ")),
+		RunE:    commandAction(opts.run),
+		Example: `skopeo inspect docker://docker.io/fedora`,
 	}
+	adjustUsage(cmd)
+	flags := cmd.Flags()
+	flags.BoolVar(&opts.raw, "raw", false, "output raw manifest or configuration")
+	flags.BoolVar(&opts.config, "config", false, "output configuration")
+	flags.AddFlagSet(&sharedFlags)
+	flags.AddFlagSet(&imageFlags)
+	return cmd
 }
 
 func (opts *inspectOptions) run(args []string, stdout io.Writer) (retErr error) {

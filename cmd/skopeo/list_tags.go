@@ -4,15 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"strings"
+
 	"github.com/containers/image/v5/docker"
 	"github.com/containers/image/v5/docker/reference"
 	"github.com/containers/image/v5/transports/alltransports"
 	"github.com/containers/image/v5/types"
 	"github.com/pkg/errors"
-	"github.com/urfave/cli"
-	"strings"
-
-	"io"
+	"github.com/spf13/cobra"
 )
 
 // tagListOutput is the output format of (skopeo list-tags), primarily so that we can format it with a simple json.MarshalIndent.
@@ -26,7 +26,7 @@ type tagsOptions struct {
 	image  *imageOptions
 }
 
-func tagsCmd(global *globalOptions) cli.Command {
+func tagsCmd(global *globalOptions) *cobra.Command {
 	sharedFlags, sharedOpts := sharedImageFlags()
 	imageFlags, imageOpts := dockerImageFlags(global, sharedOpts, "", "")
 
@@ -34,22 +34,24 @@ func tagsCmd(global *globalOptions) cli.Command {
 		global: global,
 		image:  imageOpts,
 	}
+	cmd := &cobra.Command{
+		Use:   "list-tags [command options] REPOSITORY-NAME",
+		Short: "List tags in the transport/repository specified by the REPOSITORY-NAME",
+		Long: `Return the list of tags from the transport/repository "REPOSITORY-NAME"
 
-	return cli.Command{
-		Name:  "list-tags",
-		Usage: "List tags in the transport/repository specified by the REPOSITORY-NAME",
-		Description: `
-	Return the list of tags from the transport/repository "REPOSITORY-NAME"
-	
-    Supported transports:
-	docker
+Supported transports:
+docker
 
-	See skopeo-list-tags(1) section "REPOSITORY NAMES" for the expected format
-	`,
-		ArgsUsage: "REPOSITORY-NAME",
-		Flags:     append(sharedFlags, imageFlags...),
-		Action:    commandAction(opts.run),
+See skopeo-list-tags(1) section "REPOSITORY NAMES" for the expected format
+`,
+		RunE:    commandAction(opts.run),
+		Example: `skopeo list-tags docker://docker.io/fedora`,
 	}
+	adjustUsage(cmd)
+	flags := cmd.Flags()
+	flags.AddFlagSet(&sharedFlags)
+	flags.AddFlagSet(&imageFlags)
+	return cmd
 }
 
 // Customized version of the alltransports.ParseImageName and docker.ParseReference that does not place a default tag in the reference

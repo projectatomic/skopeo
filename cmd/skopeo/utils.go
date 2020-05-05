@@ -10,7 +10,8 @@ import (
 	"github.com/containers/image/v5/transports/alltransports"
 	"github.com/containers/image/v5/types"
 	"github.com/pkg/errors"
-	"github.com/urfave/cli"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // errorShouldDisplayUsage is a subtype of error used by command handlers to indicate that cli.ShowSubcommandHelp should be called.
@@ -18,16 +19,16 @@ type errorShouldDisplayUsage struct {
 	error
 }
 
-// commandAction intermediates between the cli.ActionFunc interface and the real handler,
-// primarily to ensure that cli.Context is not available to the handler, which in turn
-// makes sure that the cli.String() etc. flag access functions are not used,
-// and everything is done using the *Options structures and the Destination: members of cli.Flag.
-// handler may return errorShouldDisplayUsage to cause cli.ShowSubcommandHelp to be called.
-func commandAction(handler func(args []string, stdout io.Writer) error) cli.ActionFunc {
-	return func(c *cli.Context) error {
-		err := handler(([]string)(c.Args()), c.App.Writer)
+// commandAction intermediates between the RunE interface and the real handler,
+// primarily to ensure that cobra.Command is not available to the handler, which in turn
+// makes sure that the cmd.Flags() etc. flag access functions are not used,
+// and everything is done using the *Options structures and the *Var() methods of cmd.Flag().
+// handler may return errorShouldDisplayUsage to cause c.Help to be called.
+func commandAction(handler func(args []string, stdout io.Writer) error) func(cmd *cobra.Command, args []string) error {
+	return func(c *cobra.Command, args []string) error {
+		err := handler(args, c.OutOrStdout())
 		if _, ok := err.(errorShouldDisplayUsage); ok {
-			cli.ShowSubcommandHelp(c)
+			c.Help()
 		}
 		return err
 	}
@@ -39,20 +40,15 @@ type sharedImageOptions struct {
 	authFilePath string // Path to a */containers/auth.json
 }
 
-// imageFlags prepares a collection of CLI flags writing into sharedImageOptions, and the managed sharedImageOptions structure.
-func sharedImageFlags() ([]cli.Flag, *sharedImageOptions) {
+// sharedImageFlags prepares a collection of CLI flags writing into sharedImageOptions, and the managed sharedImageOptions structure.
+func sharedImageFlags() (pflag.FlagSet, *sharedImageOptions) {
 	opts := sharedImageOptions{}
-	return []cli.Flag{
-		cli.StringFlag{
-			Name:        "authfile",
-			Usage:       "path of the authentication file. Example: ${XDG_RUNTIME_DIR}/containers/auth.json",
-			Value:       os.Getenv("REGISTRY_AUTH_FILE"),
-			Destination: &opts.authFilePath,
-		},
-	}, &opts
+	fs := pflag.FlagSet{}
+	fs.StringVar(&opts.authFilePath, "authfile", os.Getenv("REGISTRY_AUTH_FILE"), "path of the authentication file. Default is ${XDG_RUNTIME_DIR}/containers/auth.json")
+	return fs, &opts
 }
 
-// imageOptions collects CLI flags specific to the "docker" transport, which are
+// dockerImageOptions collects CLI flags specific to the "docker" transport, which are
 // the same across subcommands, but may be different for each image
 // (e.g. may differ between the source and destination of a copy)
 type dockerImageOptions struct {
@@ -75,73 +71,41 @@ type imageOptions struct {
 
 // dockerImageFlags prepares a collection of docker-transport specific CLI flags
 // writing into imageOptions, and the managed imageOptions structure.
-func dockerImageFlags(global *globalOptions, shared *sharedImageOptions, flagPrefix, credsOptionAlias string) ([]cli.Flag, *imageOptions) {
-	opts := imageOptions{
+func dockerImageFlags(global *globalOptions, shared *sharedImageOptions, flagPrefix, credsOptionAlias string) (pflag.FlagSet, *imageOptions) {
+	flags := imageOptions{
 		dockerImageOptions: dockerImageOptions{
 			global: global,
 			shared: shared,
 		},
 	}
 
-	// This is horribly ugly, but we need to support the old option forms of (skopeo copy) for compatibility.
-	// Don't add any more cases like this.
-	credsOptionExtra := ""
-	if credsOptionAlias != "" {
-		credsOptionExtra += "," + credsOptionAlias
-	}
-
-	var flags []cli.Flag
+	fs := pflag.FlagSet{}
 	if flagPrefix != "" {
 		// the non-prefixed flag is handled by a shared flag.
-		flags = append(flags,
-			cli.GenericFlag{
-				Name:  flagPrefix + "authfile",
-				Usage: "path of the authentication file. Example: ${XDG_RUNTIME_DIR}/containers/auth.json",
-				Value: newOptionalStringValue(&opts.authFilePath),
-			},
-		)
+		fs.Var(newOptionalStringValue(&flags.authFilePath), flagPrefix+"authfile", "path of the authentication file. Default is ${XDG_RUNTIME_DIR}/containers/auth.json")
 	}
-	flags = append(flags,
-		cli.GenericFlag{
-			Name:  flagPrefix + "creds" + credsOptionExtra,
-			Usage: "Use `USERNAME[:PASSWORD]` for accessing the registry",
-			Value: newOptionalStringValue(&opts.credsOption),
-		},
-		cli.StringFlag{
-			Name:        flagPrefix + "cert-dir",
-			Usage:       "use certificates at `PATH` (*.crt, *.cert, *.key) to connect to the registry or daemon",
-			Destination: &opts.dockerCertPath,
-		},
-		cli.GenericFlag{
-			Name:  flagPrefix + "tls-verify",
-			Usage: "require HTTPS and verify certificates when talking to the container registry or daemon (defaults to true)",
-			Value: newOptionalBoolValue(&opts.tlsVerify),
-		},
-		cli.BoolFlag{
-			Name:        flagPrefix + "no-creds",
-			Usage:       "Access the registry anonymously",
-			Destination: &opts.noCreds,
-		},
-	)
-	return flags, &opts
+	fs.Var(newOptionalStringValue(&flags.credsOption), flagPrefix+"creds", "Use `USERNAME[:PASSWORD]` for accessing the registry")
+	if credsOptionAlias != "" {
+		// This is horribly ugly, but we need to support the old option forms of (skopeo copy) for compatibility.
+		// Don't add any more cases like this.
+		f := fs.VarPF(newOptionalStringValue(&flags.credsOption), credsOptionAlias, "", "Use `USERNAME[:PASSWORD]` for accessing the registry")
+		f.Hidden = true
+	}
+	fs.StringVar(&flags.dockerCertPath, flagPrefix+"cert-dir", "", "use certificates at `PATH` (*.crt, *.cert, *.key) to connect to the registry or daemon")
+	optionalBoolFlag(&fs, &flags.tlsVerify, flagPrefix+"tls-verify", "require HTTPS and verify certificates when talking to the container registry or daemon (defaults to true)")
+	fs.BoolVar(&flags.noCreds, flagPrefix+"no-creds", false, "Access the registry anonymously")
+	return fs, &flags
 }
 
 // imageFlags prepares a collection of CLI flags writing into imageOptions, and the managed imageOptions structure.
-func imageFlags(global *globalOptions, shared *sharedImageOptions, flagPrefix, credsOptionAlias string) ([]cli.Flag, *imageOptions) {
+func imageFlags(global *globalOptions, shared *sharedImageOptions, flagPrefix, credsOptionAlias string) (pflag.FlagSet, *imageOptions) {
 	dockerFlags, opts := dockerImageFlags(global, shared, flagPrefix, credsOptionAlias)
 
-	return append(dockerFlags, []cli.Flag{
-		cli.StringFlag{
-			Name:        flagPrefix + "shared-blob-dir",
-			Usage:       "`DIRECTORY` to use to share blobs across OCI repositories",
-			Destination: &opts.sharedBlobDir,
-		},
-		cli.StringFlag{
-			Name:        flagPrefix + "daemon-host",
-			Usage:       "use docker daemon host at `HOST` (docker-daemon: only)",
-			Destination: &opts.dockerDaemonHost,
-		},
-	}...), opts
+	fs := pflag.FlagSet{}
+	fs.StringVar(&opts.sharedBlobDir, flagPrefix+"shared-blob-dir", "", "`DIRECTORY` to use to share blobs across OCI repositories")
+	fs.StringVar(&opts.dockerDaemonHost, flagPrefix+"daemon-host", "", "use docker daemon host at `HOST` (docker-daemon: only)")
+	fs.AddFlagSet(&dockerFlags)
+	return fs, opts
 }
 
 // newSystemContext returns a *types.SystemContext corresponding to opts.
@@ -200,32 +164,17 @@ type imageDestOptions struct {
 }
 
 // imageDestFlags prepares a collection of CLI flags writing into imageDestOptions, and the managed imageDestOptions structure.
-func imageDestFlags(global *globalOptions, shared *sharedImageOptions, flagPrefix, credsOptionAlias string) ([]cli.Flag, *imageDestOptions) {
+func imageDestFlags(global *globalOptions, shared *sharedImageOptions, flagPrefix, credsOptionAlias string) (pflag.FlagSet, *imageDestOptions) {
 	genericFlags, genericOptions := imageFlags(global, shared, flagPrefix, credsOptionAlias)
 	opts := imageDestOptions{imageOptions: genericOptions}
 
-	return append(genericFlags, []cli.Flag{
-		cli.BoolFlag{
-			Name:        flagPrefix + "compress",
-			Usage:       "Compress tarball image layers when saving to directory using the 'dir' transport. (default is same compression type as source)",
-			Destination: &opts.dirForceCompression,
-		},
-		cli.BoolFlag{
-			Name:        flagPrefix + "oci-accept-uncompressed-layers",
-			Usage:       "Allow uncompressed image layers when saving to an OCI image using the 'oci' transport. (default is to compress things that aren't compressed)",
-			Destination: &opts.ociAcceptUncompressedLayers,
-		},
-		cli.StringFlag{
-			Name:        flagPrefix + "compress-format",
-			Usage:       "`FORMAT` to use for the compression",
-			Destination: &opts.compressionFormat,
-		},
-		cli.GenericFlag{
-			Name:  flagPrefix + "compress-level",
-			Usage: "`LEVEL` to use for the compression",
-			Value: newOptionalIntValue(&opts.compressionLevel),
-		},
-	}...), &opts
+	fs := pflag.FlagSet{}
+	fs.AddFlagSet(&genericFlags)
+	fs.BoolVar(&opts.dirForceCompression, flagPrefix+"compress", false, "Compress tarball image layers when saving to directory using the 'dir' transport. (default is same compression type as source)")
+	fs.BoolVar(&opts.ociAcceptUncompressedLayers, flagPrefix+"oci-accept-uncompressed-layers", false, "Allow uncompressed image layers when saving to an OCI image using the 'oci' transport. (default is to compress things that aren't compressed)")
+	fs.StringVar(&opts.compressionFormat, flagPrefix+"compress-format", "", "`FORMAT` to use for the compression")
+	fs.Var(newOptionalIntValue(&opts.compressionLevel), flagPrefix+"compress-level", "`LEVEL` to use for the compression")
+	return fs, &opts
 }
 
 // newSystemContext returns a *types.SystemContext corresponding to opts.
@@ -276,20 +225,6 @@ func getDockerAuth(creds string) (*types.DockerAuthConfig, error) {
 	}, nil
 }
 
-// parseImage converts image URL-like string to an initialized handler for that image.
-// The caller must call .Close() on the returned ImageCloser.
-func parseImage(ctx context.Context, opts *imageOptions, name string) (types.ImageCloser, error) {
-	ref, err := alltransports.ParseImageName(name)
-	if err != nil {
-		return nil, err
-	}
-	sys, err := opts.newSystemContext()
-	if err != nil {
-		return nil, err
-	}
-	return ref.NewImage(ctx, sys)
-}
-
 // parseImageSource converts image URL-like string to an ImageSource.
 // The caller must call .Close() on the returned ImageSource.
 func parseImageSource(ctx context.Context, opts *imageOptions, name string) (types.ImageSource, error) {
@@ -302,4 +237,33 @@ func parseImageSource(ctx context.Context, opts *imageOptions, name string) (typ
 		return nil, err
 	}
 	return ref.NewImageSource(ctx, sys)
+}
+
+// usageTemplate returns the usage template for skopeo commands
+// This blocks the displaying of the global options. The main skopeo
+// command should not use this.
+const usageTemplate = `Usage:{{if .Runnable}}
+{{.UseLine}}{{end}}{{if .HasAvailableSubCommands}}
+
+{{.CommandPath}} [command]{{end}}{{if gt (len .Aliases) 0}}
+
+Aliases:
+{{.NameAndAliases}}{{end}}{{if .HasExample}}
+
+Examples:
+{{.Example}}{{end}}{{if .HasAvailableSubCommands}}
+
+Available Commands:{{range .Commands}}{{if (or .IsAvailableCommand (eq .Name "help"))}}
+{{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableLocalFlags}}
+
+Flags:
+{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasAvailableInheritedFlags}}
+{{end}}
+`
+
+// adjustUsage uses usageTemplate template to get rid the GlobalOption from usage
+// and disable [flag] at the end of command usage
+func adjustUsage(c *cobra.Command) {
+	c.SetUsageTemplate(usageTemplate)
+	c.DisableFlagsInUseLine = true
 }

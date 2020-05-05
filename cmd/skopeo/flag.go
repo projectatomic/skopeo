@@ -3,7 +3,7 @@ package main
 import (
 	"strconv"
 
-	"github.com/urfave/cli"
+	"github.com/spf13/pflag"
 )
 
 // optionalBool is a boolean with a separate presence flag.
@@ -15,10 +15,18 @@ type optionalBool struct {
 // optionalBool is a cli.Generic == flag.Value implementation equivalent to
 // the one underlying flag.Bool, except that it records whether the flag has been set.
 // This is distinct from optionalBool to (pretend to) force callers to use
-// newOptionalBool
+// optionalBoolFlag
 type optionalBoolValue optionalBool
 
-func newOptionalBoolValue(p *optionalBool) cli.Generic {
+func optionalBoolFlag(fs *pflag.FlagSet, p *optionalBool, name, usage string) *pflag.Flag {
+	flag := fs.VarPF(internalNewOptionalBoolValue(p), name, "", usage)
+	flag.NoOptDefVal = "true"
+	return flag
+}
+
+// WARNING: Do not directly use this method to define optionalBool flag.
+// Caller should use optionalBoolFlag
+func internalNewOptionalBoolValue(p *optionalBool) pflag.Value {
 	p.present = false
 	return (*optionalBoolValue)(p)
 }
@@ -40,6 +48,10 @@ func (ob *optionalBoolValue) String() string {
 	return strconv.FormatBool(ob.value)
 }
 
+func (ob *optionalBoolValue) Type() string {
+	return "bool"
+}
+
 func (ob *optionalBoolValue) IsBoolFlag() bool {
 	return true
 }
@@ -56,7 +68,7 @@ type optionalString struct {
 // newoptionalString
 type optionalStringValue optionalString
 
-func newOptionalStringValue(p *optionalString) cli.Generic {
+func newOptionalStringValue(p *optionalString) pflag.Value {
 	p.present = false
 	return (*optionalStringValue)(p)
 }
@@ -74,6 +86,10 @@ func (ob *optionalStringValue) String() string {
 	return ob.value
 }
 
+func (ob *optionalStringValue) Type() string {
+	return "string"
+}
+
 // optionalInt is a int with a separate presence flag.
 type optionalInt struct {
 	present bool
@@ -86,7 +102,7 @@ type optionalInt struct {
 // newoptionalIntValue
 type optionalIntValue optionalInt
 
-func newOptionalIntValue(p *optionalInt) cli.Generic {
+func newOptionalIntValue(p *optionalInt) pflag.Value {
 	p.present = false
 	return (*optionalIntValue)(p)
 }
@@ -106,4 +122,8 @@ func (ob *optionalIntValue) String() string {
 		return "" // If the value is not present, just return an empty string, any other value wouldn't make sense.
 	}
 	return strconv.Itoa(int(ob.value))
+}
+
+func (ob *optionalIntValue) Type() string {
+	return "int"
 }

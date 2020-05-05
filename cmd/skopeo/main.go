@@ -3,14 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/containers/image/v5/signature"
 	"github.com/containers/skopeo/version"
 	"github.com/containers/storage/pkg/reexec"
 	"github.com/sirupsen/logrus"
-	"github.com/urfave/cli"
+	"github.com/spf13/cobra"
 )
 
 // gitCommit will be the hash that the binary was built from
@@ -31,96 +30,59 @@ type globalOptions struct {
 	tmpDir             string        // Path to use for big temporary files
 }
 
-// createApp returns a cli.App, and the underlying globalOptions object, to be run or tested.
-func createApp() (*cli.App, *globalOptions) {
+// createApp returns a cobra.Command, and the underlying globalOptions object, to be run or tested.
+func createApp() (*cobra.Command, *globalOptions) {
 	opts := globalOptions{}
 
-	app := cli.NewApp()
-	app.EnableBashCompletion = true
-	app.Name = "skopeo"
+	rootCommand := &cobra.Command{
+		Use:  "skopeo",
+		Long: "Various operations with container images and container image registries",
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			return opts.before(cmd)
+		},
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
 	if gitCommit != "" {
-		app.Version = fmt.Sprintf("%s commit: %s", version.Version, gitCommit)
+		rootCommand.Version = fmt.Sprintf("%s commit: %s", version.Version, gitCommit)
 	} else {
-		app.Version = version.Version
+		rootCommand.Version = version.Version
 	}
-	app.Usage = "Various operations with container images and container image registries"
-	app.Flags = []cli.Flag{
-		cli.DurationFlag{
-			Name:        "command-timeout",
-			Usage:       "timeout for the command execution",
-			Destination: &opts.commandTimeout,
-		},
-		cli.BoolFlag{
-			Name:        "debug",
-			Usage:       "enable debug output",
-			Destination: &opts.debug,
-		},
-		cli.BoolFlag{
-			Name:        "insecure-policy",
-			Usage:       "run the tool without any policy check",
-			Destination: &opts.insecurePolicy,
-		},
-		cli.StringFlag{
-			Name:        "override-arch",
-			Usage:       "use `ARCH` instead of the architecture of the machine for choosing images",
-			Destination: &opts.overrideArch,
-		},
-		cli.StringFlag{
-			Name:        "override-os",
-			Usage:       "use `OS` instead of the running OS for choosing images",
-			Destination: &opts.overrideOS,
-		},
-		cli.StringFlag{
-			Name:        "override-variant",
-			Usage:       "use `VARIANT` instead of the running architecture variant for choosing images",
-			Destination: &opts.overrideVariant,
-		},
-		cli.StringFlag{
-			Name:        "policy",
-			Usage:       "Path to a trust policy file",
-			Destination: &opts.policyPath,
-		},
-		cli.StringFlag{
-			Name:        "registries-conf",
-			Usage:       "path to the registries.conf file",
-			Destination: &opts.registriesConfPath,
-			Hidden:      true,
-		},
-		cli.StringFlag{
-			Name:        "registries.d",
-			Usage:       "use registry configuration files in `DIR` (e.g. for container signature storage)",
-			Destination: &opts.registriesDirPath,
-		},
-		cli.GenericFlag{
-			Name:   "tls-verify",
-			Usage:  "require HTTPS and verify certificates when talking to container registries (defaults to true)",
-			Hidden: true,
-			Value:  newOptionalBoolValue(&opts.tlsVerify),
-		},
-		cli.StringFlag{
-			Name:        "tmpdir",
-			Usage:       "directory used to store temporary files",
-			Destination: &opts.tmpDir,
-		},
+	// Override default `--version` global flag to enable `-v` shorthand
+	var dummyVersion bool
+	rootCommand.Flags().BoolVarP(&dummyVersion, "version", "v", false, "Version for Skopeo")
+	rootCommand.PersistentFlags().BoolVar(&opts.debug, "debug", false, "enable debug output")
+	flag := optionalBoolFlag(rootCommand.PersistentFlags(), &opts.tlsVerify, "tls-verify", "Require HTTPS and verify certificates when accessing the registry")
+	flag.Hidden = true
+	rootCommand.PersistentFlags().StringVar(&opts.policyPath, "policy", "", "Path to a trust policy file")
+	rootCommand.PersistentFlags().BoolVar(&opts.insecurePolicy, "insecure-policy", false, "run the tool without any policy check")
+	rootCommand.PersistentFlags().StringVar(&opts.registriesDirPath, "registries.d", "", "use registry configuration files in `DIR` (e.g. for container signature storage)")
+	rootCommand.PersistentFlags().StringVar(&opts.overrideArch, "override-arch", "", "use `ARCH` instead of the architecture of the machine for choosing images")
+	rootCommand.PersistentFlags().StringVar(&opts.overrideOS, "override-os", "", "use `OS` instead of the running OS for choosing images")
+	rootCommand.PersistentFlags().StringVar(&opts.overrideVariant, "override-variant", "", "use `VARIANT` instead of the running architecture variant for choosing images")
+	rootCommand.PersistentFlags().DurationVar(&opts.commandTimeout, "command-timeout", 0, "timeout for the command execution")
+	rootCommand.PersistentFlags().StringVar(&opts.registriesConfPath, "registries-conf", "", "path to the registries.conf file")
+	if err := rootCommand.PersistentFlags().MarkHidden("registries-conf"); err != nil {
+		logrus.Fatal("unable to mark registries-conf flag as hidden")
 	}
-	app.Before = opts.before
-	app.Commands = []cli.Command{
+	rootCommand.PersistentFlags().StringVar(&opts.tmpDir, "tmpdir", "", "directory used to store temporary files")
+	rootCommand.AddCommand(
 		copyCmd(&opts),
 		deleteCmd(&opts),
 		inspectCmd(&opts),
 		layersCmd(&opts),
-		tagsCmd(&opts),
 		manifestDigestCmd(),
+		syncCmd(&opts),
 		standaloneSignCmd(),
 		standaloneVerifyCmd(),
-		syncCmd(&opts),
+		tagsCmd(&opts),
 		untrustedSignatureDumpCmd(),
-	}
-	return app, &opts
+	)
+	return rootCommand, &opts
 }
 
 // before is run by the cli package for any command, before running the command-specific handler.
-func (opts *globalOptions) before(ctx *cli.Context) error {
+func (opts *globalOptions) before(cmd *cobra.Command) error {
 	if opts.debug {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
@@ -134,8 +96,8 @@ func main() {
 	if reexec.Init() {
 		return
 	}
-	app, _ := createApp()
-	if err := app.Run(os.Args); err != nil {
+	rootCmd, _ := createApp()
+	if err := rootCmd.Execute(); err != nil {
 		logrus.Fatal(err)
 	}
 }

@@ -18,7 +18,7 @@ import (
 	"github.com/containers/image/v5/types"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"github.com/urfave/cli"
+	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
 
@@ -59,7 +59,7 @@ type registrySyncConfig struct {
 // sourceConfig contains all registries information read from the source YAML file
 type sourceConfig map[string]registrySyncConfig
 
-func syncCmd(global *globalOptions) cli.Command {
+func syncCmd(global *globalOptions) *cobra.Command {
 	sharedFlags, sharedOpts := sharedImageFlags()
 	srcFlags, srcOpts := dockerImageFlags(global, sharedOpts, "src-", "screds")
 	destFlags, destOpts := dockerImageFlags(global, sharedOpts, "dest-", "dcreds")
@@ -70,49 +70,30 @@ func syncCmd(global *globalOptions) cli.Command {
 		destImage: &imageDestOptions{imageOptions: destOpts},
 	}
 
-	return cli.Command{
-		Name:  "sync",
-		Usage: "Synchronize one or more images from one location to another",
-		Description: fmt.Sprint(`
+	cmd := &cobra.Command{
+		Use:   "sync [command options] --src SOURCE-LOCATION --dest DESTINATION-LOCATION SOURCE DESTINATION",
+		Short: "Synchronize one or more images from one location to another",
+		Long: fmt.Sprint(`Copy all the images from a SOURCE to a DESTINATION.
 
-	Copy all the images from a SOURCE to a DESTINATION.
+Allowed SOURCE transports (specified with --src): docker, dir, yaml.
+Allowed DESTINATION transports (specified with --dest): docker, dir.
 
-	Allowed SOURCE transports (specified with --src): docker, dir, yaml.
-	Allowed DESTINATION transports (specified with --dest): docker, dir.
-
-	See skopeo-sync(1) for details.
-	`),
-		ArgsUsage: "--src SOURCE-LOCATION --dest DESTINATION-LOCATION SOURCE DESTINATION",
-		Action:    commandAction(opts.run),
-		// FIXME: Do we need to namespace the GPG aspect?
-		Flags: append(append(append([]cli.Flag{
-			cli.BoolFlag{
-				Name:        "remove-signatures",
-				Usage:       "Do not copy signatures from SOURCE images",
-				Destination: &opts.removeSignatures,
-			},
-			cli.StringFlag{
-				Name:        "sign-by",
-				Usage:       "Sign the image using a GPG key with the specified `FINGERPRINT`",
-				Destination: &opts.signByFingerprint,
-			},
-			cli.StringFlag{
-				Name:        "src, s",
-				Usage:       "SOURCE transport type",
-				Destination: &opts.source,
-			},
-			cli.StringFlag{
-				Name:        "dest, d",
-				Usage:       "DESTINATION transport type",
-				Destination: &opts.destination,
-			},
-			cli.BoolFlag{
-				Name:        "scoped",
-				Usage:       "Images at DESTINATION are prefix using the full source image path as scope",
-				Destination: &opts.scoped,
-			},
-		}, sharedFlags...), srcFlags...), destFlags...),
+See skopeo-sync(1) for details.
+`),
+		RunE:    commandAction(opts.run),
+		Example: `skopeo sync --src docker --dest dir --scoped registry.example.com/busybox /media/usb`,
 	}
+	adjustUsage(cmd)
+	flags := cmd.Flags()
+	flags.BoolVar(&opts.removeSignatures, "remove-signatures", false, "Do not copy signatures from SOURCE images")
+	flags.StringVar(&opts.signByFingerprint, "sign-by", "", "Sign the image using a GPG key with the specified `FINGERPRINT`")
+	flags.StringVarP(&opts.source, "src", "s", "", "SOURCE transport type")
+	flags.StringVarP(&opts.destination, "dest", "d", "", "DESTINATION transport type")
+	flags.BoolVar(&opts.scoped, "scoped", false, "Images at DESTINATION are prefix using the full source image path as scope")
+	flags.AddFlagSet(&sharedFlags)
+	flags.AddFlagSet(&srcFlags)
+	flags.AddFlagSet(&destFlags)
+	return cmd
 }
 
 // unmarshalYAML is the implementation of the Unmarshaler interface method

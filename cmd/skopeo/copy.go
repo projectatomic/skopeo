@@ -11,29 +11,29 @@ import (
 	"github.com/containers/image/v5/manifest"
 	"github.com/containers/image/v5/transports"
 	"github.com/containers/image/v5/transports/alltransports"
+	"github.com/spf13/cobra"
 
 	encconfig "github.com/containers/ocicrypt/config"
 	enchelpers "github.com/containers/ocicrypt/helpers"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
-	"github.com/urfave/cli"
 )
 
 type copyOptions struct {
 	global            *globalOptions
 	srcImage          *imageOptions
 	destImage         *imageDestOptions
-	additionalTags    cli.StringSlice // For docker-archive: destinations, in addition to the name:tag specified as destination, also add these
-	removeSignatures  bool            // Do not copy signatures from the source image
-	signByFingerprint string          // Sign the image using a GPG key with the specified fingerprint
-	format            optionalString  // Force conversion of the image to a specified format
-	quiet             bool            // Suppress output information when copying images
-	all               bool            // Copy all of the images if the source is a list
-	encryptLayer      cli.IntSlice    // The list of layers to encrypt
-	encryptionKeys    cli.StringSlice // Keys needed to encrypt the image
-	decryptionKeys    cli.StringSlice // Keys needed to decrypt the image
+	additionalTags    []string       // For docker-archive: destinations, in addition to the name:tag specified as destination, also add these
+	removeSignatures  bool           // Do not copy signatures from the source image
+	signByFingerprint string         // Sign the image using a GPG key with the specified fingerprint
+	format            optionalString // Force conversion of the image to a specified format
+	quiet             bool           // Suppress output information when copying images
+	all               bool           // Copy all of the images if the source is a list
+	encryptLayer      []int          // The list of layers to encrypt
+	encryptionKeys    []string       // Keys needed to encrypt the image
+	decryptionKeys    []string       // Keys needed to decrypt the image
 }
 
-func copyCmd(global *globalOptions) cli.Command {
+func copyCmd(global *globalOptions) *cobra.Command {
 	sharedFlags, sharedOpts := sharedImageFlags()
 	srcFlags, srcOpts := imageFlags(global, sharedOpts, "src-", "screds")
 	destFlags, destOpts := imageDestFlags(global, sharedOpts, "dest-", "dcreds")
@@ -41,70 +41,34 @@ func copyCmd(global *globalOptions) cli.Command {
 		srcImage:  srcOpts,
 		destImage: destOpts,
 	}
+	cmd := &cobra.Command{
+		Use:   "copy [command options] SOURCE-IMAGE DESTINATION-IMAGE",
+		Short: "Copy an IMAGE-NAME from one location to another",
+		Long: fmt.Sprintf(`Container "IMAGE-NAME" uses a "transport":"details" format.
 
-	return cli.Command{
-		Name:  "copy",
-		Usage: "Copy an IMAGE-NAME from one location to another",
-		Description: fmt.Sprintf(`
+Supported transports:
+%s
 
-	Container "IMAGE-NAME" uses a "transport":"details" format.
-
-	Supported transports:
-	%s
-
-	See skopeo(1) section "IMAGE NAMES" for the expected format
-	`, strings.Join(transports.ListNames(), ", ")),
-		ArgsUsage: "SOURCE-IMAGE DESTINATION-IMAGE",
-		Action:    commandAction(opts.run),
-		// FIXME: Do we need to namespace the GPG aspect?
-		Flags: append(append(append([]cli.Flag{
-			cli.StringSliceFlag{
-				Name:  "additional-tag",
-				Usage: "additional tags (supports docker-archive)",
-				Value: &opts.additionalTags, // Surprisingly StringSliceFlag does not support Destination:, but modifies Value: in place.
-			},
-			cli.BoolFlag{
-				Name:        "quiet, q",
-				Usage:       "Suppress output information when copying images",
-				Destination: &opts.quiet,
-			},
-			cli.BoolFlag{
-				Name:        "all, a",
-				Usage:       "Copy all images if SOURCE-IMAGE is a list",
-				Destination: &opts.all,
-			},
-			cli.BoolFlag{
-				Name:        "remove-signatures",
-				Usage:       "Do not copy signatures from SOURCE-IMAGE",
-				Destination: &opts.removeSignatures,
-			},
-			cli.StringFlag{
-				Name:        "sign-by",
-				Usage:       "Sign the image using a GPG key with the specified `FINGERPRINT`",
-				Destination: &opts.signByFingerprint,
-			},
-			cli.GenericFlag{
-				Name:  "format, f",
-				Usage: "`MANIFEST TYPE` (oci, v2s1, or v2s2) to use when saving image to directory using the 'dir:' transport (default is manifest type of source)",
-				Value: newOptionalStringValue(&opts.format),
-			},
-			cli.StringSliceFlag{
-				Name:  "encryption-key",
-				Usage: "*Experimental* key with the encryption protocol to use needed to encrypt the image (e.g. jwe:/path/to/key.pem)",
-				Value: &opts.encryptionKeys,
-			},
-			cli.IntSliceFlag{
-				Name:  "encrypt-layer",
-				Usage: "*Experimental* the 0-indexed layer indices, with support for negative indexing (e.g. 0 is the first layer, -1 is the last layer)",
-				Value: &opts.encryptLayer,
-			},
-			cli.StringSliceFlag{
-				Name:  "decryption-key",
-				Usage: "*Experimental* key needed to decrypt the image",
-				Value: &opts.decryptionKeys,
-			},
-		}, sharedFlags...), srcFlags...), destFlags...),
+See skopeo(1) section "IMAGE NAMES" for the expected format
+`, strings.Join(transports.ListNames(), ", ")),
+		RunE:    commandAction(opts.run),
+		Example: `skopeo copy --sign-by dev@example.com container-storage:example/busybox:streaming docker://example/busybox:gold`,
 	}
+	adjustUsage(cmd)
+	flags := cmd.Flags()
+	flags.AddFlagSet(&sharedFlags)
+	flags.AddFlagSet(&srcFlags)
+	flags.AddFlagSet(&destFlags)
+	flags.StringSliceVar(&opts.additionalTags, "additional-tag", []string{}, "additional tags (supports docker-archive)")
+	flags.BoolVarP(&opts.quiet, "quiet", "q", false, "Suppress output information when copying images")
+	flags.BoolVarP(&opts.all, "all", "a", false, "Copy all images if SOURCE-IMAGE is a list")
+	flags.BoolVar(&opts.removeSignatures, "remove-signatures", false, "Do not copy signatures from SOURCE-IMAGE")
+	flags.StringVar(&opts.signByFingerprint, "sign-by", "", "Sign the image using a GPG key with the specified `FINGERPRINT`")
+	flags.VarP(newOptionalStringValue(&opts.format), "format", "f", `MANIFEST TYPE (oci, v2s1, or v2s2) to use when saving image to directory using the 'dir:' transport (default is manifest type of source)`)
+	flags.StringSliceVar(&opts.encryptionKeys, "encryption-key", []string{}, "*Experimental* key with the encryption protocol to use needed to encrypt the image (e.g. jwe:/path/to/key.pem)")
+	flags.IntSliceVar(&opts.encryptLayer, "encrypt-layer", []int{}, "*Experimental* the 0-indexed layer indices, with support for negative indexing (e.g. 0 is the first layer, -1 is the last layer)")
+	flags.StringSliceVar(&opts.decryptionKeys, "decryption-key", []string{}, "*Experimental* key needed to decrypt the image")
+	return cmd
 }
 
 func (opts *copyOptions) run(args []string, stdout io.Writer) error {
@@ -178,7 +142,7 @@ func (opts *copyOptions) run(args []string, stdout io.Writer) error {
 		imageListSelection = copy.CopyAllImages
 	}
 
-	if len(opts.encryptionKeys.Value()) > 0 && len(opts.decryptionKeys.Value()) > 0 {
+	if len(opts.encryptionKeys) > 0 && len(opts.decryptionKeys) > 0 {
 		return fmt.Errorf("--encryption-key and --decryption-key cannot be specified together")
 	}
 
@@ -186,15 +150,15 @@ func (opts *copyOptions) run(args []string, stdout io.Writer) error {
 	var encConfig *encconfig.EncryptConfig
 	var decConfig *encconfig.DecryptConfig
 
-	if len(opts.encryptLayer.Value()) > 0 && len(opts.encryptionKeys.Value()) == 0 {
+	if len(opts.encryptLayer) > 0 && len(opts.encryptionKeys) == 0 {
 		return fmt.Errorf("--encrypt-layer can only be used with --encryption-key")
 	}
 
-	if len(opts.encryptionKeys.Value()) > 0 {
+	if len(opts.encryptionKeys) > 0 {
 		// encryption
-		p := opts.encryptLayer.Value()
+		p := opts.encryptLayer
 		encLayers = &p
-		encryptionKeys := opts.encryptionKeys.Value()
+		encryptionKeys := opts.encryptionKeys
 		ecc, err := enchelpers.CreateCryptoConfig(encryptionKeys, []string{})
 		if err != nil {
 			return fmt.Errorf("Invalid encryption keys: %v", err)
@@ -203,9 +167,9 @@ func (opts *copyOptions) run(args []string, stdout io.Writer) error {
 		encConfig = cc.EncryptConfig
 	}
 
-	if len(opts.decryptionKeys.Value()) > 0 {
+	if len(opts.decryptionKeys) > 0 {
 		// decryption
-		decryptionKeys := opts.decryptionKeys.Value()
+		decryptionKeys := opts.decryptionKeys
 		dcc, err := enchelpers.CreateCryptoConfig([]string{}, decryptionKeys)
 		if err != nil {
 			return fmt.Errorf("Invalid decryption keys: %v", err)

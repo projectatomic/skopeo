@@ -71,7 +71,7 @@ func (s *SkopeoSuite) TestNeedAuthToPrivateRegistryV2WithoutDockerCfg(c *check.C
 }
 
 func (s *SkopeoSuite) TestCertDirInsteadOfCertPath(c *check.C) {
-	wanted := ".*flag provided but not defined: -cert-path.*"
+	wanted := ".*unknown flag: --cert-path.*"
 	assertSkopeoFails(c, wanted, "--tls-verify=false", "inspect", fmt.Sprintf("docker://%s/busybox:latest", s.regV2WithAuth.url), "--cert-path=/")
 	wanted = ".*unauthorized: authentication required.*"
 	assertSkopeoFails(c, wanted, "--tls-verify=false", "inspect", fmt.Sprintf("docker://%s/busybox:latest", s.regV2WithAuth.url), "--cert-dir=/etc/docker/certs.d/")

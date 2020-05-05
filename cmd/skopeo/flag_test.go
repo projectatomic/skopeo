@@ -3,9 +3,9 @@ package main
 import (
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli"
 )
 
 func TestOptionalBoolSet(t *testing.T) {
@@ -34,7 +34,7 @@ func TestOptionalBoolSet(t *testing.T) {
 		{"2", false, false},
 	} {
 		var ob optionalBool
-		v := newOptionalBoolValue(&ob)
+		v := internalNewOptionalBoolValue(&ob)
 		require.False(t, ob.present)
 		err := v.Set(c.input)
 		if c.accepted {
@@ -51,30 +51,23 @@ func TestOptionalBoolSet(t *testing.T) {
 	// is not called in any possible situation).
 	var globalOB, commandOB optionalBool
 	actionRun := false
-	app := cli.NewApp()
-	app.EnableBashCompletion = true
-	app.Flags = []cli.Flag{
-		cli.GenericFlag{
-			Name:  "global-OB",
-			Value: newOptionalBoolValue(&globalOB),
-		},
+	app := &cobra.Command{
+		Use: "app",
 	}
-	app.Commands = []cli.Command{{
-		Name: "cmd",
-		Flags: []cli.Flag{
-			cli.GenericFlag{
-				Name:  "command-OB",
-				Value: newOptionalBoolValue(&commandOB),
-			},
-		},
-		Action: func(*cli.Context) error {
+	optionalBoolFlag(app.PersistentFlags(), &globalOB, "global-OB", "")
+	cmd := &cobra.Command{
+		Use: "cmd",
+		RunE: func(cmd *cobra.Command, args []string) error {
 			assert.False(t, globalOB.present)
 			assert.False(t, commandOB.present)
 			actionRun = true
 			return nil
 		},
-	}}
-	err := app.Run([]string{"app", "cmd"})
+	}
+	optionalBoolFlag(cmd.Flags(), &commandOB, "command-OB", "")
+	app.AddCommand(cmd)
+	app.SetArgs([]string{"cmd"})
+	err := app.Execute()
 	require.NoError(t, err)
 	assert.True(t, actionRun)
 }
@@ -90,7 +83,7 @@ func TestOptionalBoolString(t *testing.T) {
 		{optionalBool{present: false, value: false}, ""},
 	} {
 		var ob optionalBool
-		v := newOptionalBoolValue(&ob)
+		v := internalNewOptionalBoolValue(&ob)
 		ob = c.input
 		res := v.String()
 		assert.Equal(t, c.expected, res)
@@ -114,23 +107,21 @@ func TestOptionalBoolIsBoolFlag(t *testing.T) {
 	} {
 		var ob optionalBool
 		actionRun := false
-		app := cli.NewApp()
-		app.Commands = []cli.Command{{
-			Name: "cmd",
-			Flags: []cli.Flag{
-				cli.GenericFlag{
-					Name:  "OB",
-					Value: newOptionalBoolValue(&ob),
-				},
-			},
-			Action: func(ctx *cli.Context) error {
+		app := &cobra.Command{Use: "app"}
+		cmd := &cobra.Command{
+			Use: "cmd",
+			RunE: func(cmd *cobra.Command, args []string) error {
 				assert.Equal(t, c.expectedOB, ob)
-				assert.Equal(t, c.expectedArgs, ([]string)(ctx.Args()))
+				assert.Equal(t, c.expectedArgs, args)
 				actionRun = true
 				return nil
 			},
-		}}
-		err := app.Run(append([]string{"app", "cmd"}, c.input...))
+		}
+		optionalBoolFlag(cmd.Flags(), &ob, "OB", "")
+		app.AddCommand(cmd)
+
+		app.SetArgs(append([]string{"cmd"}, c.input...))
+		err := app.Execute()
 		require.NoError(t, err)
 		assert.True(t, actionRun)
 	}
@@ -152,30 +143,23 @@ func TestOptionalStringSet(t *testing.T) {
 	// is not called in any possible situation).
 	var globalOS, commandOS optionalString
 	actionRun := false
-	app := cli.NewApp()
-	app.EnableBashCompletion = true
-	app.Flags = []cli.Flag{
-		cli.GenericFlag{
-			Name:  "global-OS",
-			Value: newOptionalStringValue(&globalOS),
-		},
+	app := &cobra.Command{
+		Use: "app",
 	}
-	app.Commands = []cli.Command{{
-		Name: "cmd",
-		Flags: []cli.Flag{
-			cli.GenericFlag{
-				Name:  "command-OS",
-				Value: newOptionalStringValue(&commandOS),
-			},
-		},
-		Action: func(*cli.Context) error {
+	app.PersistentFlags().Var(newOptionalStringValue(&globalOS), "global-OS", "")
+	cmd := &cobra.Command{
+		Use: "cmd",
+		RunE: func(cmd *cobra.Command, args []string) error {
 			assert.False(t, globalOS.present)
 			assert.False(t, commandOS.present)
 			actionRun = true
 			return nil
 		},
-	}}
-	err := app.Run([]string{"app", "cmd"})
+	}
+	cmd.Flags().Var(newOptionalStringValue(&commandOS), "command-OS", "")
+	app.AddCommand(cmd)
+	app.SetArgs([]string{"cmd"})
+	err := app.Execute()
 	require.NoError(t, err)
 	assert.True(t, actionRun)
 }
@@ -216,23 +200,22 @@ func TestOptionalStringIsBoolFlag(t *testing.T) {
 	} {
 		var os optionalString
 		actionRun := false
-		app := cli.NewApp()
-		app.Commands = []cli.Command{{
-			Name: "cmd",
-			Flags: []cli.Flag{
-				cli.GenericFlag{
-					Name:  "OS",
-					Value: newOptionalStringValue(&os),
-				},
-			},
-			Action: func(ctx *cli.Context) error {
+		app := &cobra.Command{
+			Use: "app",
+		}
+		cmd := &cobra.Command{
+			Use: "cmd",
+			RunE: func(cmd *cobra.Command, args []string) error {
 				assert.Equal(t, c.expectedOS, os)
-				assert.Equal(t, c.expectedArgs, ([]string)(ctx.Args()))
+				assert.Equal(t, c.expectedArgs, args)
 				actionRun = true
 				return nil
 			},
-		}}
-		err := app.Run(append([]string{"app", "cmd"}, c.input...))
+		}
+		cmd.Flags().Var(newOptionalStringValue(&os), "OS", "")
+		app.AddCommand(cmd)
+		app.SetArgs(append([]string{"cmd"}, c.input...))
+		err := app.Execute()
 		require.NoError(t, err)
 		assert.True(t, actionRun)
 	}

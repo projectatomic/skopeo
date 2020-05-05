@@ -7,20 +7,22 @@ import (
 	"io/ioutil"
 
 	"github.com/containers/image/v5/manifest"
-	"github.com/urfave/cli"
+	"github.com/spf13/cobra"
 )
 
 type manifestDigestOptions struct {
 }
 
-func manifestDigestCmd() cli.Command {
-	opts := manifestDigestOptions{}
-	return cli.Command{
-		Name:      "manifest-digest",
-		Usage:     "Compute a manifest digest of a file",
-		ArgsUsage: "MANIFEST",
-		Action:    commandAction(opts.run),
+func manifestDigestCmd() *cobra.Command {
+	var opts manifestDigestOptions
+	cmd := &cobra.Command{
+		Use:     "manifest-digest MANIFEST",
+		Short:   "Compute a manifest digest of a file",
+		RunE:    commandAction(opts.run),
+		Example: "skopeo manifest-digest manifest.json",
 	}
+	adjustUsage(cmd)
+	return cmd
 }
 
 func (opts *manifestDigestOptions) run(args []string, stdout io.Writer) error {

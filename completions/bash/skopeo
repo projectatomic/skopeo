@@ -177,6 +177,19 @@ _skopeo_skopeo() {
        --help -h
      "
 
+     local commands=(
+       copy
+       delete
+       inspect
+       list-tags
+       manifest-digest
+       standalone-sign
+       standalone-verify
+       sync
+       help
+       h
+     )
+
      case "$prev" in
          # XXX: Changes here need to be refleceted in $options_with_args as well.
          --policy|--registries.d|--override-arch|--override-os|--override-variant|--command-timeout)
@@ -189,8 +202,6 @@ _skopeo_skopeo() {
              while IFS='' read -r line; do COMPREPLY+=("$line"); done < <(compgen -W "$boolean_options $options_with_args" -- "$cur")
              ;;
          *)
-             commands=$( "${COMP_WORDS[@]:0:$COMP_CWORD}" --generate-bash-completion )
-
              while IFS='' read -r line; do COMPREPLY+=("$line"); done < <(compgen -W "${commands[*]} help" -- "$cur")
              ;;
      esac

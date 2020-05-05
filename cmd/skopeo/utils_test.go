@@ -1,42 +1,33 @@
 package main
 
 import (
-	"flag"
 	"os"
 	"testing"
 
 	"github.com/containers/image/v5/types"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // fakeGlobalOptions creates globalOptions and sets it according to flags.
-// NOTE: This is QUITE FAKE; none of the urfave/cli normalization and the like happens.
-func fakeGlobalOptions(t *testing.T, flags []string) *globalOptions {
+func fakeGlobalOptions(t *testing.T, flags []string) (*globalOptions, *cobra.Command) {
 	app, opts := createApp()
-
-	flagSet := flag.NewFlagSet(app.Name, flag.ContinueOnError)
-	for _, f := range app.Flags {
-		f.Apply(flagSet)
-	}
-	err := flagSet.Parse(flags)
+	cmd := &cobra.Command{}
+	app.AddCommand(cmd)
+	err := cmd.ParseFlags(flags)
 	require.NoError(t, err)
-
-	return opts
+	return opts, cmd
 }
 
 // fakeImageOptions creates imageOptions and sets it according to globalFlags/cmdFlags.
-// NOTE: This is QUITE FAKE; none of the urfave/cli normalization and the like happens.
 func fakeImageOptions(t *testing.T, flagPrefix string, globalFlags []string, cmdFlags []string) *imageOptions {
-	globalOpts := fakeGlobalOptions(t, globalFlags)
-
+	globalOpts, cmd := fakeGlobalOptions(t, globalFlags)
 	sharedFlags, sharedOpts := sharedImageFlags()
 	imageFlags, imageOpts := imageFlags(globalOpts, sharedOpts, flagPrefix, "")
-	flagSet := flag.NewFlagSet("fakeImageOptions", flag.ContinueOnError)
-	for _, f := range append(sharedFlags, imageFlags...) {
-		f.Apply(flagSet)
-	}
-	err := flagSet.Parse(cmdFlags)
+	cmd.Flags().AddFlagSet(&sharedFlags)
+	cmd.Flags().AddFlagSet(&imageFlags)
+	err := cmd.ParseFlags(cmdFlags)
 	require.NoError(t, err)
 	return imageOpts
 }
@@ -120,17 +111,13 @@ func TestImageOptionsNewSystemContext(t *testing.T) {
 }
 
 // fakeImageDestOptions creates imageDestOptions and sets it according to globalFlags/cmdFlags.
-// NOTE: This is QUITE FAKE; none of the urfave/cli normalization and the like happens.
 func fakeImageDestOptions(t *testing.T, flagPrefix string, globalFlags []string, cmdFlags []string) *imageDestOptions {
-	globalOpts := fakeGlobalOptions(t, globalFlags)
-
+	globalOpts, cmd := fakeGlobalOptions(t, globalFlags)
 	sharedFlags, sharedOpts := sharedImageFlags()
 	imageFlags, imageOpts := imageDestFlags(globalOpts, sharedOpts, flagPrefix, "")
-	flagSet := flag.NewFlagSet("fakeImageDestOptions", flag.ContinueOnError)
-	for _, f := range append(sharedFlags, imageFlags...) {
-		f.Apply(flagSet)
-	}
-	err := flagSet.Parse(cmdFlags)
+	cmd.Flags().AddFlagSet(&sharedFlags)
+	cmd.Flags().AddFlagSet(&imageFlags)
+	err := cmd.ParseFlags(cmdFlags)
 	require.NoError(t, err)
 	return imageOpts
 }

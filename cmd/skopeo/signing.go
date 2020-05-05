@@ -8,28 +8,24 @@ import (
 	"io/ioutil"
 
 	"github.com/containers/image/v5/signature"
-	"github.com/urfave/cli"
+	"github.com/spf13/cobra"
 )
 
 type standaloneSignOptions struct {
 	output string // Output file path
 }
 
-func standaloneSignCmd() cli.Command {
+func standaloneSignCmd() *cobra.Command {
 	opts := standaloneSignOptions{}
-	return cli.Command{
-		Name:      "standalone-sign",
-		Usage:     "Create a signature using local files",
-		ArgsUsage: "MANIFEST DOCKER-REFERENCE KEY-FINGERPRINT",
-		Action:    commandAction(opts.run),
-		Flags: []cli.Flag{
-			cli.StringFlag{
-				Name:        "output, o",
-				Usage:       "output the signature to `SIGNATURE`",
-				Destination: &opts.output,
-			},
-		},
+	cmd := &cobra.Command{
+		Use:   "standalone-sign [command options] MANIFEST DOCKER-REFERENCE KEY-FINGERPRINT",
+		Short: "Create a signature using local files",
+		RunE:  commandAction(opts.run),
 	}
+	adjustUsage(cmd)
+	flags := cmd.Flags()
+	flags.StringVarP(&opts.output, "output", "o", "", "output the signature to `SIGNATURE`")
+	return cmd
 }
 
 func (opts *standaloneSignOptions) run(args []string, stdout io.Writer) error {
@@ -64,14 +60,15 @@ func (opts *standaloneSignOptions) run(args []string, stdout io.Writer) error {
 type standaloneVerifyOptions struct {
 }
 
-func standaloneVerifyCmd() cli.Command {
+func standaloneVerifyCmd() *cobra.Command {
 	opts := standaloneVerifyOptions{}
-	return cli.Command{
-		Name:      "standalone-verify",
-		Usage:     "Verify a signature using local files",
-		ArgsUsage: "MANIFEST DOCKER-REFERENCE KEY-FINGERPRINT SIGNATURE",
-		Action:    commandAction(opts.run),
+	cmd := &cobra.Command{
+		Use:   "standalone-verify MANIFEST DOCKER-REFERENCE KEY-FINGERPRINT SIGNATURE",
+		Short: "Verify a signature using local files",
+		RunE:  commandAction(opts.run),
 	}
+	adjustUsage(cmd)
+	return cmd
 }
 
 func (opts *standaloneVerifyOptions) run(args []string, stdout io.Writer) error {
@@ -115,15 +112,16 @@ func (opts *standaloneVerifyOptions) run(args []string, stdout io.Writer) error 
 type untrustedSignatureDumpOptions struct {
 }
 
-func untrustedSignatureDumpCmd() cli.Command {
+func untrustedSignatureDumpCmd() *cobra.Command {
 	opts := untrustedSignatureDumpOptions{}
-	return cli.Command{
-		Name:      "untrusted-signature-dump-without-verification",
-		Usage:     "Dump contents of a signature WITHOUT VERIFYING IT",
-		ArgsUsage: "SIGNATURE",
-		Hidden:    true,
-		Action:    commandAction(opts.run),
+	cmd := &cobra.Command{
+		Use:    "untrusted-signature-dump-without-verification SIGNATURE",
+		Short:  "Dump contents of a signature WITHOUT VERIFYING IT",
+		RunE:   commandAction(opts.run),
+		Hidden: true,
 	}
+	adjustUsage(cmd)
+	return cmd
 }
 
 func (opts *untrustedSignatureDumpOptions) run(args []string, stdout io.Writer) error {

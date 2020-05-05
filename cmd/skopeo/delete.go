@@ -8,7 +8,7 @@ import (
 
 	"github.com/containers/image/v5/transports"
 	"github.com/containers/image/v5/transports/alltransports"
-	"github.com/urfave/cli"
+	"github.com/spf13/cobra"
 )
 
 type deleteOptions struct {
@@ -16,28 +16,29 @@ type deleteOptions struct {
 	image  *imageOptions
 }
 
-func deleteCmd(global *globalOptions) cli.Command {
+func deleteCmd(global *globalOptions) *cobra.Command {
 	sharedFlags, sharedOpts := sharedImageFlags()
 	imageFlags, imageOpts := imageFlags(global, sharedOpts, "", "")
 	opts := deleteOptions{
 		global: global,
 		image:  imageOpts,
 	}
-	return cli.Command{
-		Name:  "delete",
-		Usage: "Delete image IMAGE-NAME",
-		Description: fmt.Sprintf(`
-	Delete an "IMAGE_NAME" from a transport
-
-	Supported transports:
-	%s
-
-	See skopeo(1) section "IMAGE NAMES" for the expected format
-	`, strings.Join(transports.ListNames(), ", ")),
-		ArgsUsage: "IMAGE-NAME",
-		Action:    commandAction(opts.run),
-		Flags:     append(sharedFlags, imageFlags...),
+	cmd := &cobra.Command{
+		Use:   "delete [command options] IMAGE-NAME",
+		Short: "Delete image IMAGE-NAME",
+		Long: fmt.Sprintf(`Delete an "IMAGE_NAME" from a transport
+Supported transports:
+%s
+See skopeo(1) section "IMAGE NAMES" for the expected format
+`, strings.Join(transports.ListNames(), ", ")),
+		RunE:    commandAction(opts.run),
+		Example: `skopeo delete docker://registry.example.com/example/pause:latest`,
 	}
+	adjustUsage(cmd)
+	flags := cmd.Flags()
+	flags.AddFlagSet(&sharedFlags)
+	flags.AddFlagSet(&imageFlags)
+	return cmd
 }
 
 func (opts *deleteOptions) run(args []string, stdout io.Writer) error {
