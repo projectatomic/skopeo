@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -24,6 +25,8 @@ type tagListOutput struct {
 type tagsOptions struct {
 	global *globalOptions
 	image  *imageOptions
+	tagsOnly bool // only output the tags' strings
+	raw      bool // output raw strings, not JSON texts. ep: "x.y" ==> x.y
 }
 
 func tagsCmd(global *globalOptions) *cobra.Command {
@@ -49,6 +52,8 @@ See skopeo-list-tags(1) section "REPOSITORY NAMES" for the expected format
 	}
 	adjustUsage(cmd)
 	flags := cmd.Flags()
+	flags.BoolVar(&opts.tagsOnly, "tags-only", false, "only output the tags")
+	flags.BoolVar(&opts.raw, "tags-raw", false, `output raw strings, not JSON texts while "--tags-only"" is true`)
 	flags.AddFlagSet(&sharedFlags)
 	flags.AddFlagSet(&imageFlags)
 	return cmd
@@ -128,10 +133,25 @@ func (opts *tagsOptions) run(args []string, stdout io.Writer) (retErr error) {
 		Tags:       tagListing,
 	}
 
-	out, err := json.MarshalIndent(outputData, "", "    ")
-	if err != nil {
-		return err
+	var out []byte
+	if opts.tagsOnly {
+		if opts.raw {
+			out = []byte(strings.Join(tagListing, "\n"))
+		} else {
+			out, err = json.Marshal(tagListing)
+			if err != nil {
+				return err
+			}
+			out = out[1 : len(out)-1]
+			out = bytes.ReplaceAll(out, []byte(","), []byte("\n"))
+		}
+	} else {
+		out, err = json.MarshalIndent(outputData, "", "    ")
+		if err != nil {
+			return err
+		}
 	}
+
 	_, err = fmt.Fprintf(stdout, "%s\n", string(out))
 
 	return err

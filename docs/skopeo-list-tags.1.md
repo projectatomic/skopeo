@@ -22,6 +22,10 @@ Return a list of tags from _repository-name_ in a registry.
   **--tls-verify** _bool-value_ Require HTTPS and verify certificates when talking to container registries (defaults to true)
 
   **--no-creds** _bool-value_ Access the registry anonymously.
+  
+  **--tags-only** _bool-value_ only output the tags.
+  
+  **--tags-raw** _bool-value_ output raw strings, not JSON texts while "--tags-only"" is true.
 
 ## REPOSITORY NAMES
 
