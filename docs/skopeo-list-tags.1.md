@@ -25,7 +25,7 @@ Return a list of tags from _repository-name_ in a registry.
   
   **--tags-only** _bool-value_ only output the tags.
   
-  **--tags-raw** _bool-value_ output raw strings, not JSON texts while "--tags-only"" is true.
+  **--tags-raw** _bool-value_ output raw strings, not JSON texts when "--tags-only"" is true.
 
 ## REPOSITORY NAMES
 

@@ -23,8 +23,8 @@ type tagListOutput struct {
 }
 
 type tagsOptions struct {
-	global *globalOptions
-	image  *imageOptions
+	global   *globalOptions
+	image    *imageOptions
 	tagsOnly bool // only output the tags' strings
 	raw      bool // output raw strings, not JSON texts. ep: "x.y" ==> x.y
 }
@@ -53,7 +53,7 @@ See skopeo-list-tags(1) section "REPOSITORY NAMES" for the expected format
 	adjustUsage(cmd)
 	flags := cmd.Flags()
 	flags.BoolVar(&opts.tagsOnly, "tags-only", false, "only output the tags")
-	flags.BoolVar(&opts.raw, "tags-raw", false, `output raw strings, not JSON texts while "--tags-only"" is true`)
+	flags.BoolVar(&opts.raw, "tags-raw", false, `output raw strings, not JSON texts when "--tags-only"" is true`)
 	flags.AddFlagSet(&sharedFlags)
 	flags.AddFlagSet(&imageFlags)
 	return cmd
