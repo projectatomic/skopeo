@@ -87,13 +87,13 @@ Images are located at:
 ```
 
 ### Synchronizing to a container registry from local
-The Image's locate info:
+Images are located at:
 ```
-/media/usb/busybox:1-glibc/
+/media/usb/busybox:1-glibc
 ```
 Sync run
 ```
-$ skopeo sync --src dir --dest docker /media/usb/busybox\:1-glibc my-registry.local.lan/test/
+$ skopeo sync --src dir --dest docker /media/usb/busybox:1-glibc my-registry.local.lan/test/
 ```
 Destination registry content:
 ```
