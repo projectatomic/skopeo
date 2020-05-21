@@ -263,7 +263,7 @@ func (s *SyncSuite) TestYamlRegex2Dir(c *check.C) {
 
 	yamlConfig := `
 docker.io:
-  images:
+  images-by-tag-regex:
     nginx: ^1\.13\.[12]-alpine-perl$  # regex string test
 `
 	// the       ↑    regex strings always matches only 2 images

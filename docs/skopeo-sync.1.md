@@ -143,7 +143,8 @@ registry.example.com:
         redis:
             - "1.0"
             - "2.0"
-        nginx: ^1\.13\.[12]-alpine-perl$ # String types are used for regular expressions, it will match `1.13.1-alpine-perl` and `1.13.2-alpine-perl`
+    images-by-tag-regex:
+        nginx: ^1\.13\.[12]-alpine-perl$
     credentials:
         username: john
         password: this is a secret
