@@ -274,10 +274,11 @@ func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourc
 	var repoDescList []repoDescriptor
 	for imageName, tags := range cfg.Images {
 		repoName := fmt.Sprintf("//%s", path.Join(registryName, imageName))
-		logrus.WithFields(logrus.Fields{
+		repoLogger := logrus.WithFields(logrus.Fields{
 			"repo":     imageName,
 			"registry": registryName,
-		}).Info("Processing repo")
+		})
+		repoLogger.Info("Processing repo")
 
 		var sourceReferences []types.ImageReference
 		if len(tags) != 0 {
@@ -295,37 +296,25 @@ func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourc
 				sourceReferences = append(sourceReferences, imageRef)
 			}
 		} else { // len(tags) == 0
-			logrus.WithFields(logrus.Fields{
-				"repo":     imageName,
-				"registry": registryName,
-			}).Info("Querying registry for image tags")
+			repoLogger.Info("Querying registry for image tags")
 
 			imageRef, err := docker.ParseReference(repoName)
 			if err != nil {
-				logrus.WithFields(logrus.Fields{
-					"repo":     imageName,
-					"registry": registryName,
-				}).Error("Error processing repo, skipping")
+				repoLogger.Error("Error processing repo, skipping")
 				logrus.Error(err)
 				continue
 			}
 
 			sourceReferences, err = imagesToCopyFromRepo(imageRef, repoName, serverCtx)
 			if err != nil {
-				logrus.WithFields(logrus.Fields{
-					"repo":     imageName,
-					"registry": registryName,
-				}).Error("Error processing repo, skipping")
+				repoLogger.Error("Error processing repo, skipping")
 				logrus.Error(err)
 				continue
 			}
 		}
 
 		if len(sourceReferences) == 0 {
-			logrus.WithFields(logrus.Fields{
-				"repo":     imageName,
-				"registry": registryName,
-			}).Warnf("No tags to sync found")
+			repoLogger.Warnf("No tags to sync found")
 			continue
 		}
 		repoDescList = append(repoDescList, repoDescriptor{
@@ -335,51 +324,37 @@ func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourc
 
 	for imageName, tagRegex := range cfg.ImagesByTagRegex {
 		repoName := fmt.Sprintf("//%s", path.Join(registryName, imageName))
-		logrus.WithFields(logrus.Fields{
+		repoLogger := logrus.WithFields(logrus.Fields{
 			"repo":     imageName,
 			"registry": registryName,
-		}).Info("Processing repo")
+		})
+		repoLogger.Info("Processing repo")
 
 		var sourceReferences []types.ImageReference
 
 		tagReg, err := regexp.Compile(tagRegex)
 		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"repo":     imageName,
-				"registry": registryName,
-			}).Error("Error processing repo, skipping")
+			repoLogger.Error("Error processing repo, skipping")
 			logrus.Error(err)
 		}
 
-		logrus.WithFields(logrus.Fields{
-			"repo":     imageName,
-			"registry": registryName,
-		}).Info("Querying registry for image tags")
+		repoLogger.Info("Querying registry for image tags")
 
 		imageRef, err := docker.ParseReference(repoName)
 		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"repo":     imageName,
-				"registry": registryName,
-			}).Error("Error processing repo, skipping")
+			repoLogger.Error("Error processing repo, skipping")
 			logrus.Error(err)
 			continue
 		}
 
 		allSourceReferences, err := imagesToCopyFromRepo(imageRef, repoName, serverCtx)
 		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"repo":     imageName,
-				"registry": registryName,
-			}).Error("Error processing repo, skipping")
+			repoLogger.Error("Error processing repo, skipping")
 			logrus.Error(err)
 			continue
 		}
 
-		logrus.WithFields(logrus.Fields{
-			"repo":     imageName,
-			"registry": registryName,
-		}).Infof("Start filtering using the regular expression: %v", tagRegex)
+		repoLogger.Infof("Start filtering using the regular expression: %v", tagRegex)
 		for _, sReference := range allSourceReferences {
 			// get the tag names to match, [1] default is "latest" by .DockerReference().String()
 			if tagReg.Match([]byte(strings.Split(sReference.DockerReference().String(), ":")[1])) {
@@ -388,10 +363,7 @@ func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourc
 		}
 
 		if len(sourceReferences) == 0 {
-			logrus.WithFields(logrus.Fields{
-				"repo":     imageName,
-				"registry": registryName,
-			}).Warnf("No tags to sync found")
+			repoLogger.Warnf("No tags to sync found")
 			continue
 		}
 		repoDescList = append(repoDescList, repoDescriptor{
