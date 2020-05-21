@@ -273,7 +273,7 @@ func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourc
 
 	var repoDescList []repoDescriptor
 	for imageName, tags := range cfg.Images {
-		repoName := fmt.Sprintf("//%s", path.Join(registryName, imageName))
+		repoName := fmt.Sprintf("//%s/%s", registryName, imageName)
 		repoLogger := logrus.WithFields(logrus.Fields{
 			"repo":     imageName,
 			"registry": registryName,
@@ -323,7 +323,7 @@ func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourc
 	}
 
 	for imageName, tagRegex := range cfg.ImagesByTagRegex {
-		repoName := fmt.Sprintf("//%s", path.Join(registryName, imageName))
+		repoName := fmt.Sprintf("//%s/%s", registryName, imageName)
 		repoLogger := logrus.WithFields(logrus.Fields{
 			"repo":     imageName,
 			"registry": registryName,
