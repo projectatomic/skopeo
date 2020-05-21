@@ -280,21 +280,21 @@ func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourc
 		}).Info("Processing repo")
 
 		var sourceReferences []types.ImageReference
-		for _, tag := range tags {
-			source := fmt.Sprintf("%s:%s", repoName, tag)
+		if len(tags) != 0 {
+			for _, tag := range tags {
+				source := fmt.Sprintf("%s:%s", repoName, tag)
 
-			imageRef, err := docker.ParseReference(source)
-			if err != nil {
-				logrus.WithFields(logrus.Fields{
-					"tag": source,
-				}).Error("Error processing tag, skipping")
-				logrus.Errorf("Error getting image reference: %s", err)
-				continue
+				imageRef, err := docker.ParseReference(source)
+				if err != nil {
+					logrus.WithFields(logrus.Fields{
+						"tag": source,
+					}).Error("Error processing tag, skipping")
+					logrus.Errorf("Error getting image reference: %s", err)
+					continue
+				}
+				sourceReferences = append(sourceReferences, imageRef)
 			}
-			sourceReferences = append(sourceReferences, imageRef)
-		}
-
-		if len(tags) == 0 {
+		} else { // len(tags) == 0
 			logrus.WithFields(logrus.Fields{
 				"repo":     imageName,
 				"registry": registryName,
