@@ -263,6 +263,14 @@ func imagesToCopyFromDir(dirPath string) ([]types.ImageReference, error) {
 // found and any error encountered. Each element of the slice is a list of
 // tagged image references, to be used as sync source.
 func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourceCtx types.SystemContext) ([]repoDescriptor, error) {
+	serverCtx := &sourceCtx
+	// override ctx with per-registryName options
+	serverCtx.DockerCertPath = cfg.CertDir
+	serverCtx.DockerDaemonCertPath = cfg.CertDir
+	serverCtx.DockerDaemonInsecureSkipTLSVerify = (cfg.TLSVerify.skip == types.OptionalBoolTrue)
+	serverCtx.DockerInsecureSkipTLSVerify = cfg.TLSVerify.skip
+	serverCtx.DockerAuthConfig = &cfg.Credentials
+
 	var repoDescList []repoDescriptor
 	for imageName, tags := range cfg.Images {
 		repoName := fmt.Sprintf("//%s", path.Join(registryName, imageName))
@@ -271,16 +279,7 @@ func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourc
 			"registry": registryName,
 		}).Info("Processing repo")
 
-		serverCtx := &sourceCtx
-		// override ctx with per-registryName options
-		serverCtx.DockerCertPath = cfg.CertDir
-		serverCtx.DockerDaemonCertPath = cfg.CertDir
-		serverCtx.DockerDaemonInsecureSkipTLSVerify = (cfg.TLSVerify.skip == types.OptionalBoolTrue)
-		serverCtx.DockerInsecureSkipTLSVerify = cfg.TLSVerify.skip
-		serverCtx.DockerAuthConfig = &cfg.Credentials
-
 		var sourceReferences []types.ImageReference
-
 		for _, tag := range tags {
 			source := fmt.Sprintf("%s:%s", repoName, tag)
 
@@ -340,14 +339,6 @@ func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourc
 			"repo":     imageName,
 			"registry": registryName,
 		}).Info("Processing repo")
-
-		serverCtx := &sourceCtx
-		// override ctx with per-registryName options
-		serverCtx.DockerCertPath = cfg.CertDir
-		serverCtx.DockerDaemonCertPath = cfg.CertDir
-		serverCtx.DockerDaemonInsecureSkipTLSVerify = (cfg.TLSVerify.skip == types.OptionalBoolTrue)
-		serverCtx.DockerInsecureSkipTLSVerify = cfg.TLSVerify.skip
-		serverCtx.DockerAuthConfig = &cfg.Credentials
 
 		var sourceReferences []types.ImageReference
 
