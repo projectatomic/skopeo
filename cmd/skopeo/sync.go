@@ -417,17 +417,15 @@ func imagesToCopy(source string, transport string, sourceCtx *types.SystemContex
 		}
 
 		if imageTagged {
-			desc.TaggedImages = append(desc.TaggedImages, srcRef)
-			descriptors = append(descriptors, desc)
-			break
-		}
-
-		desc.TaggedImages, err = imagesToCopyFromRepo(sourceCtx, srcRef.DockerReference())
-		if err != nil {
-			return descriptors, err
-		}
-		if len(desc.TaggedImages) == 0 {
-			return descriptors, errors.Errorf("No images to sync found in %q", source)
+			desc.TaggedImages = []types.ImageReference{srcRef}
+		} else {
+			desc.TaggedImages, err = imagesToCopyFromRepo(sourceCtx, srcRef.DockerReference())
+			if err != nil {
+				return descriptors, err
+			}
+			if len(desc.TaggedImages) == 0 {
+				return descriptors, errors.Errorf("No images to sync found in %q", source)
+			}
 		}
 		descriptors = append(descriptors, desc)
 
