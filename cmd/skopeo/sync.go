@@ -344,8 +344,11 @@ func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourc
 
 		tagReg, err := regexp.Compile(tagRegex)
 		if err != nil {
-			repoLogger.Error("Error processing repo, skipping")
+			repoLogger.WithFields(logrus.Fields{
+				"regex": tagRegex,
+			}).Error("Error parsing regex, skipping")
 			logrus.Error(err)
+			continue
 		}
 
 		repoLogger.Info("Querying registry for image tags")
