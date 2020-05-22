@@ -206,22 +206,6 @@ func getImageTags(ctx context.Context, sysCtx *types.SystemContext, repoRef refe
 	return tags, nil
 }
 
-// isTagSpecified checks if an image name includes a tag and returns any errors
-// encountered.
-func isTagSpecified(imageName string) (bool, error) {
-	normNamed, err := reference.ParseNormalizedNamed(imageName)
-	if err != nil {
-		return false, err
-	}
-
-	tagged := !reference.IsNameOnly(normNamed)
-	logrus.WithFields(logrus.Fields{
-		"imagename": imageName,
-		"tagged":    tagged,
-	}).Info("Tag presence check")
-	return tagged, nil
-}
-
 // imagesToCopyFromRepo builds a list of image references from the tags
 // found in a source repository.
 // It returns an image reference slice with as many elements as the tags found
@@ -410,11 +394,11 @@ func imagesToCopy(source string, transport string, sourceCtx *types.SystemContex
 		if err != nil {
 			return nil, errors.Wrapf(err, "Cannot obtain a valid image reference for transport %q and reference %q", docker.Transport.Name(), source)
 		}
-		imageTagged, err := isTagSpecified(source)
-		if err != nil {
-			return descriptors, err
-		}
-
+		imageTagged := !reference.IsNameOnly(named)
+		logrus.WithFields(logrus.Fields{
+			"imagename": source,
+			"tagged":    imageTagged,
+		}).Info("Tag presence check")
 		if imageTagged {
 			srcRef, err := docker.NewReference(named)
 			if err != nil {
