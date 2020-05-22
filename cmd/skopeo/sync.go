@@ -127,6 +127,18 @@ func newSourceConfig(yamlFile string) (sourceConfig, error) {
 	return cfg, nil
 }
 
+// parseRepositoryReference parses input into a reference.Named, and verifies that it names a repository, not an image.
+func parseRepositoryReference(input string) (reference.Named, error) {
+	ref, err := reference.ParseNormalizedNamed(input)
+	if err != nil {
+		return nil, err
+	}
+	if !reference.IsNameOnly(ref) {
+		return nil, errors.Errorf("input names a reference, not a repository")
+	}
+	return ref, nil
+}
+
 // destinationReference creates an image reference using the provided transport.
 // It returns a image reference to be used as destination of an image copy and
 // any error encountered.
@@ -281,23 +293,32 @@ func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourc
 
 	var repoDescList []repoDescriptor
 	for imageName, tags := range cfg.Images {
-		repoName := fmt.Sprintf("//%s/%s", registryName, imageName)
 		repoLogger := logrus.WithFields(logrus.Fields{
 			"repo":     imageName,
 			"registry": registryName,
 		})
+		repoRef, err := parseRepositoryReference(fmt.Sprintf("%s/%s", registryName, imageName))
+		if err != nil {
+			repoLogger.Error("Error parsing repository name, skipping")
+			logrus.Error(err)
+			continue
+		}
+
 		repoLogger.Info("Processing repo")
 
 		var sourceReferences []types.ImageReference
 		if len(tags) != 0 {
 			for _, tag := range tags {
-				source := fmt.Sprintf("%s:%s", repoName, tag)
-
-				imageRef, err := docker.ParseReference(source)
+				tagLogger := logrus.WithFields(logrus.Fields{"tag": tag})
+				taggedRef, err := reference.WithTag(repoRef, tag)
 				if err != nil {
-					logrus.WithFields(logrus.Fields{
-						"tag": source,
-					}).Error("Error processing tag, skipping")
+					tagLogger.Error("Error parsing tag, skipping")
+					logrus.Error(err)
+					continue
+				}
+				imageRef, err := docker.NewReference(taggedRef)
+				if err != nil {
+					tagLogger.Error("Error processing tag, skipping")
 					logrus.Errorf("Error getting image reference: %s", err)
 					continue
 				}
@@ -305,15 +326,7 @@ func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourc
 			}
 		} else { // len(tags) == 0
 			repoLogger.Info("Querying registry for image tags")
-
-			imageRef, err := docker.ParseReference(repoName)
-			if err != nil {
-				repoLogger.Error("Error processing repo, skipping")
-				logrus.Error(err)
-				continue
-			}
-
-			sourceReferences, err = imagesToCopyFromRepo(serverCtx, imageRef.DockerReference())
+			sourceReferences, err = imagesToCopyFromRepo(serverCtx, repoRef)
 			if err != nil {
 				repoLogger.Error("Error processing repo, skipping")
 				logrus.Error(err)
@@ -331,11 +344,17 @@ func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourc
 	}
 
 	for imageName, tagRegex := range cfg.ImagesByTagRegex {
-		repoName := fmt.Sprintf("//%s/%s", registryName, imageName)
 		repoLogger := logrus.WithFields(logrus.Fields{
 			"repo":     imageName,
 			"registry": registryName,
 		})
+		repoRef, err := parseRepositoryReference(fmt.Sprintf("%s/%s", registryName, imageName))
+		if err != nil {
+			repoLogger.Error("Error parsing repository name, skipping")
+			logrus.Error(err)
+			continue
+		}
+
 		repoLogger.Info("Processing repo")
 
 		var sourceReferences []types.ImageReference
@@ -347,15 +366,7 @@ func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourc
 		}
 
 		repoLogger.Info("Querying registry for image tags")
-
-		imageRef, err := docker.ParseReference(repoName)
-		if err != nil {
-			repoLogger.Error("Error processing repo, skipping")
-			logrus.Error(err)
-			continue
-		}
-
-		allSourceReferences, err := imagesToCopyFromRepo(serverCtx, imageRef.DockerReference())
+		allSourceReferences, err := imagesToCopyFromRepo(serverCtx, repoRef)
 		if err != nil {
 			repoLogger.Error("Error processing repo, skipping")
 			logrus.Error(err)
