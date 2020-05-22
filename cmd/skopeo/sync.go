@@ -359,8 +359,12 @@ func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourc
 
 		repoLogger.Infof("Start filtering using the regular expression: %v", tagRegex)
 		for _, sReference := range allSourceReferences {
-			// get the tag names to match, [1] default is "latest" by .DockerReference().String()
-			if tagReg.Match([]byte(strings.Split(sReference.DockerReference().String(), ":")[1])) {
+			tagged, isTagged := sReference.DockerReference().(reference.Tagged)
+			if !isTagged {
+				repoLogger.Errorf("Internal error, reference %s does not have a tag, skipping", sReference.DockerReference())
+				continue
+			}
+			if tagReg.Match([]byte(tagged.Tag())) {
 				sourceReferences = append(sourceReferences, sReference)
 			}
 		}
