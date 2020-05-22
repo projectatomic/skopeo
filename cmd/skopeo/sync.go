@@ -152,15 +152,14 @@ func destinationReference(destination string, transport string) (types.ImageRefe
 	case directory.Transport.Name():
 		_, err := os.Stat(destination)
 		if err == nil {
-			return nil, errors.Errorf(fmt.Sprintf("Refusing to overwrite destination directory %q", destination))
+			return nil, errors.Errorf("Refusing to overwrite destination directory %q", destination)
 		}
 		if !os.IsNotExist(err) {
 			return nil, errors.Wrap(err, "Destination directory could not be used")
 		}
 		// the directory holding the image must be created here
 		if err = os.MkdirAll(destination, 0755); err != nil {
-			return nil, errors.Wrapf(err, fmt.Sprintf("Error creating directory for image %s",
-				destination))
+			return nil, errors.Wrapf(err, "Error creating directory for image %s", destination)
 		}
 		imageTransport = directory.Transport
 	default:
@@ -170,7 +169,7 @@ func destinationReference(destination string, transport string) (types.ImageRefe
 
 	destRef, err := imageTransport.ParseReference(destination)
 	if err != nil {
-		return nil, errors.Wrapf(err, fmt.Sprintf("Cannot obtain a valid image reference for transport %q and reference %q", imageTransport.Name(), destination))
+		return nil, errors.Wrapf(err, "Cannot obtain a valid image reference for transport %q and reference %q", imageTransport.Name(), destination)
 	}
 
 	return destRef, nil
@@ -200,7 +199,7 @@ func getImageTags(ctx context.Context, sysCtx *types.SystemContext, repoRef refe
 		logrus.Warnf("Registry disallows tag list retrieval: %s", err)
 		break
 	default:
-		return tags, errors.Wrapf(err, fmt.Sprintf("Error determining repository tags for image %s", name))
+		return tags, errors.Wrapf(err, "Error determining repository tags for image %s", name)
 	}
 
 	return tags, nil
@@ -245,7 +244,7 @@ func imagesToCopyFromDir(dirPath string) ([]types.ImageReference, error) {
 			dirname := filepath.Dir(path)
 			ref, err := directory.Transport.ParseReference(dirname)
 			if err != nil {
-				return errors.Wrapf(err, fmt.Sprintf("Cannot obtain a valid image reference for transport %q and reference %q", directory.Transport.Name(), dirname))
+				return errors.Wrapf(err, "Cannot obtain a valid image reference for transport %q and reference %q", directory.Transport.Name(), dirname)
 			}
 			sourceReferences = append(sourceReferences, ref)
 			return filepath.SkipDir
@@ -255,7 +254,7 @@ func imagesToCopyFromDir(dirPath string) ([]types.ImageReference, error) {
 
 	if err != nil {
 		return sourceReferences,
-			errors.Wrapf(err, fmt.Sprintf("Error walking the path %q", dirPath))
+			errors.Wrapf(err, "Error walking the path %q", dirPath)
 	}
 
 	return sourceReferences, nil
@@ -563,7 +562,7 @@ func (opts *syncOptions) run(args []string, stdout io.Writer) error {
 
 			_, err = copy.Image(ctx, policyContext, destRef, ref, &options)
 			if err != nil {
-				return errors.Wrapf(err, fmt.Sprintf("Error copying tag %q", transports.ImageName(ref)))
+				return errors.Wrapf(err, "Error copying tag %q", transports.ImageName(ref))
 			}
 			imagesNumber++
 		}
