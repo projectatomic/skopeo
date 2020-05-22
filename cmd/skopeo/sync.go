@@ -406,10 +406,9 @@ func imagesToCopy(source string, transport string, sourceCtx *types.SystemContex
 		desc := repoDescriptor{
 			Context: sourceCtx,
 		}
-		refName := fmt.Sprintf("//%s", source)
-		srcRef, err := docker.ParseReference(refName)
+		named, err := reference.ParseNormalizedNamed(source) // May be a repository or an image.
 		if err != nil {
-			return nil, errors.Wrapf(err, fmt.Sprintf("Cannot obtain a valid image reference for transport %q and reference %q", docker.Transport.Name(), refName))
+			return nil, errors.Wrapf(err, "Cannot obtain a valid image reference for transport %q and reference %q", docker.Transport.Name(), source)
 		}
 		imageTagged, err := isTagSpecified(source)
 		if err != nil {
@@ -417,9 +416,13 @@ func imagesToCopy(source string, transport string, sourceCtx *types.SystemContex
 		}
 
 		if imageTagged {
+			srcRef, err := docker.NewReference(named)
+			if err != nil {
+				return nil, errors.Wrapf(err, "Cannot obtain a valid image reference for transport %q and reference %q", docker.Transport.Name(), named.String())
+			}
 			desc.TaggedImages = []types.ImageReference{srcRef}
 		} else {
-			desc.TaggedImages, err = imagesToCopyFromRepo(sourceCtx, srcRef.DockerReference())
+			desc.TaggedImages, err = imagesToCopyFromRepo(sourceCtx, named)
 			if err != nil {
 				return descriptors, err
 			}
