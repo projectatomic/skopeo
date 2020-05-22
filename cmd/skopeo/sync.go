@@ -209,18 +209,22 @@ func isTagSpecified(imageName string) (bool, error) {
 // found in the source repository.
 // It returns an image reference slice with as many elements as the tags found
 // and any error encountered.
-func imagesToCopyFromRepo(repoReference types.ImageReference, repoName string, sourceCtx *types.SystemContext) ([]types.ImageReference, error) {
+func imagesToCopyFromRepo(sys *types.SystemContext, repoReference types.ImageReference) ([]types.ImageReference, error) {
 	var sourceReferences []types.ImageReference
-	tags, err := getImageTags(context.Background(), sourceCtx, repoReference)
+	tags, err := getImageTags(context.Background(), sys, repoReference)
 	if err != nil {
 		return sourceReferences, err
 	}
 
+	repoRef := repoReference.DockerReference()
 	for _, tag := range tags {
-		imageAndTag := fmt.Sprintf("%s:%s", repoName, tag)
-		ref, err := docker.ParseReference(imageAndTag)
+		taggedRef, err := reference.WithTag(repoRef, tag)
 		if err != nil {
-			return nil, errors.Wrapf(err, fmt.Sprintf("Cannot obtain a valid image reference for transport %q and reference %q", docker.Transport.Name(), imageAndTag))
+			return nil, errors.Wrapf(err, "Error creating a reference for repository %s and tag %q", repoRef.Name(), tag)
+		}
+		ref, err := docker.NewReference(taggedRef)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Cannot obtain a valid image reference for transport %q and reference %s", docker.Transport.Name(), taggedRef.String())
 		}
 		sourceReferences = append(sourceReferences, ref)
 	}
@@ -305,7 +309,7 @@ func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourc
 				continue
 			}
 
-			sourceReferences, err = imagesToCopyFromRepo(imageRef, repoName, serverCtx)
+			sourceReferences, err = imagesToCopyFromRepo(serverCtx, imageRef)
 			if err != nil {
 				repoLogger.Error("Error processing repo, skipping")
 				logrus.Error(err)
@@ -347,7 +351,7 @@ func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourc
 			continue
 		}
 
-		allSourceReferences, err := imagesToCopyFromRepo(imageRef, repoName, serverCtx)
+		allSourceReferences, err := imagesToCopyFromRepo(serverCtx, imageRef)
 		if err != nil {
 			repoLogger.Error("Error processing repo, skipping")
 			logrus.Error(err)
@@ -403,11 +407,7 @@ func imagesToCopy(source string, transport string, sourceCtx *types.SystemContex
 			break
 		}
 
-		desc.TaggedImages, err = imagesToCopyFromRepo(
-			srcRef,
-			fmt.Sprintf("//%s", source),
-			sourceCtx)
-
+		desc.TaggedImages, err = imagesToCopyFromRepo(sourceCtx, srcRef)
 		if err != nil {
 			return descriptors, err
 		}
