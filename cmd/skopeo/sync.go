@@ -364,7 +364,7 @@ func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourc
 				repoLogger.Errorf("Internal error, reference %s does not have a tag, skipping", sReference.DockerReference())
 				continue
 			}
-			if tagReg.Match([]byte(tagged.Tag())) {
+			if tagReg.MatchString(tagged.Tag()) {
 				sourceReferences = append(sourceReferences, sReference)
 			}
 		}
