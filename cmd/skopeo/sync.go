@@ -164,15 +164,20 @@ func destinationReference(destination string, transport string) (types.ImageRefe
 	return destRef, nil
 }
 
-// getImageTags retrieves all the tags associated to an image hosted on a
-// container registry.
+// getImageTags lists all tags in a repository.
 // It returns a string slice of tags and any error encountered.
-func getImageTags(ctx context.Context, sysCtx *types.SystemContext, imgRef types.ImageReference) ([]string, error) {
-	name := imgRef.DockerReference().Name()
+func getImageTags(ctx context.Context, sysCtx *types.SystemContext, repoRef reference.Named) ([]string, error) {
+	name := repoRef.Name()
 	logrus.WithFields(logrus.Fields{
 		"image": name,
 	}).Info("Getting tags")
-	tags, err := docker.GetRepositoryTags(ctx, sysCtx, imgRef)
+	// Ugly: NewReference rejects IsNameOnly references, and GetRepositoryTags ignores the tag/digest.
+	// So, we use TagNameOnly here only to shut up NewReference
+	dockerRef, err := docker.NewReference(reference.TagNameOnly(repoRef))
+	if err != nil {
+		return nil, err // Should never happen for a reference with tag and no digest
+	}
+	tags, err := docker.GetRepositoryTags(ctx, sysCtx, dockerRef)
 
 	switch err := err.(type) {
 	case nil:
@@ -205,18 +210,17 @@ func isTagSpecified(imageName string) (bool, error) {
 	return tagged, nil
 }
 
-// imagesTopCopyFromRepo builds a list of image references from the tags
-// found in the source repository.
+// imagesToCopyFromRepo builds a list of image references from the tags
+// found in a source repository.
 // It returns an image reference slice with as many elements as the tags found
 // and any error encountered.
-func imagesToCopyFromRepo(sys *types.SystemContext, repoReference types.ImageReference) ([]types.ImageReference, error) {
-	var sourceReferences []types.ImageReference
-	tags, err := getImageTags(context.Background(), sys, repoReference)
+func imagesToCopyFromRepo(sys *types.SystemContext, repoRef reference.Named) ([]types.ImageReference, error) {
+	tags, err := getImageTags(context.Background(), sys, repoRef)
 	if err != nil {
-		return sourceReferences, err
+		return nil, err
 	}
 
-	repoRef := repoReference.DockerReference()
+	var sourceReferences []types.ImageReference
 	for _, tag := range tags {
 		taggedRef, err := reference.WithTag(repoRef, tag)
 		if err != nil {
@@ -309,7 +313,7 @@ func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourc
 				continue
 			}
 
-			sourceReferences, err = imagesToCopyFromRepo(serverCtx, imageRef)
+			sourceReferences, err = imagesToCopyFromRepo(serverCtx, imageRef.DockerReference())
 			if err != nil {
 				repoLogger.Error("Error processing repo, skipping")
 				logrus.Error(err)
@@ -351,7 +355,7 @@ func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourc
 			continue
 		}
 
-		allSourceReferences, err := imagesToCopyFromRepo(serverCtx, imageRef)
+		allSourceReferences, err := imagesToCopyFromRepo(serverCtx, imageRef.DockerReference())
 		if err != nil {
 			repoLogger.Error("Error processing repo, skipping")
 			logrus.Error(err)
@@ -407,7 +411,7 @@ func imagesToCopy(source string, transport string, sourceCtx *types.SystemContex
 			break
 		}
 
-		desc.TaggedImages, err = imagesToCopyFromRepo(sourceCtx, srcRef)
+		desc.TaggedImages, err = imagesToCopyFromRepo(sourceCtx, srcRef.DockerReference())
 		if err != nil {
 			return descriptors, err
 		}
