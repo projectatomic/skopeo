@@ -7,7 +7,7 @@
 # This image can be used to create a secured container
 # that runs safely with privileges within the container.
 #
-FROM registry.fedoraproject.org/fedora:32
+FROM registry.fedoraproject.org/fedora:33
 
 # Don't include container-selinux and remove
 # directories used by yum that are just taking
