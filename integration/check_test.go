@@ -86,7 +86,7 @@ func (s *SkopeoSuite) TestInspectFailsWhenReferenceIsInvalid(c *check.C) {
 }
 
 func (s *SkopeoSuite) TestLoginLogout(c *check.C) {
-	wanted := "^Login Succeeded!\n$"
+	wanted := ".*Login Succeeded!\n$"
 	assertSkopeoSucceeds(c, wanted, "login", "--tls-verify=false", "--username="+s.regV2WithAuth.username, "--password="+s.regV2WithAuth.password, s.regV2WithAuth.url)
 	// test --get-login returns username
 	wanted = fmt.Sprintf("^%s\n$", s.regV2WithAuth.username)
@@ -97,7 +97,7 @@ func (s *SkopeoSuite) TestLoginLogout(c *check.C) {
 }
 
 func (s *SkopeoSuite) TestCopyWithLocalAuth(c *check.C) {
-	wanted := "^Login Succeeded!\n$"
+	wanted := ".*Login Succeeded!\n$"
 	assertSkopeoSucceeds(c, wanted, "login", "--tls-verify=false", "--username="+s.regV2WithAuth.username, "--password="+s.regV2WithAuth.password, s.regV2WithAuth.url)
 	// copy to private registry using local authentication
 	imageName := fmt.Sprintf("docker://%s/busybox:mine", s.regV2WithAuth.url)

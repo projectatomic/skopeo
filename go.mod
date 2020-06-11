@@ -19,8 +19,10 @@ require (
 	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.6.0
+	github.com/stretchr/testify v1.6.1
 	github.com/syndtr/gocapability v0.0.0-20180916011248-d98352740cb2
 	go4.org v0.0.0-20190218023631-ce4c26f7be8e // indirect
 	gopkg.in/yaml.v2 v2.3.0
 )
+
+replace github.com/containers/image/v5 => github.com/QiWang19/image/v5 v5.0.0-20200609201931-eef510ee03bb
