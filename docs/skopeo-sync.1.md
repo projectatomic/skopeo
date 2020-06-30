@@ -49,6 +49,8 @@ Path of the authentication file for the destination registry. Uses path given by
 
 **--dest** _transport_ Destination transport.
 
+**--noop** Do not actually copy any images.
+
 **--scoped** Prefix images with the source image path, so that multiple images with the same name can be stored at _destination_.
 
 **--remove-signatures** Do not copy signatures, if any, from _source-image_. This is necessary when copying a signed image to a destination which does not support signatures.
@@ -145,6 +147,9 @@ registry.example.com:
             - "2.0"
     images-by-tag-regex:
         nginx: ^1\.13\.[12]-alpine-perl$
+    images-by-semver-compare:
+        busybox: ">=1.29, <1.35"
+        busybox2: "~>1.29.1"
     credentials:
         username: john
         password: this is a secret
@@ -164,6 +169,8 @@ This will copy the following images:
 - Repository `registry.example.com/busybox`: all images, as no tags are specified.
 - Repository `registry.example.com/redis`: images tagged "1.0" and "2.0".
 - Repository `registry.example.com/nginx`: images tagged "1.13.1-alpine-perl" and "1.13.2-alpine-perl".
+- Repository `registry.example.com/busybox`: images tagged "1.29" until "1.35" as per https://github.com/hashicorp/go-version constraint checking.
+- Repository `registry.example.com/busybox2`: images tagged "1.29.1" until "1.29.<highest patch>" as per https://github.com/hashicorp/go-version constraint checking.
 - Repository `quay.io/coreos/etcd`: images tagged "latest".
 
 For the registry `registry.example.com`, the "john"/"this is a secret" credentials are used, with server TLS certificates located at `/home/john/certs`.

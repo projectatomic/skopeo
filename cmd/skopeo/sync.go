@@ -17,6 +17,7 @@ import (
 	"github.com/containers/image/v5/docker/reference"
 	"github.com/containers/image/v5/transports"
 	"github.com/containers/image/v5/types"
+	"github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -28,6 +29,7 @@ type syncOptions struct {
 	global            *globalOptions    // Global (not command dependant) skopeo options
 	srcImage          *imageOptions     // Source image options
 	destImage         *imageDestOptions // Destination image options
+	noop              bool              // Do not copy
 	removeSignatures  bool              // Do not copy signatures from the source image
 	signByFingerprint string            // Sign the image using a GPG key with the specified fingerprint
 	source            string            // Source repository name
@@ -51,11 +53,12 @@ type tlsVerifyConfig struct {
 // registrySyncConfig contains information about a single registry, read from
 // the source YAML file
 type registrySyncConfig struct {
-	Images           map[string][]string    // Images map images name to slices with the images' tags
-	ImagesByTagRegex map[string]string      `yaml:"images-by-tag-regex"` // Images map images name to regular expression with the images' tags
-	Credentials      types.DockerAuthConfig // Username and password used to authenticate with the registry
-	TLSVerify        tlsVerifyConfig        `yaml:"tls-verify"` // TLS verification mode (enabled by default)
-	CertDir          string                 `yaml:"cert-dir"`   // Path to the TLS certificates of the registry
+	Images                map[string][]string    // Images map images name to slices with the images' tags
+	ImagesByTagRegex      map[string]string      `yaml:"images-by-tag-regex"`      // Images map images name to regular expression with the images' tags
+	ImagesBySemVerCompare map[string]string      `yaml:"images-by-semver-compare"` // Images map images name to regular expression with the images' tags
+	Credentials           types.DockerAuthConfig // Username and password used to authenticate with the registry
+	TLSVerify             tlsVerifyConfig        `yaml:"tls-verify"` // TLS verification mode (enabled by default)
+	CertDir               string                 `yaml:"cert-dir"`   // Path to the TLS certificates of the registry
 }
 
 // sourceConfig contains all registries information read from the source YAML file
@@ -92,6 +95,7 @@ See skopeo-sync(1) for details.
 	flags.StringVarP(&opts.source, "src", "s", "", "SOURCE transport type")
 	flags.StringVarP(&opts.destination, "dest", "d", "", "DESTINATION transport type")
 	flags.BoolVar(&opts.scoped, "scoped", false, "Images at DESTINATION are prefix using the full source image path as scope")
+	flags.BoolVar(&opts.noop, "noop", false, "Do not copy anything")
 	flags.AddFlagSet(&sharedFlags)
 	flags.AddFlagSet(&srcFlags)
 	flags.AddFlagSet(&destFlags)
@@ -380,6 +384,68 @@ func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourc
 			Context:      serverCtx})
 	}
 
+	for imageName, semVerCompare := range cfg.ImagesBySemVerCompare {
+		repoLogger := logrus.WithFields(logrus.Fields{
+			"repo":          imageName,
+			"registry":      registryName,
+			"semVerCompare": semVerCompare,
+		})
+		repoRef, err := parseRepositoryReference(fmt.Sprintf("%s/%s", registryName, imageName))
+		if err != nil {
+			repoLogger.Error("Error parsing repository name, skipping")
+			logrus.Error(err)
+			continue
+		}
+
+		repoLogger.Info("Processing repo")
+
+		var sourceReferences []types.ImageReference
+
+		semVerConstraint, err := version.NewConstraint(semVerCompare)
+		if err != nil {
+			repoLogger.WithFields(logrus.Fields{
+				"semVerCompare": semVerCompare,
+			}).Error("Error parsing semver constraint, skipping")
+			logrus.Error(err)
+			continue
+		}
+
+		repoLogger.Info("Querying registry for image tags")
+		allSourceReferences, err := imagesToCopyFromRepo(serverCtx, repoRef)
+		if err != nil {
+			repoLogger.Error("Error processing repo, skipping")
+			logrus.Error(err)
+			continue
+		}
+
+		repoLogger.Infof("Start filtering using the semver constraint: %v", semVerCompare)
+		for _, sReference := range allSourceReferences {
+			tagged, isTagged := sReference.DockerReference().(reference.Tagged)
+			if !isTagged {
+				repoLogger.Errorf("Internal error, reference %s does not have a tag, skipping", sReference.DockerReference())
+				continue
+			}
+			tagver, err := version.NewVersion(tagged.Tag())
+			if err != nil {
+				// repoLogger.debug("Error processing tag: %s", tagged.Tag())
+				// this happens a lot, hashes are also listed as 'tags' for example.
+				continue
+			}
+
+			if semVerConstraint.Check(tagver) {
+				sourceReferences = append(sourceReferences, sReference)
+			}
+		}
+
+		if len(sourceReferences) == 0 {
+			repoLogger.Warnf("No tags to sync found")
+			continue
+		}
+		repoDescList = append(repoDescList, repoDescriptor{
+			TaggedImages: sourceReferences,
+			Context:      serverCtx})
+	}
+
 	return repoDescList, nil
 }
 
@@ -447,7 +513,7 @@ func imagesToCopy(source string, transport string, sourceCtx *types.SystemContex
 			return descriptors, err
 		}
 		for registryName, registryConfig := range cfg {
-			if len(registryConfig.Images) == 0 && len(registryConfig.ImagesByTagRegex) == 0 {
+			if len(registryConfig.Images) == 0 && len(registryConfig.ImagesByTagRegex) == 0 && len(registryConfig.ImagesBySemVerCompare) == 0 {
 				logrus.WithFields(logrus.Fields{
 					"registry": registryName,
 				}).Warn("No images specified for registry")
@@ -563,9 +629,11 @@ func (opts *syncOptions) run(args []string, stdout io.Writer) error {
 				"to":   transports.ImageName(destRef),
 			}).Infof("Copying image tag %d/%d", counter+1, len(srcRepo.TaggedImages))
 
-			_, err = copy.Image(ctx, policyContext, destRef, ref, &options)
-			if err != nil {
-				return errors.Wrapf(err, "Error copying tag %q", transports.ImageName(ref))
+			if !opts.noop {
+				_, err = copy.Image(ctx, policyContext, destRef, ref, &options)
+				if err != nil {
+					return errors.Wrapf(err, "Error copying tag %q", transports.ImageName(ref))
+				}
 			}
 			imagesNumber++
 		}

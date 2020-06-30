@@ -192,6 +192,31 @@ func (s *SyncSuite) TestDocker2DirUntagged(c *check.C) {
 	c.Assert(len(nManifests), check.Equals, len(tags))
 }
 
+func (s *SyncSuite) TestDocker2DirUntaggedNoop(c *check.C) {
+
+	tmpDir, err := ioutil.TempDir("", "skopeo-sync-test")
+	c.Assert(err, check.IsNil)
+	defer os.RemoveAll(tmpDir)
+
+	// FIXME: It would be nice to use one of the local Docker registries instead of neeeding an Internet connection.
+	image := "alpine"
+	imageRef, err := docker.ParseReference(fmt.Sprintf("//%s", image))
+	c.Assert(err, check.IsNil)
+	imagePath := imageRef.DockerReference().String()
+
+	dir1 := path.Join(tmpDir, "dir1")
+	assertSkopeoSucceeds(c, "", "sync", "--noop", "--scoped", "--src", "docker", "--dest", "dir", image, dir1)
+
+	sysCtx := types.SystemContext{}
+	tags, err := docker.GetRepositoryTags(context.Background(), &sysCtx, imageRef)
+	c.Assert(err, check.IsNil)
+	c.Check(len(tags), check.Not(check.Equals), 0)
+
+	nManifests, err := filepath.Glob(path.Join(dir1, path.Dir(imagePath), "*", "manifest.json"))
+	c.Assert(err, check.IsNil)
+	c.Assert(len(nManifests), check.Equals, 0)
+}
+
 func (s *SyncSuite) TestYamlUntagged(c *check.C) {
 	tmpDir, err := ioutil.TempDir("", "skopeo-sync-test")
 	c.Assert(err, check.IsNil)
@@ -268,6 +293,39 @@ docker.io:
 `
 	// the       ↑    regex strings always matches only 2 images
 	var nTags = 2
+	c.Assert(nTags, check.Not(check.Equals), 0)
+
+	yamlFile := path.Join(tmpDir, "registries.yaml")
+	ioutil.WriteFile(yamlFile, []byte(yamlConfig), 0644)
+	assertSkopeoSucceeds(c, "", "sync", "--scoped", "--src", "yaml", "--dest", "dir", yamlFile, dir1)
+
+	nManifests := 0
+	err = filepath.Walk(dir1, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && info.Name() == "manifest.json" {
+			nManifests++
+			return filepath.SkipDir
+		}
+		return nil
+	})
+	c.Assert(err, check.IsNil)
+	c.Assert(nManifests, check.Equals, nTags)
+}
+
+func (s *SyncSuite) TestYamlSemVer2Dir(c *check.C) {
+	tmpDir, err := ioutil.TempDir("", "skopeo-sync-test")
+	c.Assert(err, check.IsNil)
+	defer os.RemoveAll(tmpDir)
+	dir1 := path.Join(tmpDir, "dir1")
+
+	yamlConfig := `
+docker.io:
+  images-by-semver-compare:
+    busybox: "~>1.29.1"
+`
+	var nTags = 3
 	c.Assert(nTags, check.Not(check.Equals), 0)
 
 	yamlFile := path.Join(tmpDir, "registries.yaml")
