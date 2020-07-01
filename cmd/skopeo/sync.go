@@ -55,7 +55,7 @@ type tlsVerifyConfig struct {
 type registrySyncConfig struct {
 	Images                map[string][]string    // Images map images name to slices with the images' tags
 	ImagesByTagRegex      map[string]string      `yaml:"images-by-tag-regex"`      // Images map images name to regular expression with the images' tags
-	ImagesBySemVerCompare map[string]string      `yaml:"images-by-semver-compare"` // Images map images name to regular expression with the images' tags
+	ImagesBySemVerCompare map[string]string      `yaml:"images-by-semver-compare"` // Images map images name to semver constraint expression for the images' tags
 	Credentials           types.DockerAuthConfig // Username and password used to authenticate with the registry
 	TLSVerify             tlsVerifyConfig        `yaml:"tls-verify"` // TLS verification mode (enabled by default)
 	CertDir               string                 `yaml:"cert-dir"`   // Path to the TLS certificates of the registry
@@ -264,6 +264,106 @@ func imagesToCopyFromDir(dirPath string) ([]types.ImageReference, error) {
 	return sourceReferences, nil
 }
 
+type filterFunc func(string, []types.ImageReference) ([]types.ImageReference, error)
+
+// filterRegex builds a list of image references from a list where the tag matches tagRegex
+func filterRegex(tagRegex string, allSourceReferences []types.ImageReference) ([]types.ImageReference, error) {
+	repoLogger := logrus.WithFields(logrus.Fields{
+		"regex": tagRegex,
+	})
+	tagReg, err := regexp.Compile(tagRegex)
+	if err != nil {
+		repoLogger.Error("Error parsing regex, skipping")
+		logrus.Error(err)
+		return nil, err
+	}
+	repoLogger.Infof("Start filtering using the regular expression: %v", tagRegex)
+	var sourceReferences []types.ImageReference
+	for _, sReference := range allSourceReferences {
+		tagged, isTagged := sReference.DockerReference().(reference.Tagged)
+		if !isTagged {
+			repoLogger.Errorf("Internal error, reference %s does not have a tag, skipping", sReference.DockerReference())
+			continue
+		}
+		if tagReg.MatchString(tagged.Tag()) {
+			sourceReferences = append(sourceReferences, sReference)
+		}
+	}
+	return sourceReferences, err
+}
+
+// filterSemVer builds a list of image references from a list where the tag matches semVerCompare
+func filterSemVer(semVerCompare string, allSourceReferences []types.ImageReference) ([]types.ImageReference, error) {
+	repoLogger := logrus.WithFields(logrus.Fields{
+		"semVerCompare": semVerCompare,
+	})
+	semVerConstraint, err := version.NewConstraint(semVerCompare)
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+	repoLogger.Infof("Start filtering using the semver constraint: %v", semVerCompare)
+	var sourceReferences []types.ImageReference
+	for _, sReference := range allSourceReferences {
+		tagged, isTagged := sReference.DockerReference().(reference.Tagged)
+		if !isTagged {
+			repoLogger.Errorf("Internal error, reference %s does not have a tag, skipping", sReference.DockerReference())
+			continue
+		}
+		tagver, err := version.NewVersion(tagged.Tag())
+		if err != nil {
+			// repoLogger.debug("Error processing tag: %s", tagged.Tag())
+			// this happens a lot, hashes are also listed as 'tags' for example.
+			continue
+		}
+
+		if semVerConstraint.Check(tagver) {
+			sourceReferences = append(sourceReferences, sReference)
+		}
+	}
+	return sourceReferences, err
+}
+
+func updateRepoDescList(sourceCtx types.SystemContext, registryName string, collection map[string]string, filter filterFunc) ([]repoDescriptor, error) {
+	serverCtx := &sourceCtx
+	var repoDescList []repoDescriptor
+	for imageName, imageSelector := range collection {
+		repoLogger := logrus.WithFields(logrus.Fields{
+			"repo": imageName,
+		})
+		repoRef, err := parseRepositoryReference(fmt.Sprintf("%s/%s", registryName, imageName))
+		if err != nil {
+			repoLogger.Error("Error parsing repository name, skipping")
+			logrus.Error(err)
+			continue
+		}
+
+		repoLogger.Info("Processing repo")
+
+		var sourceReferences []types.ImageReference
+
+		repoLogger.Info("Querying registry for image tags")
+
+		allSourceReferences, err := imagesToCopyFromRepo(serverCtx, repoRef)
+		if err != nil {
+			repoLogger.Error("Error processing repo, skipping")
+			logrus.Error(err)
+			continue
+		}
+
+		sourceReferences, err = filter(imageSelector, allSourceReferences)
+
+		if len(sourceReferences) == 0 {
+			repoLogger.Warnf("No tags to sync found")
+			continue
+		}
+		repoDescList = append(repoDescList, repoDescriptor{
+			TaggedImages: sourceReferences,
+			Context:      serverCtx})
+	}
+	return repoDescList, nil
+}
+
 // imagesTopCopyFromDir builds a list of repository descriptors from the images
 // in a registry configuration.
 // It returns a repository descriptors slice with as many elements as the images
@@ -279,6 +379,11 @@ func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourc
 	serverCtx.DockerAuthConfig = &cfg.Credentials
 
 	var repoDescList []repoDescriptor
+	repoLogger := logrus.WithFields(logrus.Fields{
+		"registry": registryName,
+	})
+
+	// plain images
 	for imageName, tags := range cfg.Images {
 		repoLogger := logrus.WithFields(logrus.Fields{
 			"repo":     imageName,
@@ -330,120 +435,20 @@ func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourc
 			Context:      serverCtx})
 	}
 
-	for imageName, tagRegex := range cfg.ImagesByTagRegex {
-		repoLogger := logrus.WithFields(logrus.Fields{
-			"repo":     imageName,
-			"registry": registryName,
-		})
-		repoRef, err := parseRepositoryReference(fmt.Sprintf("%s/%s", registryName, imageName))
-		if err != nil {
-			repoLogger.Error("Error parsing repository name, skipping")
-			logrus.Error(err)
-			continue
-		}
-
-		repoLogger.Info("Processing repo")
-
-		var sourceReferences []types.ImageReference
-
-		tagReg, err := regexp.Compile(tagRegex)
-		if err != nil {
-			repoLogger.WithFields(logrus.Fields{
-				"regex": tagRegex,
-			}).Error("Error parsing regex, skipping")
-			logrus.Error(err)
-			continue
-		}
-
-		repoLogger.Info("Querying registry for image tags")
-		allSourceReferences, err := imagesToCopyFromRepo(serverCtx, repoRef)
-		if err != nil {
-			repoLogger.Error("Error processing repo, skipping")
-			logrus.Error(err)
-			continue
-		}
-
-		repoLogger.Infof("Start filtering using the regular expression: %v", tagRegex)
-		for _, sReference := range allSourceReferences {
-			tagged, isTagged := sReference.DockerReference().(reference.Tagged)
-			if !isTagged {
-				repoLogger.Errorf("Internal error, reference %s does not have a tag, skipping", sReference.DockerReference())
-				continue
-			}
-			if tagReg.MatchString(tagged.Tag()) {
-				sourceReferences = append(sourceReferences, sReference)
-			}
-		}
-
-		if len(sourceReferences) == 0 {
-			repoLogger.Warnf("No tags to sync found")
-			continue
-		}
-		repoDescList = append(repoDescList, repoDescriptor{
-			TaggedImages: sourceReferences,
-			Context:      serverCtx})
+	newRepoDescList, err := updateRepoDescList(*serverCtx, registryName, cfg.ImagesByTagRegex, filterRegex)
+	if err != nil {
+		repoLogger.Error("Error processing images-by-tag-regex, skipping")
+		logrus.Error(err)
+	} else {
+		repoDescList = append(repoDescList, newRepoDescList...)
 	}
 
-	for imageName, semVerCompare := range cfg.ImagesBySemVerCompare {
-		repoLogger := logrus.WithFields(logrus.Fields{
-			"repo":          imageName,
-			"registry":      registryName,
-			"semVerCompare": semVerCompare,
-		})
-		repoRef, err := parseRepositoryReference(fmt.Sprintf("%s/%s", registryName, imageName))
-		if err != nil {
-			repoLogger.Error("Error parsing repository name, skipping")
-			logrus.Error(err)
-			continue
-		}
-
-		repoLogger.Info("Processing repo")
-
-		var sourceReferences []types.ImageReference
-
-		semVerConstraint, err := version.NewConstraint(semVerCompare)
-		if err != nil {
-			repoLogger.WithFields(logrus.Fields{
-				"semVerCompare": semVerCompare,
-			}).Error("Error parsing semver constraint, skipping")
-			logrus.Error(err)
-			continue
-		}
-
-		repoLogger.Info("Querying registry for image tags")
-		allSourceReferences, err := imagesToCopyFromRepo(serverCtx, repoRef)
-		if err != nil {
-			repoLogger.Error("Error processing repo, skipping")
-			logrus.Error(err)
-			continue
-		}
-
-		repoLogger.Infof("Start filtering using the semver constraint: %v", semVerCompare)
-		for _, sReference := range allSourceReferences {
-			tagged, isTagged := sReference.DockerReference().(reference.Tagged)
-			if !isTagged {
-				repoLogger.Errorf("Internal error, reference %s does not have a tag, skipping", sReference.DockerReference())
-				continue
-			}
-			tagver, err := version.NewVersion(tagged.Tag())
-			if err != nil {
-				// repoLogger.debug("Error processing tag: %s", tagged.Tag())
-				// this happens a lot, hashes are also listed as 'tags' for example.
-				continue
-			}
-
-			if semVerConstraint.Check(tagver) {
-				sourceReferences = append(sourceReferences, sReference)
-			}
-		}
-
-		if len(sourceReferences) == 0 {
-			repoLogger.Warnf("No tags to sync found")
-			continue
-		}
-		repoDescList = append(repoDescList, repoDescriptor{
-			TaggedImages: sourceReferences,
-			Context:      serverCtx})
+	newRepoDescList, err = updateRepoDescList(*serverCtx, registryName, cfg.ImagesBySemVerCompare, filterSemVer)
+	if err != nil {
+		repoLogger.Error("Error processing images-by-semver-compare, skipping")
+		logrus.Error(err)
+	} else {
+		repoDescList = append(repoDescList, newRepoDescList...)
 	}
 
 	return repoDescList, nil
