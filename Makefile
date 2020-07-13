@@ -106,7 +106,7 @@ binary: cmd/skopeo
 # Update nix/nixpkgs.json its latest master commit
 .PHONY: nixpkgs
 nixpkgs:
-	@nix run -f channel:nixpkgs-unstable nix-prefetch-git -c nix-prefetch-git \
+	@nix run -f channel:nixos-20.03 nix-prefetch-git -c nix-prefetch-git \
 		--no-deepClone https://github.com/nixos/nixpkgs > nix/nixpkgs.json
 
 # Build w/o using containers

@@ -1,19 +1,16 @@
 package helpers
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
 
-	"github.com/containerd/containerd/platforms"
 	"github.com/containers/ocicrypt"
 	encconfig "github.com/containers/ocicrypt/config"
 	encutils "github.com/containers/ocicrypt/utils"
 
-	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
 )
 
@@ -64,6 +61,23 @@ func processRecipientKeys(recipients []string) ([][]byte, [][]byte, [][]byte, er
 		}
 	}
 	return gpgRecipients, pubkeys, x509s, nil
+}
+
+// processx509Certs processes x509 certificate files
+func processx509Certs(keys []string) ([][]byte, error) {
+	var x509s [][]byte
+	for _, key := range keys {
+		tmp, err := ioutil.ReadFile(key)
+		if err != nil {
+			return nil, errors.Wrap(err, "Unable to read file")
+		}
+		if !encutils.IsCertificate(tmp) {
+			continue
+		}
+		x509s = append(x509s, tmp)
+
+	}
+	return x509s, nil
 }
 
 // processPwdString process a password that may be in any of the following formats:
@@ -141,31 +155,12 @@ func processPrivateKeyFiles(keyFilesAndPwds []string) ([][]byte, [][]byte, [][]b
 			gpgSecretKeyRingFiles = append(gpgSecretKeyRingFiles, tmp)
 			gpgSecretKeyPasswords = append(gpgSecretKeyPasswords, password)
 		} else {
-			return nil, nil, nil, nil, fmt.Errorf("unidentified private key in file %s (password=%s)", keyfile, string(password))
+			// ignore if file is not recognized, so as not to error if additional
+			// metadata/cert files exists
+			continue
 		}
 	}
 	return gpgSecretKeyRingFiles, gpgSecretKeyPasswords, privkeys, privkeysPasswords, nil
-}
-
-func createGPGClient(context context.Context) (ocicrypt.GPGClient, error) {
-	return ocicrypt.NewGPGClient(context.Value("gpg-version").(string), context.Value("gpg-homedir").(string))
-}
-
-func getGPGPrivateKeys(context context.Context, gpgSecretKeyRingFiles [][]byte, descs []ocispec.Descriptor, mustFindKey bool) (gpgPrivKeys [][]byte, gpgPrivKeysPwds [][]byte, err error) {
-	gpgClient, err := createGPGClient(context)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var gpgVault ocicrypt.GPGVault
-	if len(gpgSecretKeyRingFiles) > 0 {
-		gpgVault = ocicrypt.NewGPGVault()
-		err = gpgVault.AddSecretKeyRingDataArray(gpgSecretKeyRingFiles)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-	return ocicrypt.GPGGetPrivateKey(descs, gpgClient, gpgVault, mustFindKey)
 }
 
 // CreateDecryptCryptoConfig creates the CryptoConfig object that contains the necessary
@@ -179,6 +174,13 @@ func CreateDecryptCryptoConfig(keys []string, decRecipients []string) (encconfig
 	if err != nil {
 		return encconfig.CryptoConfig{}, err
 	}
+
+	// x509 certs can also be passed in via keys
+	x509FromKeys, err := processx509Certs(keys)
+	if err != nil {
+		return encconfig.CryptoConfig{}, err
+	}
+	x509s = append(x509s, x509FromKeys...)
 
 	gpgSecretKeyRingFiles, gpgSecretKeyPasswords, privKeys, privKeysPasswords, err := processPrivateKeyFiles(keys)
 	if err != nil {
@@ -234,20 +236,6 @@ func CreateDecryptCryptoConfig(keys []string, decRecipients []string) (encconfig
 	ccs = append(ccs, privKeysCc)
 
 	return encconfig.CombineCryptoConfigs(ccs), nil
-}
-
-// parsePlatformArray parses an array of specifiers and converts them into an array of specs.Platform
-func parsePlatformArray(specifiers []string) ([]ocispec.Platform, error) {
-	var speclist []ocispec.Platform
-
-	for _, specifier := range specifiers {
-		spec, err := platforms.Parse(specifier)
-		if err != nil {
-			return []ocispec.Platform{}, err
-		}
-		speclist = append(speclist, spec)
-	}
-	return speclist, nil
 }
 
 // CreateCryptoConfig from the list of recipient strings and list of key paths of private keys

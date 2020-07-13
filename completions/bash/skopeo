@@ -73,6 +73,7 @@ _skopeo_inspect() {
      --authfile
      --creds
      --cert-dir
+     --retry-times
      "
      local boolean_options="
      --config

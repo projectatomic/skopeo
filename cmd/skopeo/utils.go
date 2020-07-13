@@ -3,13 +3,22 @@ package main
 import (
 	"context"
 	"io"
+	"math"
+	"net"
+	"net/url"
 	"os"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/containers/image/v5/pkg/compression"
 	"github.com/containers/image/v5/transports/alltransports"
 	"github.com/containers/image/v5/types"
+	"github.com/docker/distribution/registry/api/errcode"
+	errcodev2 "github.com/docker/distribution/registry/api/v2"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -106,6 +115,17 @@ func imageFlags(global *globalOptions, shared *sharedImageOptions, flagPrefix, c
 	fs.StringVar(&opts.dockerDaemonHost, flagPrefix+"daemon-host", "", "use docker daemon host at `HOST` (docker-daemon: only)")
 	fs.AddFlagSet(&dockerFlags)
 	return fs, opts
+}
+
+type retryOptions struct {
+	maxRetry int // The number of times to possibly retry
+}
+
+func retryFlags() (pflag.FlagSet, *retryOptions) {
+	opts := retryOptions{}
+	fs := pflag.FlagSet{}
+	fs.IntVar(&opts.maxRetry, "retry-times", 0, "the number of times to possibly retry")
+	return fs, &opts
 }
 
 // newSystemContext returns a *types.SystemContext corresponding to opts.
@@ -256,4 +276,69 @@ Flags:
 func adjustUsage(c *cobra.Command) {
 	c.SetUsageTemplate(usageTemplate)
 	c.DisableFlagsInUseLine = true
+}
+
+func isRetryable(err error) bool {
+	err = errors.Cause(err)
+
+	if err == context.Canceled || err == context.DeadlineExceeded {
+		return false
+	}
+
+	type unwrapper interface {
+		Unwrap() error
+	}
+
+	switch e := err.(type) {
+
+	case unwrapper:
+		err = e.Unwrap()
+		return isRetryable(err)
+	case errcode.Error:
+		switch e.Code {
+		case errcode.ErrorCodeUnauthorized, errcodev2.ErrorCodeNameUnknown, errcodev2.ErrorCodeManifestUnknown:
+			return false
+		}
+		return true
+	case *net.OpError:
+		return isRetryable(e.Err)
+	case *url.Error:
+		return isRetryable(e.Err)
+	case syscall.Errno:
+		return e != syscall.ECONNREFUSED
+	case errcode.Errors:
+		// if this error is a group of errors, process them all in turn
+		for i := range e {
+			if !isRetryable(e[i]) {
+				return false
+			}
+		}
+		return true
+	case *multierror.Error:
+		// if this error is a group of errors, process them all in turn
+		for i := range e.Errors {
+			if !isRetryable(e.Errors[i]) {
+				return false
+			}
+		}
+		return true
+	}
+
+	return false
+}
+
+func retryIfNecessary(ctx context.Context, operation func() error, retryOptions *retryOptions) error {
+	err := operation()
+	for attempt := 0; err != nil && isRetryable(err) && attempt < retryOptions.maxRetry; attempt++ {
+		delay := time.Duration(int(math.Pow(2, float64(attempt)))) * time.Second
+		logrus.Infof("Warning: failed, retrying in %s ... (%d/%d)", delay, attempt+1, retryOptions.maxRetry)
+		select {
+		case <-time.After(delay):
+			break
+		case <-ctx.Done():
+			return err
+		}
+		err = operation()
+	}
+	return err
 }

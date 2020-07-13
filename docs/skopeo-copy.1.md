@@ -47,9 +47,9 @@ Path of the authentication file for the destination registry. Uses path given by
 
 **--sign-by=**_key-id_ add a signature using that key ID for an image name corresponding to _destination-image_
 
-**--encryption-key** _Key_ a reference prefixed with the encryption protocol to use. The supported protocols are JWE, PGP and PKCS7. For instance, jwe:/path/to/key.pem or pgp:admin@example.com or pkcs7:/path/to/x509-file. This feature is still *experimental*.
+**--encryption-key** _protocol:keyfile_ specifies the encryption protocol, which can be JWE (RFC7516), PGP (RFC4880), and PKCS7 (RFC2315) and the key material required for image encryption. For instance, jwe:/path/to/key.pem or pgp:admin@example.com or pkcs7:/path/to/x509-file.
 
-**--decryption-key** _Key_ a reference required to perform decryption of container images. This should point to files which represent keys and/or certificates that can be used for decryption. Decryption will be tried with all keys. This feature is still *experimental*.
+**--decryption-key** _key[:passphrase]_ to be used for decryption of images. Key can point to keys and/or certificates. Decryption will be tried with all keys. If the key is protected by a passphrase, it is required to be passed in the argument and ommitted otherwise.
 
 **--src-creds** _username[:password]_ for accessing the source registry
 

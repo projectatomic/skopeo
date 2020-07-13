@@ -11,7 +11,9 @@ import (
 	"github.com/containers/image/v5/image"
 	"github.com/containers/image/v5/manifest"
 	"github.com/containers/image/v5/transports"
+	"github.com/containers/image/v5/types"
 	digest "github.com/opencontainers/go-digest"
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -33,18 +35,21 @@ type inspectOutput struct {
 }
 
 type inspectOptions struct {
-	global *globalOptions
-	image  *imageOptions
-	raw    bool // Output the raw manifest instead of parsing information about the image
-	config bool // Output the raw config blob instead of parsing information about the image
+	global    *globalOptions
+	image     *imageOptions
+	retryOpts *retryOptions
+	raw       bool // Output the raw manifest instead of parsing information about the image
+	config    bool // Output the raw config blob instead of parsing information about the image
 }
 
 func inspectCmd(global *globalOptions) *cobra.Command {
 	sharedFlags, sharedOpts := sharedImageFlags()
 	imageFlags, imageOpts := imageFlags(global, sharedOpts, "", "")
+	retryFlags, retryOpts := retryFlags()
 	opts := inspectOptions{
-		global: global,
-		image:  imageOpts,
+		global:    global,
+		image:     imageOpts,
+		retryOpts: retryOpts,
 	}
 	cmd := &cobra.Command{
 		Use:   "inspect [command options] IMAGE-NAME",
@@ -64,10 +69,16 @@ See skopeo(1) section "IMAGE NAMES" for the expected format
 	flags.BoolVar(&opts.config, "config", false, "output configuration")
 	flags.AddFlagSet(&sharedFlags)
 	flags.AddFlagSet(&imageFlags)
+	flags.AddFlagSet(&retryFlags)
 	return cmd
 }
 
 func (opts *inspectOptions) run(args []string, stdout io.Writer) (retErr error) {
+	var (
+		rawManifest []byte
+		src         types.ImageSource
+		imgInspect  *types.ImageInspectInfo
+	)
 	ctx, cancel := opts.global.commandTimeoutContext()
 	defer cancel()
 
@@ -85,9 +96,11 @@ func (opts *inspectOptions) run(args []string, stdout io.Writer) (retErr error) 
 		return err
 	}
 
-	src, err := parseImageSource(ctx, opts.image, imageName)
-	if err != nil {
-		return fmt.Errorf("Error parsing image name %q: %v", imageName, err)
+	if err := retryIfNecessary(ctx, func() error {
+		src, err = parseImageSource(ctx, opts.image, imageName)
+		return err
+	}, opts.retryOpts); err != nil {
+		return errors.Wrapf(err, "Error parsing image name %q", imageName)
 	}
 
 	defer func() {
@@ -96,9 +109,11 @@ func (opts *inspectOptions) run(args []string, stdout io.Writer) (retErr error) 
 		}
 	}()
 
-	rawManifest, _, err := src.GetManifest(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("Error retrieving manifest for image: %v", err)
+	if err := retryIfNecessary(ctx, func() error {
+		rawManifest, _, err = src.GetManifest(ctx, nil)
+		return err
+	}, opts.retryOpts); err != nil {
+		return errors.Wrapf(err, "Error retrieving manifest for image")
 	}
 
 	if opts.raw && !opts.config {
@@ -115,9 +130,12 @@ func (opts *inspectOptions) run(args []string, stdout io.Writer) (retErr error) 
 	}
 
 	if opts.config && opts.raw {
-		configBlob, err := img.ConfigBlob(ctx)
-		if err != nil {
-			return fmt.Errorf("Error reading configuration blob: %v", err)
+		var configBlob []byte
+		if err := retryIfNecessary(ctx, func() error {
+			configBlob, err = img.ConfigBlob(ctx)
+			return err
+		}, opts.retryOpts); err != nil {
+			return errors.Wrapf(err, "Error reading configuration blob")
 		}
 		_, err = stdout.Write(configBlob)
 		if err != nil {
@@ -125,9 +143,12 @@ func (opts *inspectOptions) run(args []string, stdout io.Writer) (retErr error) 
 		}
 		return nil
 	} else if opts.config {
-		config, err := img.OCIConfig(ctx)
-		if err != nil {
-			return fmt.Errorf("Error reading OCI-formatted configuration data: %v", err)
+		var config *v1.Image
+		if err := retryIfNecessary(ctx, func() error {
+			config, err = img.OCIConfig(ctx)
+			return err
+		}, opts.retryOpts); err != nil {
+			return errors.Wrapf(err, "Error reading OCI-formatted configuration data")
 		}
 		err = json.NewEncoder(stdout).Encode(config)
 		if err != nil {
@@ -136,10 +157,13 @@ func (opts *inspectOptions) run(args []string, stdout io.Writer) (retErr error) 
 		return nil
 	}
 
-	imgInspect, err := img.Inspect(ctx)
-	if err != nil {
+	if err := retryIfNecessary(ctx, func() error {
+		imgInspect, err = img.Inspect(ctx)
+		return err
+	}, opts.retryOpts); err != nil {
 		return err
 	}
+
 	outputData := inspectOutput{
 		Name: "", // Set below if DockerReference() is known
 		Tag:  imgInspect.Tag,

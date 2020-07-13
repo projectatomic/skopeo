@@ -29,6 +29,8 @@ Return low-level information about _image-name_ in a registry
 
   **--cert-dir** _path_ Use certificates at _path_ (\*.crt, \*.cert, \*.key) to connect to the registry
 
+  **--retry-times**  the number of times to retry, retry wait time will be exponentially increased based on the number of failed attempts
+
   **--tls-verify** _bool-value_ Require HTTPS and verify certificates when talking to container registries (defaults to true)
 
   **--no-creds** _bool-value_ Access the registry anonymously.

@@ -11,8 +11,11 @@ let
   });
 
   static = pkg: pkg.overrideAttrs(x: {
-    configureFlags = (x.configureFlags or []) ++
-      [ "--without-shared" "--disable-shared" ];
+    doCheck = false;
+    configureFlags = (x.configureFlags or []) ++ [
+      "--without-shared"
+      "--disable-shared"
+    ];
     dontDisableStatic = true;
     enableSharedExecutables = false;
     enableStatic = true;
@@ -27,6 +30,7 @@ let
     nativeBuildInputs = [ git go-md2man installShellFiles makeWrapper pkg-config ];
     buildInputs = [ glibc glibc.static gpgme libassuan libgpgerror ];
     prePatch = ''
+      export CFLAGS='-static'
       export LDFLAGS='-s -w -static-libgcc -static'
       export EXTRA_LDFLAGS='-s -w -linkmode external -extldflags "-static -lm"'
       export BUILDTAGS='static netgo exclude_graphdriver_btrfs exclude_graphdriver_devicemapper'
