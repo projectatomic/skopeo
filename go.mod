@@ -23,5 +23,6 @@ require (
 	github.com/stretchr/testify v1.5.1
 	github.com/syndtr/gocapability v0.0.0-20180916011248-d98352740cb2
 	go4.org v0.0.0-20190218023631-ce4c26f7be8e // indirect
+	golang.org/x/text v0.3.3 // indirect
 	gopkg.in/yaml.v2 v2.3.0
 )
