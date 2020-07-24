@@ -19,8 +19,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// inspectOutput is the output format of (skopeo inspect), primarily so that we can format it with a simple json.MarshalIndent.
-type inspectOutput struct {
+// InspectOutput is the output format of (skopeo inspect), primarily so that we can format it with a simple json.MarshalIndent.
+type InspectOutput struct {
 	Name          string `json:",omitempty"`
 	Tag           string `json:",omitempty"`
 	Digest        digest.Digest
@@ -164,7 +164,7 @@ func (opts *inspectOptions) run(args []string, stdout io.Writer) (retErr error) 
 		return err
 	}
 
-	outputData := inspectOutput{
+	outputData := InspectOutput{
 		Name: "", // Set below if DockerReference() is known
 		Tag:  imgInspect.Tag,
 		// Digest is set below.
