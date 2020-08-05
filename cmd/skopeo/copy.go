@@ -159,6 +159,9 @@ func (opts *copyOptions) run(args []string, stdout io.Writer) error {
 	}
 
 	if len(opts.encryptionKeys) > 0 {
+		if destRef.Transport().Name() == "docker-archive" {
+			return fmt.Errorf("docker-archive does not support --encryption-key")
+		}
 		// encryption
 		p := opts.encryptLayer
 		encLayers = &p
