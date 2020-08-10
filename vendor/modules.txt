@@ -37,6 +37,7 @@ github.com/containerd/cgroups/stats/v1
 github.com/containerd/containerd/errdefs
 # github.com/containers/common v0.18.0
 github.com/containers/common/pkg/auth
+github.com/containers/common/pkg/retry
 # github.com/containers/image/v5 v5.5.1
 github.com/containers/image/v5/copy
 github.com/containers/image/v5/directory

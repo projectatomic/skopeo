@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/containers/common/pkg/retry"
 	"github.com/containers/image/v5/docker"
 	"github.com/containers/image/v5/docker/reference"
 	"github.com/containers/image/v5/transports/alltransports"
@@ -24,7 +25,7 @@ type tagListOutput struct {
 type tagsOptions struct {
 	global    *globalOptions
 	image     *imageOptions
-	retryOpts *retryOptions
+	retryOpts *retry.RetryOptions
 }
 
 func tagsCmd(global *globalOptions) *cobra.Command {
@@ -124,7 +125,7 @@ func (opts *tagsOptions) run(args []string, stdout io.Writer) (retErr error) {
 
 	var repositoryName string
 	var tagListing []string
-	if err = retryIfNecessary(ctx, func() error {
+	if err = retry.RetryIfNecessary(ctx, func() error {
 		repositoryName, tagListing, err = listDockerTags(ctx, sys, imgRef)
 		return err
 	}, opts.retryOpts); err != nil {
