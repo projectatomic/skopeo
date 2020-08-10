@@ -108,7 +108,10 @@ Make sure to clone this repository in your `GOPATH` - otherwise compilation fail
 
 ```bash
 $ git clone https://github.com/containers/skopeo $GOPATH/src/github.com/containers/skopeo
-$ cd $GOPATH/src/github.com/containers/skopeo && make binary-local
+$ cd $GOPATH/src/github.com/containers/skopeo
+$ make bin/skopeo
+# To build a pure-Go static binary (disables devicemapper, btrfs, and gpgme):
+$ make bin/skopeo DISABLE_CGO=1
 ```
 
 ### Building in a container
@@ -127,7 +130,7 @@ $ make binary # Or (make all) to also build documentation, see below.
 To build a pure-Go static binary (disables devicemapper, btrfs, and gpgme):
 
 ```bash
-$ make binary-static DISABLE_CGO=1
+$ make binary DISABLE_CGO=1
 ```
 
 ### Building documentation
