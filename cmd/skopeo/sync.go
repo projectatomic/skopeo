@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/containers/common/pkg/retry"
 	"github.com/containers/image/v5/copy"
 	"github.com/containers/image/v5/directory"
 	"github.com/containers/image/v5/docker"
@@ -28,7 +29,7 @@ type syncOptions struct {
 	global            *globalOptions    // Global (not command dependant) skopeo options
 	srcImage          *imageOptions     // Source image options
 	destImage         *imageDestOptions // Destination image options
-	retryOpts         *retryOptions
+	retryOpts         *retry.RetryOptions
 	removeSignatures  bool   // Do not copy signatures from the source image
 	signByFingerprint string // Sign the image using a GPG key with the specified fingerprint
 	source            string // Source repository name
@@ -518,7 +519,7 @@ func (opts *syncOptions) run(args []string, stdout io.Writer) error {
 
 	sourceArg := args[0]
 	var srcRepoList []repoDescriptor
-	if err = retryIfNecessary(ctx, func() error {
+	if err = retry.RetryIfNecessary(ctx, func() error {
 		srcRepoList, err = imagesToCopy(sourceArg, opts.source, sourceCtx)
 		return err
 	}, opts.retryOpts); err != nil {
@@ -571,7 +572,7 @@ func (opts *syncOptions) run(args []string, stdout io.Writer) error {
 				"to":   transports.ImageName(destRef),
 			}).Infof("Copying image tag %d/%d", counter+1, len(srcRepo.TaggedImages))
 
-			if err = retryIfNecessary(ctx, func() error {
+			if err = retry.RetryIfNecessary(ctx, func() error {
 				_, err = copy.Image(ctx, policyContext, destRef, ref, &options)
 				return err
 			}, opts.retryOpts); err != nil {
