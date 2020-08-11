@@ -574,7 +574,11 @@ func (opts *syncOptions) run(args []string, stdout io.Writer) error {
 				_, err = copy.Image(ctx, policyContext, destRef, ref, &options)
 				return err
 			}, opts.retryOpts); err != nil {
-				return errors.Wrapf(err, "Error copying tag %q", transports.ImageName(ref))
+				logrus.WithFields(logrus.Fields{
+					"from": transports.ImageName(ref),
+					"to":   transports.ImageName(destRef),
+				}).Errorf("Error copying tag %q: %s", transports.ImageName(ref), err)
+				continue
 			}
 			imagesNumber++
 		}
