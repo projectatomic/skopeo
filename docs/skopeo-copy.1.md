@@ -15,6 +15,9 @@ Uses the system's trust policy to validate images, rejects images not trusted by
 
   _destination-image_ use the "image name" format described above
 
+_source-image_ and _destination-image_ are interpreted completely independently; e.g. the destination name does not
+automatically inherit any parts of the source name.
+
 ## OPTIONS
 
 **--all**
@@ -82,6 +85,11 @@ Existing signatures, if any, are preserved as well.
 **--dest-compress-level** _format_ Specifies the compression level to use.  The value is specific to the compression algorithm used, e.g. for zstd the accepted values are in the range 1-20 (inclusive), while for gzip it is 1-9 (inclusive).
 
 ## EXAMPLES
+
+To just copy an image from one registry to another:
+```sh
+$ skopeo copy docker://quay.io/skopeo/stable:latest docker://registry.example.com/skopeo:latest
+```
 
 To copy the layers of the docker.io busybox image to a local directory:
 ```sh

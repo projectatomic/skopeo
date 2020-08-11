@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/containers/common/pkg/retry"
 	"github.com/containers/image/v5/directory"
 	"github.com/containers/image/v5/image"
 	"github.com/containers/image/v5/pkg/blobinfocache"
@@ -19,7 +20,7 @@ import (
 type layersOptions struct {
 	global    *globalOptions
 	image     *imageOptions
-	retryOpts *retryOptions
+	retryOpts *retry.RetryOptions
 }
 
 func layersCmd(global *globalOptions) *cobra.Command {
@@ -68,13 +69,13 @@ func (opts *layersOptions) run(args []string, stdout io.Writer) (retErr error) {
 		rawSource types.ImageSource
 		src       types.ImageCloser
 	)
-	if err = retryIfNecessary(ctx, func() error {
+	if err = retry.RetryIfNecessary(ctx, func() error {
 		rawSource, err = parseImageSource(ctx, opts.image, imageName)
 		return err
 	}, opts.retryOpts); err != nil {
 		return err
 	}
-	if err = retryIfNecessary(ctx, func() error {
+	if err = retry.RetryIfNecessary(ctx, func() error {
 		src, err = image.FromSource(ctx, sys, rawSource)
 		return err
 	}, opts.retryOpts); err != nil {
@@ -145,7 +146,7 @@ func (opts *layersOptions) run(args []string, stdout io.Writer) (retErr error) {
 			r        io.ReadCloser
 			blobSize int64
 		)
-		if err = retryIfNecessary(ctx, func() error {
+		if err = retry.RetryIfNecessary(ctx, func() error {
 			r, blobSize, err = rawSource.GetBlob(ctx, types.BlobInfo{Digest: bd.digest, Size: -1}, cache)
 			return err
 		}, opts.retryOpts); err != nil {
@@ -160,7 +161,7 @@ func (opts *layersOptions) run(args []string, stdout io.Writer) (retErr error) {
 	}
 
 	var manifest []byte
-	if err = retryIfNecessary(ctx, func() error {
+	if err = retry.RetryIfNecessary(ctx, func() error {
 		manifest, _, err = src.Manifest(ctx)
 		return err
 	}, opts.retryOpts); err != nil {

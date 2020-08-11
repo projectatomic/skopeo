@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/containers/common/pkg/retry"
 	"github.com/containers/image/v5/transports"
 	"github.com/containers/image/v5/transports/alltransports"
 	"github.com/spf13/cobra"
@@ -14,7 +15,7 @@ import (
 type deleteOptions struct {
 	global    *globalOptions
 	image     *imageOptions
-	retryOpts *retryOptions
+	retryOpts *retry.RetryOptions
 }
 
 func deleteCmd(global *globalOptions) *cobra.Command {
@@ -68,7 +69,7 @@ func (opts *deleteOptions) run(args []string, stdout io.Writer) error {
 	ctx, cancel := opts.global.commandTimeoutContext()
 	defer cancel()
 
-	return retryIfNecessary(ctx, func() error {
+	return retry.RetryIfNecessary(ctx, func() error {
 		return ref.DeleteImage(ctx, sys)
 	}, opts.retryOpts)
 }

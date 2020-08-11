@@ -44,6 +44,11 @@ Most commands refer to container images, using a _transport_`:`_details_ format.
   **oci:**_path_**:**_tag_
   An image _tag_ in a directory compliant with "Open Container Image Layout Specification" at _path_.
 
+  **oci-archive:**_path_**:**_tag_
+  An image _tag_ in a tar archive compliant with "Open Container Image Layout Specification" at _path_.
+
+See [containers-transports(5)](https://github.com/containers/image/blob/master/docs/containers-transports.5.md) for details.
+
 ## OPTIONS
 
   **--command-timeout** _duration_ Timeout for the command execution.

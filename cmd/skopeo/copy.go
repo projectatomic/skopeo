@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/containers/common/pkg/retry"
 	"github.com/containers/image/v5/copy"
 	"github.com/containers/image/v5/docker/reference"
 	"github.com/containers/image/v5/manifest"
@@ -22,7 +23,7 @@ type copyOptions struct {
 	global            *globalOptions
 	srcImage          *imageOptions
 	destImage         *imageDestOptions
-	retryOpts         *retryOptions
+	retryOpts         *retry.RetryOptions
 	additionalTags    []string       // For docker-archive: destinations, in addition to the name:tag specified as destination, also add these
 	removeSignatures  bool           // Do not copy signatures from the source image
 	signByFingerprint string         // Sign the image using a GPG key with the specified fingerprint
@@ -55,7 +56,7 @@ Supported transports:
 See skopeo(1) section "IMAGE NAMES" for the expected format
 `, strings.Join(transports.ListNames(), ", ")),
 		RunE:    commandAction(opts.run),
-		Example: `skopeo copy --sign-by dev@example.com container-storage:example/busybox:streaming docker://example/busybox:gold`,
+		Example: `skopeo copy docker://quay.io/skopeo/stable:latest docker://registry.example.com/skopeo:latest`,
 	}
 	adjustUsage(cmd)
 	flags := cmd.Flags()
@@ -182,7 +183,7 @@ func (opts *copyOptions) run(args []string, stdout io.Writer) error {
 		decConfig = cc.DecryptConfig
 	}
 
-	return retryIfNecessary(ctx, func() error {
+	return retry.RetryIfNecessary(ctx, func() error {
 		_, err = copy.Image(ctx, policyContext, destRef, srcRef, &copy.Options{
 			RemoveSignatures:      opts.removeSignatures,
 			SignBy:                opts.signByFingerprint,
