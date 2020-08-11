@@ -539,6 +539,7 @@ func (opts *syncOptions) run(args []string, stdout io.Writer) error {
 		DestinationCtx:   destinationCtx,
 	}
 
+	nErrs := 0
 	for _, srcRepo := range srcRepoList {
 		options.SourceCtx = srcRepo.Context
 		for counter, ref := range srcRepo.TaggedImages {
@@ -578,12 +579,13 @@ func (opts *syncOptions) run(args []string, stdout io.Writer) error {
 					"from": transports.ImageName(ref),
 					"to":   transports.ImageName(destRef),
 				}).Errorf("Error copying tag %q: %s", transports.ImageName(ref), err)
+				nErrs++
 				continue
 			}
 			imagesNumber++
 		}
 	}
 
-	logrus.Infof("Synced %d images from %d sources", imagesNumber, len(srcRepoList))
+	logrus.Infof("Synced %d images from %d sources, %d errors", imagesNumber, len(srcRepoList), nErrs)
 	return nil
 }
