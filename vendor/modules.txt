@@ -35,7 +35,7 @@ github.com/beorn7/perks/quantile
 github.com/containerd/cgroups/stats/v1
 # github.com/containerd/containerd v1.3.2
 github.com/containerd/containerd/errdefs
-# github.com/containers/common v0.18.0
+# github.com/containers/common v0.19.0
 github.com/containers/common/pkg/auth
 github.com/containers/common/pkg/retry
 # github.com/containers/image/v5 v5.5.1
@@ -92,7 +92,7 @@ github.com/containers/ocicrypt/keywrap/pgp
 github.com/containers/ocicrypt/keywrap/pkcs7
 github.com/containers/ocicrypt/spec
 github.com/containers/ocicrypt/utils
-# github.com/containers/storage v1.22.0
+# github.com/containers/storage v1.23.0
 github.com/containers/storage
 github.com/containers/storage/drivers
 github.com/containers/storage/drivers/aufs
