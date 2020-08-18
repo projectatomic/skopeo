@@ -2,6 +2,7 @@
 /layers-*
 /skopeo
 result
+bin/
 
 # ignore JetBrains IDEs (GoLand) config folder
 .idea

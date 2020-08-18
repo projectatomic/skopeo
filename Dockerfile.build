@@ -1,11 +1,15 @@
 FROM ubuntu:20.04
 
-RUN apt-get update && apt-get install -y \
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends  \
     golang \
     libbtrfs-dev \
     git-core \
     libdevmapper-dev \
     libgpgme11-dev \
+    make \
+    gcc \
     go-md2man \
     libglib2.0-dev
 
