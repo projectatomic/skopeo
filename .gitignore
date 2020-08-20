@@ -5,3 +5,6 @@ result
 
 # ignore JetBrains IDEs (GoLand) config folder
 .idea
+
+# goreleaser dist dir
+dist/
