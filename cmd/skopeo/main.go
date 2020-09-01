@@ -38,6 +38,7 @@ func createApp() (*cobra.Command, *globalOptions) {
 	manifestCommand := manifestCmd()
 	manifestCommand.AddCommand(
 		manifestCreateCmd(&opts),
+		manifestPushCmd(&opts),
 	)
 
 	rootCommand := &cobra.Command{
