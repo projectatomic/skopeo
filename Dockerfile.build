@@ -1,5 +1,6 @@
 FROM ubuntu:20.04
 
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
     golang \
     libbtrfs-dev \
@@ -7,7 +8,8 @@ RUN apt-get update && apt-get install -y \
     libdevmapper-dev \
     libgpgme11-dev \
     go-md2man \
-    libglib2.0-dev
+    libglib2.0-dev \
+    make
 
 ENV GOPATH=/
 WORKDIR /src/github.com/containers/skopeo
