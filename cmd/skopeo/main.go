@@ -35,6 +35,11 @@ type globalOptions struct {
 func createApp() (*cobra.Command, *globalOptions) {
 	opts := globalOptions{}
 
+	manifestCommand := manifestCmd()
+	manifestCommand.AddCommand(
+		manifestCreateCmd(&opts),
+	)
+
 	rootCommand := &cobra.Command{
 		Use:  "skopeo",
 		Long: "Various operations with container images and container image registries",
@@ -75,6 +80,7 @@ func createApp() (*cobra.Command, *globalOptions) {
 		loginCmd(&opts),
 		logoutCmd(&opts),
 		manifestDigestCmd(),
+		manifestCommand,
 		syncCmd(&opts),
 		standaloneSignCmd(),
 		standaloneVerifyCmd(),
