@@ -12,6 +12,7 @@ type Output struct {
 	Name          string `json:",omitempty"`
 	Tag           string `json:",omitempty"`
 	Digest        digest.Digest
+	Signers       []string `json:",omitempty"`
 	RepoTags      []string
 	Created       *time.Time
 	DockerVersion string

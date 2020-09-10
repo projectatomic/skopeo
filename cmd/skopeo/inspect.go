@@ -10,6 +10,7 @@ import (
 	"github.com/containers/image/v5/docker"
 	"github.com/containers/image/v5/image"
 	"github.com/containers/image/v5/manifest"
+	"github.com/containers/image/v5/signature"
 	"github.com/containers/image/v5/transports"
 	"github.com/containers/image/v5/types"
 	"github.com/containers/skopeo/cmd/skopeo/inspect"
@@ -142,6 +143,29 @@ func (opts *inspectOptions) run(args []string, stdout io.Writer) (retErr error) 
 		return nil
 	}
 
+	var signers []string
+	sig, err := img.Signatures(ctx)
+	if err != nil {
+		return fmt.Errorf("Error reading image signatures: %v", err)
+	}
+	if len(sig) > 0 {
+		mech, err := signature.NewGPGSigningMechanism()
+		if err != nil {
+			return fmt.Errorf("Error preparing local GPG: %v", err)
+		}
+		for _, s := range sig {
+			_, id, err := mech.UntrustedSignatureContents(s)
+			if err == nil {
+				_, kID, err := mech.Verify(s)
+				if err == nil {
+					signers = append(signers, "Key fingerprint: "+kID+" (verified)")
+				} else {
+					signers = append(signers, "Key ID: "+id+" (unverified)")
+				}
+			}
+		}
+	}
+
 	if err := retry.RetryIfNecessary(ctx, func() error {
 		imgInspect, err = img.Inspect(ctx)
 		return err
@@ -153,6 +177,7 @@ func (opts *inspectOptions) run(args []string, stdout io.Writer) (retErr error) 
 		Name: "", // Set below if DockerReference() is known
 		Tag:  imgInspect.Tag,
 		// Digest is set below.
+		Signers:       signers,
 		RepoTags:      []string{}, // Possibly overriden for docker.Transport.
 		Created:       imgInspect.Created,
 		DockerVersion: imgInspect.DockerVersion,
