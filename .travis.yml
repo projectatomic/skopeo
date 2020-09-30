@@ -24,4 +24,4 @@ install:
 
 script:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]];   then hack/travis_osx.sh ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make vendor && ./hack/tree_status.sh && make check ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make vendor && ./hack/tree_status.sh && make local-cross && make check ; fi
