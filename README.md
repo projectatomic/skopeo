@@ -130,19 +130,19 @@ $ skopeo inspect docker://registry.fedoraproject.org/fedora:latest | jq '.Digest
 ## Copying images
 
 `skopeo` can copy container images between various storage mechanisms, including:
-* Container registries
+* **Container registries**
 
   -  The Quay, Docker Hub, OpenShift, GCR, Artifactory ...
 
-* Container Storage backends
+* **Container Storage backends**
 
   -  github.com/containers/storage (Backend for [Podman](https://podman.io), [CRI-O](https://cri-o.io), [Buildah](https://buildah.io) and friends)
 
   -  Docker daemon storage
 
-* Local directories
+* **Local directories**
 
-* Local OCI-layout directories
+* **Local OCI-layout directories**
 
 ```console
 $ skopeo copy docker://quay.io/buildah/stable docker://registry.internal.company.com/buildah
