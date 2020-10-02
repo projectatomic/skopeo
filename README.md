@@ -23,22 +23,22 @@ Skopeo works with API V2 container image registries such as [docker.io](https://
 
  Skopeo operates on the following image and repository types:
 
- * containers-storage:docker-reference
+ * <i>containers-storage:docker-reference</i><br>
          An image located in a local containers/storage image store.  Both the location and image store are specified in /etc/containers/storage.conf. (This is  the backend for [Podman](https://podman.io), [CRI-O](https://cri-o.io), [Buildah](https://buildah.io) and friends)
 
- * dir:path
+ * <i>dir:path</i><br>
          An existing local directory path storing the manifest, layer tarballs and signatures as individual files. This is a non-standardized format, primarily useful for debugging or noninvasive container inspection.
 
- * docker://docker-reference
+ * <i>docker://docker-reference</i><br>
          An image in a registry implementing the "Docker Registry HTTP API V2". By default, uses the authorization state in `$XDG_RUNTIME_DIR/containers/auth.json`, which is set using `skopeo login`.
 
- * docker-archive:path[:docker-reference]
+ * <i>docker-archive:path[:docker-reference]</i><br>
          An image is stored in a `docker save`-formatted file.  docker-reference is only used when creating such a file, and it must not contain a digest.
 
- * docker-daemon:docker-reference
+ * <i>docker-daemon:docker-reference</i><br>
          An image docker-reference stored in the docker daemon internal storage.  docker-reference must contain either a tag or a digest.  Alternatively, when reading images, the format can also be docker-daemon:algo:digest (an image ID).
 
- * oci:path:tag
+ * <i>oci:path:tag</i><br>
          An image tag in a directory compliant with "Open Container Image Layout Specification" at path.
 
 ## Inspecting a repository
