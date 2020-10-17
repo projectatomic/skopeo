@@ -25,3 +25,5 @@ require (
 	golang.org/x/text v0.3.3 // indirect
 	gopkg.in/yaml.v2 v2.3.0
 )
+
+replace github.com/containers/ocicrypt => github.com/containers/ocicrypt v1.0.4-0.20201019180856-379abb478f0d
