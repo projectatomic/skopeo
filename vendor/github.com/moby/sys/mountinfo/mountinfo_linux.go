@@ -1,5 +1,3 @@
-// +build go1.13
-
 package mountinfo
 
 import (
@@ -11,7 +9,13 @@ import (
 	"strings"
 )
 
-func parseInfoFile(r io.Reader, filter FilterFunc) ([]*Info, error) {
+// GetMountsFromReader retrieves a list of mounts from the
+// reader provided, with an optional filter applied (use nil
+// for no filter). This can be useful in tests or benchmarks
+// that provide a fake mountinfo data.
+//
+// This function is Linux-specific.
+func GetMountsFromReader(r io.Reader, filter FilterFunc) ([]*Info, error) {
 	s := bufio.NewScanner(r)
 	out := []*Info{}
 	var err error
@@ -71,15 +75,21 @@ func parseInfoFile(r io.Reader, filter FilterFunc) ([]*Info, error) {
 		p := &Info{}
 
 		// Fill in the fields that a filter might check
-		p.Mountpoint, err = strconv.Unquote(`"` + fields[4] + `"`)
+		p.Mountpoint, err = unescape(fields[4])
 		if err != nil {
-			return nil, fmt.Errorf("Parsing '%s' failed: unable to unquote mount point field: %w", fields[4], err)
+			return nil, fmt.Errorf("Parsing '%s' failed: mount point: %w", fields[4], err)
 		}
-		p.Fstype = fields[sepIdx+1]
-		p.Source = fields[sepIdx+2]
-		p.VfsOpts = fields[sepIdx+3]
+		p.FSType, err = unescape(fields[sepIdx+1])
+		if err != nil {
+			return nil, fmt.Errorf("Parsing '%s' failed: fstype: %w", fields[sepIdx+1], err)
+		}
+		p.Source, err = unescape(fields[sepIdx+2])
+		if err != nil {
+			return nil, fmt.Errorf("Parsing '%s' failed: source: %w", fields[sepIdx+2], err)
+		}
+		p.VFSOptions = fields[sepIdx+3]
 
-		// Run a filter soon so we can skip parsing/adding entries
+		// Run a filter early so we can skip parsing/adding entries
 		// the caller is not interested in
 		var skip, stop bool
 		if filter != nil {
@@ -101,12 +111,12 @@ func parseInfoFile(r io.Reader, filter FilterFunc) ([]*Info, error) {
 		p.Major, _ = strconv.Atoi(mm[0])
 		p.Minor, _ = strconv.Atoi(mm[1])
 
-		p.Root, err = strconv.Unquote(`"` + fields[3] + `"`)
+		p.Root, err = unescape(fields[3])
 		if err != nil {
-			return nil, fmt.Errorf("Parsing '%s' failed: unable to unquote root field: %w", fields[3], err)
+			return nil, fmt.Errorf("Parsing '%s' failed: root: %w", fields[3], err)
 		}
 
-		p.Opts = fields[5]
+		p.Options = fields[5]
 
 		// zero or more optional fields
 		switch {
@@ -135,7 +145,7 @@ func parseMountTable(filter FilterFunc) ([]*Info, error) {
 	}
 	defer f.Close()
 
-	return parseInfoFile(f, filter)
+	return GetMountsFromReader(f, filter)
 }
 
 // PidMountInfo collects the mounts for a specific process ID. If the process
@@ -148,5 +158,63 @@ func PidMountInfo(pid int) ([]*Info, error) {
 	}
 	defer f.Close()
 
-	return parseInfoFile(f, nil)
+	return GetMountsFromReader(f, nil)
+}
+
+// A few specific characters in mountinfo path entries (root and mountpoint)
+// are escaped using a backslash followed by a character's ascii code in octal.
+//
+//   space              -- as \040
+//   tab (aka \t)       -- as \011
+//   newline (aka \n)   -- as \012
+//   backslash (aka \\) -- as \134
+//
+// This function converts path from mountinfo back, i.e. it unescapes the above sequences.
+func unescape(path string) (string, error) {
+	// try to avoid copying
+	if strings.IndexByte(path, '\\') == -1 {
+		return path, nil
+	}
+
+	// The following code is UTF-8 transparent as it only looks for some
+	// specific characters (backslash and 0..7) with values < utf8.RuneSelf,
+	// and everything else is passed through as is.
+	buf := make([]byte, len(path))
+	bufLen := 0
+	for i := 0; i < len(path); i++ {
+		if path[i] != '\\' {
+			buf[bufLen] = path[i]
+			bufLen++
+			continue
+		}
+		s := path[i:]
+		if len(s) < 4 {
+			// too short
+			return "", fmt.Errorf("bad escape sequence %q: too short", s)
+		}
+		c := s[1]
+		switch c {
+		case '0', '1', '2', '3', '4', '5', '6', '7':
+			v := c - '0'
+			for j := 2; j < 4; j++ { // one digit already; two more
+				if s[j] < '0' || s[j] > '7' {
+					return "", fmt.Errorf("bad escape sequence %q: not a digit", s[:3])
+				}
+				x := s[j] - '0'
+				v = (v << 3) | x
+			}
+			if v > 255 {
+				return "", fmt.Errorf("bad escape sequence %q: out of range" + s[:3])
+			}
+			buf[bufLen] = v
+			bufLen++
+			i += 3
+			continue
+		default:
+			return "", fmt.Errorf("bad escape sequence %q: not a digit" + s[:3])
+
+		}
+	}
+
+	return string(buf[:bufLen]), nil
 }
