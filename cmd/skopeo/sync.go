@@ -27,16 +27,17 @@ import (
 
 // syncOptions contains information retrieved from the skopeo sync command line.
 type syncOptions struct {
-	global            *globalOptions    // Global (not command dependent) skopeo options
-	srcImage          *imageOptions     // Source image options
-	destImage         *imageDestOptions // Destination image options
-	retryOpts         *retry.RetryOptions
-	removeSignatures  bool   // Do not copy signatures from the source image
-	signByFingerprint string // Sign the image using a GPG key with the specified fingerprint
-	source            string // Source repository name
-	destination       string // Destination registry name
-	scoped            bool   // When true, namespace copied images at destination using the source repository name
-	all               bool   // Copy all of the images if an image in the source is a list
+	global                *globalOptions    // Global (not command dependent) skopeo options
+	srcImage              *imageOptions     // Source image options
+	destImage             *imageDestOptions // Destination image options
+	retryOpts             *retry.RetryOptions
+	removeSignatures      bool   // Do not copy signatures from the source image
+	signByFingerprint     string // Sign the image using a GPG key with the specified fingerprint
+	source                string // Source repository name
+	destination           string // Destination registry name
+	scoped                bool   // When true, namespace copied images at destination using the source repository name
+	all                   bool   // Copy all of the images if an image in the source is a list
+	scopedWithoutRegistry bool   // When true, like scoped but without the registry prefix
 }
 
 // repoDescriptor contains information of a single repository used as a sync source.
@@ -98,6 +99,7 @@ See skopeo-sync(1) for details.
 	flags.StringVarP(&opts.source, "src", "s", "", "SOURCE transport type")
 	flags.StringVarP(&opts.destination, "dest", "d", "", "DESTINATION transport type")
 	flags.BoolVar(&opts.scoped, "scoped", false, "Images at DESTINATION are prefix using the full source image path as scope")
+	flags.BoolVar(&opts.scopedWithoutRegistry, "scoped-without-registry", false, "Images at DESTINATION are prefix using the full source image path as scope but without the registry")
 	flags.BoolVarP(&opts.all, "all", "a", false, "Copy all images if SOURCE-IMAGE is a list")
 	flags.AddFlagSet(&sharedFlags)
 	flags.AddFlagSet(&srcFlags)
@@ -570,6 +572,13 @@ func (opts *syncOptions) run(args []string, stdout io.Writer) error {
 			case docker.Transport:
 				// docker -> dir or docker -> docker
 				destSuffix = ref.DockerReference().String()
+				if opts.scopedWithoutRegistry {
+					removeRegistry := func(s string) string {
+						split := strings.Split(s, "/")
+						return strings.Join(split[1:], "/")
+					}
+					destSuffix = removeRegistry(ref.DockerReference().String())
+				}
 			case directory.Transport:
 				// dir -> docker (we don't allow `dir` -> `dir` sync operations)
 				destSuffix = strings.TrimPrefix(ref.StringWithinTransport(), srcRepo.DirBasePath)
@@ -579,7 +588,7 @@ func (opts *syncOptions) run(args []string, stdout io.Writer) error {
 				}
 			}
 
-			if !opts.scoped {
+			if !opts.scoped && !opts.scopedWithoutRegistry {
 				destSuffix = path.Base(destSuffix)
 			}
 
