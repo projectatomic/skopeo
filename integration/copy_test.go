@@ -1081,6 +1081,7 @@ func (s *CopySuite) TestCopyVerifyingMirroredSignatures(c *check.C) {
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(topDir)
 	c.Logf("== PROC\n%s\n==", combinedOutputOfCommand(c, "cat", "/proc/self/status"))
+	c.Logf("== STAT\n%s\n==", combinedOutputOfCommand(c, "stat", topDir))
 	c.Logf("== LS d\n%s\n==LS d", combinedOutputOfCommand(c, "ls", "-lad", topDir))
 	c.Logf("== LS 1\n%s\n==LS 1", combinedOutputOfCommand(c, "ls", "-laR", topDir))
 	registriesDir := filepath.Join(topDir, "registries.d") // An empty directory to disable sigstore use
