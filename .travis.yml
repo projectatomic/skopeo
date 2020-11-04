@@ -4,12 +4,13 @@ matrix:
   include:
   -  os: linux
      sudo: required
+     openssl: required
      services:
        - docker
   -  os: osx
 
 go:
-  - 1.13.x
+  - 1.15.x
 
 notifications:
   email: false
