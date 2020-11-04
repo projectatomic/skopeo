@@ -1080,6 +1080,8 @@ func (s *CopySuite) TestCopyVerifyingMirroredSignatures(c *check.C) {
 	topDir, err := ioutil.TempDir("", "mirrored-signatures") // FIXME: Will this be used?
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(topDir)
+	c.Logf("== LS d\n%s\n==LS d", combinedOutputOfCommand(c, "ls", "-lad", topDir))
+	c.Logf("== LS 1\n%s\n==LS 1", combinedOutputOfCommand(c, "ls", "-laR", topDir))
 	registriesDir := filepath.Join(topDir, "registries.d") // An empty directory to disable sigstore use
 	dirDest := "dir:" + filepath.Join(topDir, "unused-dest")
 
@@ -1113,10 +1115,13 @@ func (s *CopySuite) TestCopyVerifyingMirroredSignatures(c *check.C) {
 
 	// Create a signature for mirroring-primary:primary-signed without pushing there. This should be easier than using standalone-sign.
 	signingDir := filepath.Join(topDir, "signing-temp")
+	c.Logf("== LS 2\n%s\n==LS 2", combinedOutputOfCommand(c, "ls", "-laR", topDir))
 	assertSkopeoSucceeds(c, "", "copy", "--src-tls-verify=false", regPrefix+"primary:unsigned", "dir:"+signingDir)
+	c.Logf("== LS 3\n%s\n==LS 3", combinedOutputOfCommand(c, "ls", "-laR", topDir))
 	c.Logf("%s", combinedOutputOfCommand(c, "ls", "-laR", signingDir))
 	assertSkopeoSucceeds(c, "^$", "standalone-sign", "-o", filepath.Join(signingDir, "signature-1"),
 		filepath.Join(signingDir, "manifest.json"), "localhost:5006/myns/mirroring-primary:primary-signed", "personal@example.com")
+	c.Logf("== LS 4\n%s\n==LS 4", combinedOutputOfCommand(c, "ls", "-laR", topDir))
 	c.Logf("%s", combinedOutputOfCommand(c, "ls", "-laR", signingDir))
 	assertSkopeoSucceeds(c, "", "--registries.d", registriesDir, "copy", "--dest-tls-verify=false", "dir:"+signingDir, regPrefix+"mirror:primary-signed")
 	// Verify that a correctly signed image for the primary is accessible using the primary's reference
