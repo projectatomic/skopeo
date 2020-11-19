@@ -195,6 +195,7 @@ func (opts *copyOptions) run(args []string, stdout io.Writer) error {
 			OciDecryptConfig:      decConfig,
 			OciEncryptLayers:      encLayers,
 			OciEncryptConfig:      encConfig,
+			FetchPartialBlobs:     true,
 		})
 		return err
 	}, opts.retryOpts)
