@@ -27,6 +27,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -230,7 +231,7 @@ func findObject(p11ctx *pkcs11.Ctx, session pkcs11.SessionHandle, class uint, ke
 		if len(msg) > 0 {
 			msg += " and "
 		}
-		msg += fmt.Sprintf("id '%s'", keyid)
+		msg += url.PathEscape(keyid)
 	}
 
 	if err := p11ctx.FindObjectsInit(session, template); err != nil {
@@ -359,13 +360,15 @@ func privateDecryptOAEP(privKeyObj *Pkcs11KeyFileObject, ciphertext []byte, hash
 
 // Pkcs11Blob holds the encrypted blobs for all recipients; this is what we will put into the image's annotations
 type Pkcs11Blob struct {
+	Version    uint              `json:"version"`
 	Recipients []Pkcs11Recipient `json:"recipients"`
 }
 
 // Pkcs11Recipient holds the b64-encoded and encrypted blob for a particular recipient
 type Pkcs11Recipient struct {
-	Blob string `json:"blob"`
-	Hash string `json:"hash,omitempty"`
+	Version uint   `json:"version"`
+	Blob    string `json:"blob"`
+	Hash    string `json:"hash,omitempty"`
 }
 
 // EncryptMultiple encrypts for one or multiple pkcs11 devices; the public keys passed to this function
@@ -374,11 +377,13 @@ type Pkcs11Recipient struct {
 // {
 //   recipients: [  // recipient list
 //     {
-//        "blob": <base64 encoded RSA OAEP encrypted blob>
+//        "version": 0,
+//        "blob": <base64 encoded RSA OAEP encrypted blob>,
 //        "hash": <hash used for OAEP other than 'sha256'>
 //     } ,
 //     {
-//        "blob": <base64 encoded RSA OAEP encrypted blob>
+//        "version": 0,
+//        "blob": <base64 encoded RSA OAEP encrypted blob>,
 //        "hash": <hash used for OAEP other than 'sha256'>
 //     } ,
 //     [...]
@@ -388,7 +393,7 @@ func EncryptMultiple(pubKeys []interface{}, data []byte) ([]byte, error) {
 	var (
 		ciphertext []byte
 		err        error
-		pkcs11blob Pkcs11Blob = Pkcs11Blob{}
+		pkcs11blob Pkcs11Blob = Pkcs11Blob{Version: 0}
 		hashalg    string
 	)
 
@@ -409,8 +414,9 @@ func EncryptMultiple(pubKeys []interface{}, data []byte) ([]byte, error) {
 			hashalg = ""
 		}
 		recipient := Pkcs11Recipient{
-			Blob: base64.StdEncoding.EncodeToString(ciphertext),
-			Hash: hashalg,
+			Version: 0,
+			Blob:    base64.StdEncoding.EncodeToString(ciphertext),
+			Hash:    hashalg,
 		}
 
 		pkcs11blob.Recipients = append(pkcs11blob.Recipients, recipient)
@@ -423,11 +429,13 @@ func EncryptMultiple(pubKeys []interface{}, data []byte) ([]byte, error) {
 // {
 //   recipients: [  // recipient list
 //     {
-//        "blob": <base64 encoded RSA OAEP encrypted blob>
+//        "version": 0,
+//        "blob": <base64 encoded RSA OAEP encrypted blob>,
 //        "hash": <hash used for OAEP other than 'sha256'>
 //     } ,
 //     {
-//        "blob": <base64 encoded RSA OAEP encrypted blob>
+//        "version": 0,
+//        "blob": <base64 encoded RSA OAEP encrypted blob>,
 //        "hash": <hash used for OAEP other than 'sha256'>
 //     } ,
 //     [...]
@@ -438,11 +446,23 @@ func Decrypt(privKeyObjs []*Pkcs11KeyFileObject, pkcs11blobstr []byte) ([]byte, 
 	if err != nil {
 		return nil, errors.Wrapf(err, "Could not parse Pkcs11Blob")
 	}
-
+	switch pkcs11blob.Version {
+	case 0:
+		// latest supported version
+	default:
+		return nil, errors.Errorf("Found Pkcs11Blob with version %d but maximum supported version is 0.", pkcs11blob.Version)
+	}
 	// since we do trial and error, collect all encountered errors
 	errs := ""
 
 	for _, recipient := range pkcs11blob.Recipients {
+		switch recipient.Version {
+		case 0:
+			// last supported version
+		default:
+			return nil, errors.Errorf("Found Pkcs11Recipient with version %d but maximum supported version is 0.", recipient.Version)
+		}
+
 		ciphertext, err := base64.StdEncoding.DecodeString(recipient.Blob)
 		if err != nil || len(ciphertext) == 0 {
 			// This should never happen... we skip over decoding issues

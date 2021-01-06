@@ -29,7 +29,7 @@ type pkcs11KeyWrapper struct {
 }
 
 func (kw *pkcs11KeyWrapper) GetAnnotationID() string {
-	return "org.opencontainers.image.enc.keys.experimental.pkcs11"
+	return "org.opencontainers.image.enc.keys.pkcs11"
 }
 
 // NewKeyWrapper returns a new key wrapping interface using pkcs11
