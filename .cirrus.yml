@@ -1,0 +1,18 @@
+
+macOS_task:
+  macos_instance:
+    image: catalina-xcode-11.3.1
+  brew_script: brew install gpgme go
+  test_script: hack/travis_osx.sh
+
+# NOTE: This does not run most tests (yet)
+build_task:
+  container:
+    image: golang:1.15
+  modules_cache:
+    fingerprint_script: cat go.sum
+    folder: $GOPATH/pkg/mod
+  vendor_script:
+    - make vendor
+    - ./hack/tree_status.sh
+    - make local-cross
