@@ -262,7 +262,9 @@ docker.io:
 	sysCtx = types.SystemContext{
 		DockerInsecureSkipTLSVerify: types.NewOptionalBool(true),
 	}
-	localTags, err := docker.GetRepositoryTags(context.Background(), &sysCtx, imageRef)
+	localImageRef, err := docker.ParseReference(fmt.Sprintf("//%s/%s", v2DockerRegistryURL, imagePath))
+	c.Assert(err, check.IsNil)
+	localTags, err := docker.GetRepositoryTags(context.Background(), &sysCtx, localImageRef)
 	c.Assert(err, check.IsNil)
 	c.Check(len(localTags), check.Not(check.Equals), 0)
 	c.Assert(len(localTags), check.Equals, len(tags))
