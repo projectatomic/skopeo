@@ -43,7 +43,7 @@ function setup() {
 
     # These should pass
     run_skopeo copy --dest-tls-verify=false --dcreds=$testuser:$testpassword \
-               docker://docker.io/library/busybox:latest \
+               docker://quay.io/libpod/busybox:latest \
                docker://localhost:5000/busybox:mine
     run_skopeo inspect --tls-verify=false --creds=$testuser:$testpassword \
                docker://localhost:5000/busybox:mine
@@ -55,7 +55,7 @@ function setup() {
     podman login --tls-verify=false -u $testuser -p $testpassword localhost:5000
 
     run_skopeo copy --dest-tls-verify=false \
-               docker://docker.io/library/busybox:latest \
+               docker://quay.io/libpod/busybox:latest \
                docker://localhost:5000/busybox:mine
     run_skopeo inspect --tls-verify=false docker://localhost:5000/busybox:mine
     expect_output --substring "localhost:5000/busybox"

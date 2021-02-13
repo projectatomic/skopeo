@@ -65,59 +65,47 @@ END_EXPECT
 }
 
 @test "inspect: env" {
-    remote_image=docker://docker.io/fedora:latest
+    remote_image=docker://quay.io/libpod/fedora:31
     run_skopeo inspect $remote_image
     inspect_remote=$output
 
     # Simple check on 'inspect' output with environment variables.
     #    1) Get remote image values of environment variables (the value of 'Env')
     #    2) Confirm substring in check_array and the value of 'Env' match.
-    check_array=(PATH=.* )
+    check_array=(FGC=f31 DISTTAG=f31container)
     remote=$(jq '.Env[]' <<<"$inspect_remote")
     for substr in ${check_array[@]}; do
         expect_output --from="$remote" --substring "$substr"
     done
 }
 
+# Tests https://github.com/containers/skopeo/pull/708
 @test "inspect: image manifest list w/ diff platform" {
-    # When --raw is provided, can inspect show the raw manifest list, w/o
-    # requiring any particular platform to be present
-    # To test whether container image can be inspected successfully w/o
-    # platform dependency.
-    #    1) Get current platform arch
-    #    2) Inspect container image is different from current platform arch
-    #    3) Compare output w/ expected result
+    # This image's manifest is for an os + arch that is... um, unlikely
+    # to support skopeo in the foreseeable future. Or past. The image
+    # is created by the make-noarch-manifest script in this directory.
+    img=docker://quay.io/libpod/notmyarch:20210121
 
-    # Here we see a revolting workaround for a podman incompatibility
-    # change: in April 2020, podman info completely changed format
-    # of the keys. What worked until then now throws an error. We
-    # need to work with both old and new podman.
-    arch=$(podman info --format '{{.host.arch}}' || true)
-    if [[ -z "$arch" ]]; then
-        arch=$(podman info --format '{{.Host.Arch}}')
-    fi
+    # Get our host arch (what we're running on). This assumes that skopeo
+    # arch matches podman; it also assumes running podman >= April 2020
+    # (prior to that, the format keys were lower-case).
+    arch=$(podman info --format '{{.Host.Arch}}')
 
-    case $arch in
-        "amd64")
-            diff_arch_list="s390x ppc64le"
-            ;;
-        "s390x")
-            diff_arch_list="amd64 ppc64le"
-            ;;
-        "ppc64le")
-            diff_arch_list="amd64 s390x"
-            ;;
-        "*")
-            diff_arch_list="amd64 s390x ppc64le"
-            ;;
-    esac
+    # By default, 'inspect' tries to match our host os+arch. This should fail.
+    run_skopeo 1 inspect $img
+    expect_output --substring "Error parsing manifest for image: Error choosing image instance: no image found in manifest list for architecture $arch, variant " \
+                  "skopeo inspect, without --raw, fails"
 
-    for arch in $diff_arch_list; do
-        remote_image=docker://docker.io/$arch/golang
-        run_skopeo inspect --tls-verify=false --raw $remote_image
-        remote_arch=$(jq -r '.manifests[0]["platform"]["architecture"]' <<< "$output")
-        expect_output --from="$remote_arch" "$arch" "platform arch of $remote_image"
-    done
+    # With --raw, we can inspect
+    run_skopeo inspect --raw $img
+    expect_output --substring "manifests.*platform.*architecture" \
+                  "skopeo inspect --raw returns reasonable output"
+
+    # ...and what we get should be consistent with what our script created.
+    archinfo=$(jq -r '.manifests[0].platform | {os,variant,architecture} | join("-")' <<<"$output")
+
+    expect_output --from="$archinfo" "amigaos-1000-mc68000" \
+                  "os - variant - architecture of $img"
 }
 
 # vim: filetype=sh

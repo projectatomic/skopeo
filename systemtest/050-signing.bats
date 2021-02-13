@@ -92,7 +92,7 @@ END_POLICY_JSON
     fi
 
     # Cache local copy
-    run_skopeo copy docker://docker.io/library/busybox:latest \
+    run_skopeo copy docker://quay.io/libpod/busybox:latest \
                dir:$TESTDIR/busybox
 
     # Push a bunch of images. Do so *without* --policy flag; this lets us

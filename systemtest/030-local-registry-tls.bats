@@ -14,7 +14,7 @@ function setup() {
 @test "local registry, with cert" {
     # Push to local registry...
     run_skopeo copy --dest-cert-dir=$TESTDIR/client-auth \
-               docker://docker.io/library/busybox:latest \
+               docker://quay.io/libpod/busybox:latest \
                docker://localhost:5000/busybox:unsigned
 
     # ...and pull it back out

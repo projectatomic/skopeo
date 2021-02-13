@@ -13,7 +13,7 @@ function setup() {
 
 # delete image from registry
 @test "delete: remove image from registry" {
-    local remote_image=docker://docker.io/library/busybox:latest
+    local remote_image=docker://quay.io/libpod/busybox:latest
     local localimg=docker://localhost:5000/busybox:unsigned
     local output=
 

@@ -14,7 +14,7 @@ function setup() {
 # From remote, to dir1, to local, to dir2;
 # compare dir1 and dir2, expect no changes
 @test "copy: dir, round trip" {
-    local remote_image=docker://docker.io/library/busybox:latest
+    local remote_image=docker://quay.io/libpod/busybox:latest
     local localimg=docker://localhost:5000/busybox:unsigned
 
     local dir1=$TESTDIR/dir1
@@ -30,7 +30,7 @@ function setup() {
 
 # Same as above, but using 'oci:' instead of 'dir:' and with a :latest tag
 @test "copy: oci, round trip" {
-    local remote_image=docker://docker.io/library/busybox:latest
+    local remote_image=docker://quay.io/libpod/busybox:latest
     local localimg=docker://localhost:5000/busybox:unsigned
 
     local dir1=$TESTDIR/oci1
@@ -46,7 +46,7 @@ function setup() {
 
 # Compression zstd
 @test "copy: oci, round trip, zstd" {
-    local remote_image=docker://docker.io/library/busybox:latest
+    local remote_image=docker://quay.io/libpod/busybox:latest
 
     local dir=$TESTDIR/dir
 
@@ -61,7 +61,7 @@ function setup() {
 
 # Same image, extracted once with :tag and once without
 @test "copy: oci w/ and w/o tags" {
-    local remote_image=docker://docker.io/library/busybox:latest
+    local remote_image=docker://quay.io/libpod/busybox:latest
 
     local dir1=$TESTDIR/dir1
     local dir2=$TESTDIR/dir2
@@ -78,7 +78,7 @@ function setup() {
 
 # Registry -> storage -> oci-archive
 @test "copy: registry -> storage -> oci-archive" {
-    local alpine=docker.io/library/alpine:latest
+    local alpine=quay.io/libpod/alpine:latest
     local tmp=$TESTDIR/oci
 
     run_skopeo copy docker://$alpine containers-storage:$alpine
