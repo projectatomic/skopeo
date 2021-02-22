@@ -108,7 +108,7 @@ github.com/containers/ocicrypt/keywrap/pkcs7
 github.com/containers/ocicrypt/spec
 github.com/containers/ocicrypt/utils
 github.com/containers/ocicrypt/utils/keyprovider
-# github.com/containers/storage v1.25.0
+# github.com/containers/storage v1.26.0
 github.com/containers/storage
 github.com/containers/storage/drivers
 github.com/containers/storage/drivers/aufs
@@ -233,6 +233,9 @@ github.com/klauspost/pgzip
 github.com/kr/pretty
 # github.com/kr/text v0.1.0
 github.com/kr/text
+# github.com/magefile/mage v1.10.0
+github.com/magefile/mage/mg
+github.com/magefile/mage/sh
 # github.com/mattn/go-runewidth v0.0.9
 github.com/mattn/go-runewidth
 # github.com/mattn/go-shellwords v1.0.11
@@ -255,10 +258,10 @@ github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
 # github.com/opencontainers/image-tools v0.0.0-20170926011501-6d941547fa1d
 github.com/opencontainers/image-tools/image
-# github.com/opencontainers/runc v1.0.0-rc92
+# github.com/opencontainers/runc v1.0.0-rc93
 github.com/opencontainers/runc/libcontainer/system
 github.com/opencontainers/runc/libcontainer/user
-# github.com/opencontainers/runtime-spec v1.0.3-0.20200728170252-4d89ac9fbff6
+# github.com/opencontainers/runtime-spec v1.0.3-0.20200929063507-e6143ca7d51d
 github.com/opencontainers/runtime-spec/specs-go
 # github.com/opencontainers/selinux v1.8.0
 github.com/opencontainers/selinux/go-selinux
@@ -289,7 +292,7 @@ github.com/prometheus/common/model
 # github.com/prometheus/procfs v0.0.3
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
-# github.com/sirupsen/logrus v1.7.0
+# github.com/sirupsen/logrus v1.8.0
 github.com/sirupsen/logrus
 # github.com/spf13/cobra v1.1.2
 github.com/spf13/cobra
@@ -300,7 +303,7 @@ github.com/stefanberger/go-pkcs11uri
 # github.com/stretchr/testify v1.7.0
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
-# github.com/syndtr/gocapability v0.0.0-20180916011248-d98352740cb2
+# github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635
 github.com/syndtr/gocapability/capability
 # github.com/tchap/go-patricia v2.3.0+incompatible
 github.com/tchap/go-patricia/patricia
@@ -350,7 +353,7 @@ golang.org/x/crypto/openpgp/packet
 golang.org/x/crypto/openpgp/s2k
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/net v0.0.0-20201202161906-c7110b5ffcbb
+# golang.org/x/net v0.0.0-20201224014010-6772e930b67b
 golang.org/x/net/context
 golang.org/x/net/http/httpguts
 golang.org/x/net/http2
@@ -367,7 +370,7 @@ golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.0.0-20201117132131-f5c789dd3221
+# golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
 golang.org/x/term
 # golang.org/x/text v0.3.3
 golang.org/x/text/secure/bidirule
