@@ -50,6 +50,11 @@
                 {
                     "type": "insecureAcceptAnything"
                 }
+            ],
+            "quay.io/openshift": [
+                {
+                    "type": "insecureAcceptAnything"
+                }
             ]
         },
         "dir": {

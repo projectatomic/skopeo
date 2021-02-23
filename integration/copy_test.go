@@ -802,7 +802,7 @@ func (s *CopySuite) TestCopySignatures(c *check.C) {
 		"--policy", policy, "copy", "docker://busybox:latest", dirDest)
 
 	// type: insecureAcceptAnything
-	assertSkopeoSucceeds(c, "", "--policy", policy, "copy", "docker://openshift/hello-openshift", dirDest)
+	assertSkopeoSucceeds(c, "", "--policy", policy, "copy", "docker://quay.io/openshift/origin-hello-openshift", dirDest)
 
 	// type: signedBy
 	// Sign the images
