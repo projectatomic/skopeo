@@ -556,11 +556,12 @@ func (opts *syncOptions) run(args []string, stdout io.Writer) error {
 
 	imagesNumber := 0
 	options := copy.Options{
-		RemoveSignatures:   opts.removeSignatures,
-		SignBy:             opts.signByFingerprint,
-		ReportWriter:       os.Stdout,
-		DestinationCtx:     destinationCtx,
-		ImageListSelection: imageListSelection,
+		RemoveSignatures:                      opts.removeSignatures,
+		SignBy:                                opts.signByFingerprint,
+		ReportWriter:                          os.Stdout,
+		DestinationCtx:                        destinationCtx,
+		ImageListSelection:                    imageListSelection,
+		OptimizeDestinationImageAlreadyExists: true,
 	}
 
 	for _, srcRepo := range srcRepoList {
