@@ -46,6 +46,7 @@ RUN set -x \
 
 ENV GOPATH /usr/share/gocode:/go
 ENV PATH $GOPATH/bin:/usr/share/gocode/bin:$PATH
+ENV container_magic 85531765-346b-4316-bdb8-358e4cca9e5d
 RUN go version
 WORKDIR /go/src/github.com/containers/skopeo
 COPY . /go/src/github.com/containers/skopeo

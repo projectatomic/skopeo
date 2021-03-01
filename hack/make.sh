@@ -25,12 +25,8 @@ export MAKEDIR="$SCRIPTDIR/make"
 
 # We're a nice, sexy, little shell script, and people might try to run us;
 # but really, they shouldn't. We want to be in a container!
-inContainer="AssumeSoInitially"
-if [ "$PWD" != "/go/src/$SKOPEO_PKG" ]; then
-	unset inContainer
-fi
-
-if [ -z "$inContainer" ]; then
+# The magic value is defined inside our Dockerfile.
+if [[ "$container_magic" != "85531765-346b-4316-bdb8-358e4cca9e5d" ]]; then
 	{
 		echo "# WARNING! I don't seem to be running in a Docker container."
 		echo "# The result of this command might be an incorrect build, and will not be"

@@ -173,7 +173,11 @@ check: validate test-unit test-integration test-system
 
 # The tests can run out of entropy and block in containers, so replace /dev/random.
 test-integration: build-container
-	$(CONTAINER_RUN) bash -c 'rm -f /dev/random; ln -sf /dev/urandom /dev/random; SKOPEO_CONTAINER_TESTS=1 BUILDTAGS="$(BUILDTAGS)" hack/make.sh test-integration'
+	$(CONTAINER_RUN) bash -c 'rm -f /dev/random; ln -sf /dev/urandom /dev/random; SKOPEO_CONTAINER_TESTS=1 BUILDTAGS="$(BUILDTAGS)" $(MAKE) test-integration-local'
+
+# Intended for CI, shortcut 'build-container' since already running inside container.
+test-integration-local:
+	hack/make.sh test-integration
 
 # complicated set of options needed to run podman-in-podman
 test-system: build-container
@@ -181,10 +185,14 @@ test-system: build-container
 	$(CONTAINER_CMD) --privileged \
 	    -v $$DTEMP:/var/lib/containers:Z -v /run/systemd/journal/socket:/run/systemd/journal/socket \
             "$(IMAGE)" \
-            bash -c 'BUILDTAGS="$(BUILDTAGS)" hack/make.sh test-system'; \
+            bash -c 'BUILDTAGS="$(BUILDTAGS)" $(MAKE) test-system-local'; \
 	rc=$$?; \
 	$(RM) -rf $$DTEMP; \
 	exit $$rc
+
+# Intended for CI, shortcut 'build-container' since already running inside container.
+test-system-local:
+	hack/make.sh test-system
 
 test-unit: build-container
 	# Just call (make test unit-local) here instead of worrying about environment differences
