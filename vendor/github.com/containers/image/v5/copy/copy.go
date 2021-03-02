@@ -28,8 +28,8 @@ import (
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"github.com/vbauerster/mpb/v6"
-	"github.com/vbauerster/mpb/v6/decor"
+	"github.com/vbauerster/mpb/v5"
+	"github.com/vbauerster/mpb/v5/decor"
 	"golang.org/x/crypto/ssh/terminal"
 	"golang.org/x/sync/semaphore"
 )
@@ -194,10 +194,6 @@ type Options struct {
 	OciDecryptConfig *encconfig.DecryptConfig
 	// MaxParallelDownloads indicates the maximum layers to pull at the same time.  A reasonable default is used if this is left as 0.
 	MaxParallelDownloads uint
-	// When OptimizeDestinationImageAlreadyExists is set, optimize the copy assuming that the destination image already
-	// exists (and is equivalent). Making the eventual (no-op) copy more performant for this case. Enabling the option
-	// is slightly pessimistic if the destination image doesn't exist, or is not equivalent.
-	OptimizeDestinationImageAlreadyExists bool
 }
 
 // validateImageListSelection returns an error if the passed-in value is not one that we recognize as a valid ImageListSelection value
@@ -363,45 +359,6 @@ func supportsMultipleImages(dest types.ImageDestination) bool {
 		}
 	}
 	return false
-}
-
-// compareImageDestinationManifestEqual compares the `src` and `dest` image manifests (reading the manifest from the
-// (possibly remote) destination). Returning true and the destination's manifest, type and digest if they compare equal.
-func compareImageDestinationManifestEqual(ctx context.Context, options *Options, src types.Image, targetInstance *digest.Digest, dest types.ImageDestination) (bool, []byte, string, digest.Digest, error) {
-	srcManifest, _, err := src.Manifest(ctx)
-	if err != nil {
-		return false, nil, "", "", errors.Wrapf(err, "Error reading manifest from image")
-	}
-
-	srcManifestDigest, err := manifest.Digest(srcManifest)
-	if err != nil {
-		return false, nil, "", "", errors.Wrapf(err, "Error calculating manifest digest")
-	}
-
-	destImageSource, err := dest.Reference().NewImageSource(ctx, options.DestinationCtx)
-	if err != nil {
-		logrus.Debugf("Unable to create destination image %s source: %v", dest.Reference(), err)
-		return false, nil, "", "", nil
-	}
-
-	destManifest, destManifestType, err := destImageSource.GetManifest(ctx, targetInstance)
-	if err != nil {
-		logrus.Debugf("Unable to get destination image %s/%s manifest: %v", destImageSource, targetInstance, err)
-		return false, nil, "", "", nil
-	}
-
-	destManifestDigest, err := manifest.Digest(destManifest)
-	if err != nil {
-		return false, nil, "", "", errors.Wrapf(err, "Error calculating manifest digest")
-	}
-
-	logrus.Debugf("Comparing source and destination manifest digests: %v vs. %v", srcManifestDigest, destManifestDigest)
-	if srcManifestDigest != destManifestDigest {
-		return false, nil, "", "", nil
-	}
-
-	// Destination and source manifests, types and digests should all be equivalent
-	return true, destManifest, destManifestType, destManifestDigest, nil
 }
 
 // copyMultipleImages copies some or all of an image list's instances, using
@@ -689,26 +646,6 @@ func (c *copier) copyOneImage(ctx context.Context, policyContext *signature.Poli
 	// If encrypted and decryption keys provided, we should try to decrypt
 	ic.diffIDsAreNeeded = ic.diffIDsAreNeeded || (isEncrypted(src) && ic.c.ociDecryptConfig != nil) || ic.c.ociEncryptConfig != nil
 
-	// If enabled, fetch and compare the destination's manifest. And as an optimization skip updating the destination iff equal
-	if options.OptimizeDestinationImageAlreadyExists {
-		shouldUpdateSigs := len(sigs) > 0 || options.SignBy != "" // TODO: Consider allowing signatures updates only and skipping the image's layers/manifest copy if possible
-		noPendingManifestUpdates := ic.noPendingManifestUpdates()
-
-		logrus.Debugf("Checking if we can skip copying: has signatures=%t, OCI encryption=%t, no manifest updates=%t", shouldUpdateSigs, destRequiresOciEncryption, noPendingManifestUpdates)
-		if !shouldUpdateSigs && !destRequiresOciEncryption && noPendingManifestUpdates {
-			isSrcDestManifestEqual, retManifest, retManifestType, retManifestDigest, err := compareImageDestinationManifestEqual(ctx, options, src, targetInstance, c.dest)
-			if err != nil {
-				logrus.Warnf("Failed to compare destination image manifest: %v", err)
-				return nil, "", "", err
-			}
-
-			if isSrcDestManifestEqual {
-				c.Printf("Skipping: image already present at destination\n")
-				return retManifest, retManifestType, retManifestDigest, nil
-			}
-		}
-	}
-
 	if err := ic.copyLayers(ctx); err != nil {
 		return nil, "", "", err
 	}
@@ -764,9 +701,6 @@ func (c *copier) copyOneImage(ctx context.Context, policyContext *signature.Poli
 		if errs != nil {
 			return nil, "", "", fmt.Errorf("Uploading manifest failed, attempted the following formats: %s", strings.Join(errs, ", "))
 		}
-	}
-	if targetInstance != nil {
-		targetInstance = &retManifestDigest
 	}
 
 	if options.SignBy != "" {
@@ -845,10 +779,6 @@ func (ic *imageCopier) updateEmbeddedDockerReference() error {
 	}
 	ic.manifestUpdates.EmbeddedDockerReference = destRef
 	return nil
-}
-
-func (ic *imageCopier) noPendingManifestUpdates() bool {
-	return reflect.DeepEqual(*ic.manifestUpdates, types.ManifestUpdateOptions{InformationOnly: ic.manifestUpdates.InformationOnly})
 }
 
 // isTTY returns true if the io.Writer is a file and a tty.
@@ -971,8 +901,6 @@ func (ic *imageCopier) copyLayers(ctx context.Context) error {
 		diffIDs[i] = cld.diffID
 	}
 
-	// WARNING: If you are adding new reasons to change ic.manifestUpdates, also update the
-	// OptimizeDestinationImageAlreadyExists short-circuit conditions
 	ic.manifestUpdates.InformationOnly.LayerInfos = destInfos
 	if ic.diffIDsAreNeeded {
 		ic.manifestUpdates.InformationOnly.LayerDiffIDs = diffIDs
@@ -1001,7 +929,7 @@ func layerDigestsDiffer(a, b []types.BlobInfo) bool {
 // and its digest.
 func (ic *imageCopier) copyUpdatedConfigAndManifest(ctx context.Context, instanceDigest *digest.Digest) ([]byte, digest.Digest, error) {
 	pendingImage := ic.src
-	if !ic.noPendingManifestUpdates() {
+	if !reflect.DeepEqual(*ic.manifestUpdates, types.ManifestUpdateOptions{InformationOnly: ic.manifestUpdates.InformationOnly}) {
 		if !ic.canModifyManifest {
 			return nil, "", errors.Errorf("Internal error: copy needs an updated manifest but that was known to be forbidden")
 		}
@@ -1084,9 +1012,10 @@ func (c *copier) createProgressBar(pool *mpb.Progress, info types.BlobInfo, kind
 			),
 		)
 	} else {
-		bar = pool.Add(0,
-			mpb.NewSpinnerFiller([]string{".", "..", "...", "....", ""}, mpb.SpinnerOnLeft),
+		bar = pool.AddSpinner(info.Size,
+			mpb.SpinnerOnLeft,
 			mpb.BarFillerClearOnComplete(),
+			mpb.SpinnerStyle([]string{".", "..", "...", "....", ""}),
 			mpb.PrependDecorators(
 				decor.OnComplete(decor.Name(prefix), onComplete),
 			),
@@ -1338,9 +1267,8 @@ func (c *copier) copyBlobFromStream(ctx context.Context, srcStream io.Reader, sr
 	if err != nil {
 		return types.BlobInfo{}, errors.Wrapf(err, "Error preparing to verify blob %s", srcInfo.Digest)
 	}
-	var destStream io.Reader = digestingReader
 
-	// === Decrypt the stream, if required.
+	var destStream io.Reader = digestingReader
 	var decrypted bool
 	if isOciEncrypted(srcInfo.MediaType) && c.ociDecryptConfig != nil {
 		newDesc := imgspecv1.Descriptor{
@@ -1370,12 +1298,11 @@ func (c *copier) copyBlobFromStream(ctx context.Context, srcStream io.Reader, sr
 		return types.BlobInfo{}, errors.Wrapf(err, "Error reading blob %s", srcInfo.Digest)
 	}
 	isCompressed := decompressor != nil
+	destStream = bar.ProxyReader(destStream)
+
 	if expectedCompressionFormat, known := expectedCompressionFormats[srcInfo.MediaType]; known && isCompressed && compressionFormat.Name() != expectedCompressionFormat.Name() {
 		logrus.Debugf("blob %s with type %s should be compressed with %s, but compressor appears to be %s", srcInfo.Digest.String(), srcInfo.MediaType, expectedCompressionFormat.Name(), compressionFormat.Name())
 	}
-
-	// === Update progress bars
-	destStream = bar.ProxyReader(destStream)
 
 	// === Send a copy of the original, uncompressed, stream, to a separate path if necessary.
 	var originalLayerReader io.Reader // DO NOT USE this other than to drain the input if no other consumer in the pipeline has done so.
@@ -1385,8 +1312,6 @@ func (c *copier) copyBlobFromStream(ctx context.Context, srcStream io.Reader, sr
 	}
 
 	// === Deal with layer compression/decompression if necessary
-	// WARNING: If you are adding new reasons to change the blob, update also the OptimizeDestinationImageAlreadyExists
-	// short-circuit conditions
 	var inputInfo types.BlobInfo
 	var compressionOperation types.LayerCompression
 	uploadCompressionFormat := &c.compressionFormat
@@ -1468,7 +1393,7 @@ func (c *copier) copyBlobFromStream(ctx context.Context, srcStream io.Reader, sr
 		}
 	}
 
-	// === Encrypt the stream for valid mediatypes if ociEncryptConfig provided
+	// Perform image encryption for valid mediatypes if ociEncryptConfig provided
 	var (
 		encrypted bool
 		finalizer ocicrypt.EncryptLayerFinalizer
