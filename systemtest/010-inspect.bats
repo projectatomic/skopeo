@@ -44,7 +44,7 @@ load helpers
     #
     # The reason for a hardcoded list, instead of 'jq keys', is that RepoTags
     # is always empty locally, but a list remotely.
-    while read key expect; do
+    while IFS=$' \t\n' read key expect; do
         local=$(echo "$inspect_local" | jq -r ".$key")
         remote=$(echo "$inspect_remote" | jq -r ".$key")
 

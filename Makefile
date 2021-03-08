@@ -52,7 +52,16 @@ ifeq ($(GOOS), linux)
 endif
 
 GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
-IMAGE := skopeo-dev$(if $(GIT_BRANCH),:$(GIT_BRANCH))
+# Default base container image on which to run tests
+DEFAULT_BASE := fedora
+# Base image for most commands, overridable by command-line arguments
+BASE_IMAGE := fedora
+# Base images (one or more) used for (make check), overridable by command-line arguments
+CHECK_BASE_IMAGES := $(BASE_IMAGE)
+# Name for our containers: skopeo-dev[-base-image][:branch]
+define image_name
+skopeo-dev$(if $(filter-out $(DEFAULT_BASE),$1),-$1)$(if $(GIT_BRANCH),:$(GIT_BRANCH))
+endef
 # set env like gobuildtag?
 CONTAINER_CMD := ${CONTAINER_RUNTIME} run --rm -i -e TESTFLAGS="$(TESTFLAGS)" #$(CONTAINER_ENVS)
 # if this session isn't interactive, then we don't want to allocate a
@@ -62,7 +71,6 @@ INTERACTIVE := $(shell [ -t 0 ] && echo 1 || echo 0)
 ifeq ($(INTERACTIVE), 1)
 	CONTAINER_CMD += -t
 endif
-CONTAINER_RUN := $(CONTAINER_CMD) "$(IMAGE)"
 
 GIT_COMMIT := $(shell git rev-parse HEAD 2> /dev/null || true)
 
@@ -131,8 +139,12 @@ bin/skopeo.%:
 	GOOS=$(word 2,$(subst ., ,$@)) GOARCH=$(word 3,$(subst ., ,$@)) $(GO) build $(MOD_VENDOR) ${SKOPEO_LDFLAGS} -tags "containers_image_openpgp $(BUILDTAGS)" -o $@ ./cmd/skopeo
 local-cross: bin/skopeo.darwin.amd64 bin/skopeo.linux.arm bin/skopeo.linux.arm64 bin/skopeo.windows.386.exe bin/skopeo.windows.amd64.exe
 
-build-container:
-	${CONTAINER_RUNTIME} build ${BUILD_ARGS} -t "$(IMAGE)" .
+build-container: build-container-$(BASE_IMAGE)
+build-container-%:
+	base=$*; if [ "$$base" = centos ]; then base=centos:7; fi; \
+		dockerfile=$$(mktemp -p .); sed "s/^FROM fedora/FROM $$base/" Dockerfile > "$$dockerfile"; \
+	${CONTAINER_RUNTIME} build ${BUILD_ARGS} -f $$dockerfile -t "$(call image_name,$*)" . ; exit=$$?; \
+	rm "$$dockerfile"; exit $$exit
 
 $(MANPAGES): %: %.md
 	sed -e 's/\((skopeo.*\.md)\)//' -e 's/\[\(skopeo.*\)\]/\1/' $<  | $(GOMD2MAN) -in /dev/stdin -out $@
@@ -166,32 +178,37 @@ install-completions:
 	install -m 755 -d ${DESTDIR}/${BASHCOMPLETIONSDIR}
 	install -m 644 completions/bash/skopeo ${DESTDIR}/${BASHCOMPLETIONSDIR}/skopeo
 
-shell: build-container
-	$(CONTAINER_RUN) bash
+shell: shell-$(BASE_IMAGE)
+shell-%: build-container-%
+	$(CONTAINER_CMD) "$(call image_name,$*)" bash
 
-check: validate test-unit test-integration test-system
+check: $(foreach image,$(CHECK_BASE_IMAGES),validate-$(image) test-unit-$(image) test-integration-$(image) test-system-$(image))
 
+test-integration: test-integration-$(BASE_IMAGE)
 # The tests can run out of entropy and block in containers, so replace /dev/random.
-test-integration: build-container
-	$(CONTAINER_RUN) bash -c 'rm -f /dev/random; ln -sf /dev/urandom /dev/random; SKOPEO_CONTAINER_TESTS=1 BUILDTAGS="$(BUILDTAGS)" hack/make.sh test-integration'
+test-integration-%: build-container-%
+	$(CONTAINER_CMD) "$(call image_name,$*)" bash -c 'rm -f /dev/random; ln -sf /dev/urandom /dev/random; SKOPEO_CONTAINER_TESTS=1 BUILDTAGS="$(BUILDTAGS)" hack/make.sh test-integration'
 
+test-system: test-system-$(BASE_IMAGE)
 # complicated set of options needed to run podman-in-podman
-test-system: build-container
+test-system-%: build-container-%
 	DTEMP=$(shell mktemp -d --tmpdir=/var/tmp podman-tmp.XXXXXX); \
 	$(CONTAINER_CMD) --privileged \
 	    -v $$DTEMP:/var/lib/containers:Z -v /run/systemd/journal/socket:/run/systemd/journal/socket \
-            "$(IMAGE)" \
+            "$(call image_name,$*)" \
             bash -c 'BUILDTAGS="$(BUILDTAGS)" hack/make.sh test-system'; \
 	rc=$$?; \
 	$(RM) -rf $$DTEMP; \
 	exit $$rc
 
-test-unit: build-container
-	# Just call (make test unit-local) here instead of worrying about environment differences
-	$(CONTAINER_RUN) make test-unit-local BUILDTAGS='$(BUILDTAGS)'
+test-unit: test-unit-$(BASE_IMAGE)
+# Just call (make test unit-local) here instead of worrying about environment differences
+test-unit-%: build-container-%
+	$(CONTAINER_CMD) "$(call image_name,$*)" make test-unit-local BUILDTAGS='$(BUILDTAGS)'
 
-validate: build-container
-	$(CONTAINER_RUN) hack/make.sh validate-git-marks validate-gofmt validate-lint validate-vet
+validate: validate-$(BASE_IMAGE)
+validate-%: build-container-%
+	$(CONTAINER_CMD) "$(call image_name,$*)" hack/make.sh validate-git-marks validate-gofmt validate-lint validate-vet
 
 # This target is only intended for development, e.g. executing it from an IDE. Use (make test) for CI or pre-release testing.
 test-all-local: validate-local test-unit-local

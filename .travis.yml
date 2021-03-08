@@ -74,7 +74,7 @@ jobs:
       services:
       - docker
       script: 
-      - make vendor && ./hack/tree_status.sh && make local-cross && make check
+      - make vendor && ./hack/tree_status.sh && make local-cross && make check CHECK_BASE_IMAGES='fedora centos'
 
     # Run 3 image-build-push tasks in parallel for linux/amd64, linux/s390x and linux/ppc64le platforms (for upstream and stable)
     - stage: image-build-push
