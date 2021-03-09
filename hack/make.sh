@@ -35,6 +35,9 @@ if [[ "$container_magic" != "85531765-346b-4316-bdb8-358e4cca9e5d" ]]; then
 		echo "# Try this instead: make all"
 		echo "#"
 	} >&2
+else
+    echo "# I appear to be running inside my designated container image, good!"
+    export SKOPEO_CONTAINER_TESTS=1
 fi
 
 echo

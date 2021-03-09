@@ -31,6 +31,10 @@ ifeq ($(GOBIN),)
 GOBIN := $(GOPATH)/bin
 endif
 
+# Required for integration-tests to detect they are running inside a specific
+# container image.  Env. var defined in image, make does not automatically
+# pass to children unless explicitly exported
+export container_magic
 CONTAINER_RUNTIME := $(shell command -v podman 2> /dev/null || echo docker)
 GOMD2MAN ?= $(shell command -v go-md2man || echo '$(GOBIN)/go-md2man')
 
