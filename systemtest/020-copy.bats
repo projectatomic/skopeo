@@ -100,6 +100,50 @@ function setup() {
                docker://localhost:5000/foo
 }
 
+# manifest format
+@test "copy: manifest format" {
+    local remote_image=docker://quay.io/libpod/busybox:latest
+
+    local dir1=$TESTDIR/dir1
+    local dir2=$TESTDIR/dir2
+
+    run_skopeo copy --format v2s2 $remote_image dir:$dir1
+    run_skopeo copy --format oci $remote_image dir:$dir2
+    grep 'application/vnd.docker.distribution.manifest.v2' $dir1/manifest.json
+    grep 'application/vnd.oci.image' $dir2/manifest.json
+}
+
+# additional tag
+@test "copy: additional tag" {
+    local remote_image=docker://quay.io/libpod/busybox:latest
+
+    # additional-tag is supported only for docker-archive
+    run_skopeo copy --additional-tag busybox:mine $remote_image \
+               docker-archive:$TESTDIR/mybusybox.tar:busybox:latest
+    mkdir -p $TESTDIR/podmanroot
+    run podman --root $TESTDIR/podmanroot load -i $TESTDIR/mybusybox.tar
+    run podman --root $TESTDIR/podmanroot images
+    expect_output --substring "mine"
+
+}
+
+# shared blob directory
+@test "copy: shared blob directory" {
+    local remote_image=docker://quay.io/libpod/busybox:latest
+
+    local shareddir=$TESTDIR/shareddir
+    local dir1=$TESTDIR/dir1
+    local dir2=$TESTDIR/dir2
+
+    run_skopeo copy --dest-shared-blob-dir $shareddir \
+               $remote_image oci:$dir1
+    [ -n "$(ls $shareddir)" ]
+    [ -z "$(ls $dir1/blobs)" ]
+    run_skopeo copy --src-shared-blob-dir $shareddir \
+               oci:$dir1 oci:$dir2
+    diff -urN $shareddir $dir2/blobs
+}
+
 teardown() {
     podman rm -f reg
 

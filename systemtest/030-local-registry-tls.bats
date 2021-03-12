@@ -8,7 +8,7 @@ load helpers
 function setup() {
     standard_setup
 
-    start_registry --with-cert reg
+    start_registry --with-cert --enable-delete=true reg
 }
 
 @test "local registry, with cert" {
@@ -21,6 +21,15 @@ function setup() {
     run_skopeo copy --src-cert-dir=$TESTDIR/client-auth \
                docker://localhost:5000/busybox:unsigned \
                dir:$TESTDIR/extracted
+
+    # inspect with cert
+    run_skopeo inspect --cert-dir=$TESTDIR/client-auth \
+               docker://localhost:5000/busybox:unsigned
+    expect_output --substring "localhost:5000/busybox"
+
+    # delete with cert
+    run_skopeo delete --cert-dir=$TESTDIR/client-auth \
+               docker://localhost:5000/busybox:unsigned
 }
 
 teardown() {
