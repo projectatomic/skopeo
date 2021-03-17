@@ -6,7 +6,7 @@
 # This image can be used to create a secured container
 # that runs safely with privileges within the container.
 #
-FROM registry.fedoraproject.org/fedora:32
+FROM registry.fedoraproject.org/fedora:33
 
 # Don't include container-selinux and remove
 # directories used by yum that are just taking
@@ -30,7 +30,7 @@ git clone https://github.com/containers/skopeo /root/skopeo/src/github.com/conta
 export GOPATH=/root/skopeo; \
 cd /root/skopeo/src/github.com/containers/skopeo; \
 make bin/skopeo;\
-make install;\
+make PREFIX=/usr install;\
 rm -rf /root/skopeo/*; \
 yum -y remove git golang go-md2man make; \
 yum -y clean all; yum -y clean all; rm -rf /var/cache/dnf/* /var/log/dnf* /var/log/yum*

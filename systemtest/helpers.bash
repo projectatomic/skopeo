@@ -6,7 +6,7 @@ SKOPEO_BINARY=${SKOPEO_BINARY:-$(dirname ${BASH_SOURCE})/../skopeo}
 SKOPEO_TIMEOUT=${SKOPEO_TIMEOUT:-300}
 
 # Default image to run as a local registry
-REGISTRY_FQIN=${SKOPEO_TEST_REGISTRY_FQIN:-docker.io/library/registry:2}
+REGISTRY_FQIN=${SKOPEO_TEST_REGISTRY_FQIN:-quay.io/libpod/registry:2}
 
 ###############################################################################
 # BEGIN setup/teardown
@@ -194,7 +194,7 @@ function expect_output() {
     fi
 
     # This is a multi-line message, which may in turn contain multi-line
-    # output, so let's format it ourself, readably
+    # output, so let's format it ourselves, readably
     local -a actual_split
     readarray -t actual_split <<<"$actual"
     printf "#/vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n" >&2

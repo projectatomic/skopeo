@@ -11,7 +11,7 @@ Travis workflow has 3 major pieces:
 - `image-build-push` - build and push container images with several Travis jobs running in parallel to build images for several architectures (linux/amd64, linux/s390x, linux/ppc64le). Build part is done for each PR, push part is executed only in case of cron job or master branch update.
 - `manifest-multiarch-push` - create and push image manifests, which consists of architecture specific images from previous step. Executed only in case of cron job or master branch update.
 
-## Ways to have full worklow run
+## Ways to have full workflow run
 - [cron job](https://docs.travis-ci.com/user/cron-jobs/#adding-cron-jobs)
 - Trigger build from Travis CI
 - Update code in master branch
@@ -26,7 +26,7 @@ Several environment variables are used to customize image names and keep private
 - `CONTAINERS_QUAY_USERNAME` and `CONTAINERS_QUAY_PASSWORD` are credentials to push images to `quay.io/containers/skopeo` repos, and require the credentials to have write permissions. These variables should be specified in [Travis](https://docs.travis-ci.com/user/environment-variables/#defining-variables-in-repository-settings).
 
 Variables in .travis.yml
-- `MULTIARCH_MANIFEST_ARCHITECTURES` is a list with architecture shortnames, to apprear in final multiarch manifest. The values should fit to architectures used in the `image-build-push` Travis step.
+- `MULTIARCH_MANIFEST_ARCHITECTURES` is a list with architecture shortnames, to appear in final multiarch manifest. The values should fit to architectures used in the `image-build-push` Travis step.
 - `STABLE_IMAGE`, `EXTRA_STABLE_IMAGE` are image names to publish stable Skopeo.
 - `UPSTREAM_IMAGE` is an image name to publish upstream Skopeo.
 

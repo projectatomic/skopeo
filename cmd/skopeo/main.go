@@ -17,6 +17,8 @@ import (
 // and will be populated by the Makefile
 var gitCommit = ""
 
+var defaultUserAgent = "skopeo/" + version.Version
+
 type globalOptions struct {
 	debug              bool          // Enable debug output
 	tlsVerify          optionalBool  // Require HTTPS and verify certificates (for docker: and docker-daemon:)
@@ -143,6 +145,7 @@ func (opts *globalOptions) newSystemContext() *types.SystemContext {
 		VariantChoice:            opts.overrideVariant,
 		SystemRegistriesConfPath: opts.registriesConfPath,
 		BigFilesTemporaryDir:     opts.tmpDir,
+		DockerRegistryUserAgent:  defaultUserAgent,
 	}
 	// DEPRECATED: We support this for backward compatibility, but override it if a per-image flag is provided.
 	if opts.tlsVerify.present {

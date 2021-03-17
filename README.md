@@ -19,7 +19,7 @@ Skopeo works with API V2 container image registries such as [docker.io](https://
    For example you can copy images from one registry to another, without requiring privilege.
  * Inspecting a remote image showing its properties including its layers, without requiring you to pull the image to the host.
  * Deleting an image from an image repository.
- * Syncing an external image repository to an internal registy for air-gapped deployments.
+ * Syncing an external image repository to an internal registry for air-gapped deployments.
  * When required by the repository, skopeo can pass the appropriate credentials and certificates for authentication.
 
  Skopeo operates on the following image and repository types:
@@ -122,7 +122,7 @@ $ skopeo inspect --config docker://registry.fedoraproject.org/fedora:latest  | j
   ]
 }
 ```
-#### Show unverifed image's digest
+#### Show unverified image's digest
 ```console
 $ skopeo inspect docker://registry.fedoraproject.org/fedora:latest | jq '.Digest'
 "sha256:655721ff613ee766a4126cb5e0d5ae81598e1b0c3bcf7017c36c4d72cb092fe9"

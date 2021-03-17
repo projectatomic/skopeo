@@ -17,8 +17,8 @@ func TestManifestDigest(t *testing.T) {
 	}
 
 	// Error reading manifest
-	out, err := runSkopeo("manifest-digest", "/this/doesnt/exist")
-	assertTestFailed(t, out, err, "/this/doesnt/exist")
+	out, err := runSkopeo("manifest-digest", "/this/does/not/exist")
+	assertTestFailed(t, out, err, "/this/does/not/exist")
 
 	// Error computing manifest
 	out, err = runSkopeo("manifest-digest", "fixtures/v2s1-invalid-signatures.manifest.json")

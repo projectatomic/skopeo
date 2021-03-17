@@ -1,9 +1,12 @@
-FROM golang:1.14-buster
+FROM registry.fedoraproject.org/fedora:33
 
-RUN apt-get update && \
-    apt-get install -y \
-        libdevmapper-dev \
-        libgpgme11-dev
+RUN dnf update -y && \
+        dnf install -y \
+        btrfs-progs-devel \
+        device-mapper-devel \
+        golang \
+        gpgme-devel \
+        make
 
 ENV GOPATH=/
 WORKDIR /src/github.com/containers/skopeo

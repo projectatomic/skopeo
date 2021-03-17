@@ -57,7 +57,7 @@ type dockerImageOptions struct {
 	shared         *sharedImageOptions // May be shared across several imageOptions instances.
 	authFilePath   optionalString      // Path to a */containers/auth.json (prefixed version to override shared image option).
 	credsOption    optionalString      // username[:password] for accessing a registry
-	registryToken  optionalString      // token to be used directy as a Bearer token when accessing the registry
+	registryToken  optionalString      // token to be used directly as a Bearer token when accessing the registry
 	dockerCertPath string              // A directory using Docker-like *.{crt,cert,key} files for connecting to a registry or a daemon
 	tlsVerify      optionalBool        // Require HTTPS and verify certificates (for docker: and docker-daemon:)
 	noCreds        bool                // Access the registry anonymously

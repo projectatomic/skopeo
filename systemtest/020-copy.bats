@@ -14,7 +14,7 @@ function setup() {
 # From remote, to dir1, to local, to dir2;
 # compare dir1 and dir2, expect no changes
 @test "copy: dir, round trip" {
-    local remote_image=docker://docker.io/library/busybox:latest
+    local remote_image=docker://quay.io/libpod/busybox:latest
     local localimg=docker://localhost:5000/busybox:unsigned
 
     local dir1=$TESTDIR/dir1
@@ -30,7 +30,7 @@ function setup() {
 
 # Same as above, but using 'oci:' instead of 'dir:' and with a :latest tag
 @test "copy: oci, round trip" {
-    local remote_image=docker://docker.io/library/busybox:latest
+    local remote_image=docker://quay.io/libpod/busybox:latest
     local localimg=docker://localhost:5000/busybox:unsigned
 
     local dir1=$TESTDIR/oci1
@@ -45,8 +45,8 @@ function setup() {
 }
 
 # Compression zstd
-@test "copy: oci, round trip, zstd" {
-    local remote_image=docker://docker.io/library/busybox:latest
+@test "copy: oci, zstd" {
+    local remote_image=docker://quay.io/libpod/busybox:latest
 
     local dir=$TESTDIR/dir
 
@@ -57,11 +57,17 @@ function setup() {
 
     # Check there is at least one file that has the zstd magic number as the first 4 bytes
     (for i in $dir/blobs/sha256/*; do test "$(head -c 4 $i)" = $magic && exit 0; done; exit 1)
+
+    # Check that the manifest's description of the image's first layer is the zstd layer type
+    instance=$(jq -r '.manifests[0].digest' $dir/index.json)
+    [[ "$instance" != null ]]
+    mediatype=$(jq -r '.layers[0].mediaType' < $dir/blobs/${instance/://})
+    [[ "$mediatype" == "application/vnd.oci.image.layer.v1.tar+zstd" ]]
 }
 
 # Same image, extracted once with :tag and once without
 @test "copy: oci w/ and w/o tags" {
-    local remote_image=docker://docker.io/library/busybox:latest
+    local remote_image=docker://quay.io/libpod/busybox:latest
 
     local dir1=$TESTDIR/dir1
     local dir2=$TESTDIR/dir2
@@ -78,7 +84,7 @@ function setup() {
 
 # Registry -> storage -> oci-archive
 @test "copy: registry -> storage -> oci-archive" {
-    local alpine=docker.io/library/alpine:latest
+    local alpine=quay.io/libpod/alpine:latest
     local tmp=$TESTDIR/oci
 
     run_skopeo copy docker://$alpine containers-storage:$alpine
@@ -92,6 +98,50 @@ function setup() {
     run_skopeo copy --dest-tls-verify=false \
                docker://quay.io/libpod/alpine_labels:latest \
                docker://localhost:5000/foo
+}
+
+# manifest format
+@test "copy: manifest format" {
+    local remote_image=docker://quay.io/libpod/busybox:latest
+
+    local dir1=$TESTDIR/dir1
+    local dir2=$TESTDIR/dir2
+
+    run_skopeo copy --format v2s2 $remote_image dir:$dir1
+    run_skopeo copy --format oci $remote_image dir:$dir2
+    grep 'application/vnd.docker.distribution.manifest.v2' $dir1/manifest.json
+    grep 'application/vnd.oci.image' $dir2/manifest.json
+}
+
+# additional tag
+@test "copy: additional tag" {
+    local remote_image=docker://quay.io/libpod/busybox:latest
+
+    # additional-tag is supported only for docker-archive
+    run_skopeo copy --additional-tag busybox:mine $remote_image \
+               docker-archive:$TESTDIR/mybusybox.tar:busybox:latest
+    mkdir -p $TESTDIR/podmanroot
+    run podman --root $TESTDIR/podmanroot load -i $TESTDIR/mybusybox.tar
+    run podman --root $TESTDIR/podmanroot images
+    expect_output --substring "mine"
+
+}
+
+# shared blob directory
+@test "copy: shared blob directory" {
+    local remote_image=docker://quay.io/libpod/busybox:latest
+
+    local shareddir=$TESTDIR/shareddir
+    local dir1=$TESTDIR/dir1
+    local dir2=$TESTDIR/dir2
+
+    run_skopeo copy --dest-shared-blob-dir $shareddir \
+               $remote_image oci:$dir1
+    [ -n "$(ls $shareddir)" ]
+    [ -z "$(ls $dir1/blobs)" ]
+    run_skopeo copy --src-shared-blob-dir $shareddir \
+               oci:$dir1 oci:$dir2
+    diff -urN $shareddir $dir2/blobs
 }
 
 teardown() {

@@ -92,7 +92,7 @@ END_POLICY_JSON
     fi
 
     # Cache local copy
-    run_skopeo copy docker://docker.io/library/busybox:latest \
+    run_skopeo copy docker://quay.io/libpod/busybox:latest \
                dir:$TESTDIR/busybox
 
     # Push a bunch of images. Do so *without* --policy flag; this lets us
@@ -141,6 +141,75 @@ END_PUSH
 /myns/carol:latest         Running image docker://localhost:5000/myns/carol:latest is rejected by policy.
 /open/forall:latest
 END_TESTS
+}
+
+@test "signing: remove signature" {
+    run_skopeo '?' standalone-sign /dev/null busybox alice@test.redhat.com -o /dev/null
+    if [[ "$output" =~ 'signing is not supported' ]]; then
+        skip "skopeo built without support for creating signatures"
+        return 1
+    fi
+    if [ "$status" -ne 0 ]; then
+        die "exit code is $status; expected 0"
+    fi
+
+    # Cache local copy
+    run_skopeo copy docker://quay.io/libpod/busybox:latest \
+               dir:$TESTDIR/busybox
+    # Push a signed image
+    run_skopeo --registries.d $REGISTRIES_D \
+               copy --dest-tls-verify=false \
+               --sign-by=alice@test.redhat.com \
+               dir:$TESTDIR/busybox \
+               docker://localhost:5000/myns/alice:signed
+    # Fetch the image with signature
+    run_skopeo  --registries.d $REGISTRIES_D \
+                --policy $POLICY_JSON \
+                copy --src-tls-verify=false \
+                docker://localhost:5000/myns/alice:signed \
+                dir:$TESTDIR/busybox-signed
+    # Fetch the image with removing signature
+    run_skopeo  --registries.d $REGISTRIES_D \
+                --policy $POLICY_JSON \
+                copy --src-tls-verify=false \
+                --remove-signatures \
+                docker://localhost:5000/myns/alice:signed \
+                dir:$TESTDIR/busybox-unsigned
+    ls $TESTDIR/busybox-signed | grep "signature"
+    [ -z "$(ls $TESTDIR/busybox-unsigned | grep "signature")" ]
+}
+
+@test "signing: standalone" {
+    run_skopeo '?' standalone-sign /dev/null busybox alice@test.redhat.com -o /dev/null
+    if [[ "$output" =~ 'signing is not supported' ]]; then
+        skip "skopeo built without support for creating signatures"
+        return 1
+    fi
+    if [ "$status" -ne 0 ]; then
+        die "exit code is $status; expected 0"
+    fi
+
+    run_skopeo copy --dest-tls-verify=false \
+               docker://quay.io/libpod/busybox:latest \
+               docker://localhost:5000/busybox:latest
+    run_skopeo copy --src-tls-verify=false \
+               docker://localhost:5000/busybox:latest \
+               dir:$TESTDIR/busybox
+    # Standalone sign
+    run_skopeo standalone-sign -o $TESTDIR/busybox.signature \
+               $TESTDIR/busybox/manifest.json \
+               localhost:5000/busybox:latest \
+               alice@test.redhat.com
+    # Standalone verify
+    fingerprint=$(gpg --list-keys | grep -B1 alice.test.redhat.com | head -n 1)
+    run_skopeo standalone-verify $TESTDIR/busybox/manifest.json \
+               localhost:5000/busybox:latest \
+               $fingerprint \
+               $TESTDIR/busybox.signature
+    # manifest digest
+    digest=$(echo "$output" | awk '{print $4;}')
+    run_skopeo manifest-digest $TESTDIR/busybox/manifest.json
+    expect_output $digest
 }
 
 teardown() {

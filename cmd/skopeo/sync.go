@@ -282,8 +282,9 @@ func imagesToCopyFromRegistry(registryName string, cfg registrySyncConfig, sourc
 	serverCtx.DockerDaemonCertPath = cfg.CertDir
 	serverCtx.DockerDaemonInsecureSkipTLSVerify = (cfg.TLSVerify.skip == types.OptionalBoolTrue)
 	serverCtx.DockerInsecureSkipTLSVerify = cfg.TLSVerify.skip
-	serverCtx.DockerAuthConfig = &cfg.Credentials
-
+	if cfg.Credentials != (types.DockerAuthConfig{}) {
+		serverCtx.DockerAuthConfig = &cfg.Credentials
+	}
 	var repoDescList []repoDescriptor
 	for imageName, refs := range cfg.Images {
 		repoLogger := logrus.WithFields(logrus.Fields{
@@ -557,11 +558,12 @@ func (opts *syncOptions) run(args []string, stdout io.Writer) error {
 
 	imagesNumber := 0
 	options := copy.Options{
-		RemoveSignatures:   opts.removeSignatures,
-		SignBy:             opts.signByFingerprint,
-		ReportWriter:       os.Stdout,
-		DestinationCtx:     destinationCtx,
-		ImageListSelection: imageListSelection,
+		RemoveSignatures:                      opts.removeSignatures,
+		SignBy:                                opts.signByFingerprint,
+		ReportWriter:                          os.Stdout,
+		DestinationCtx:                        destinationCtx,
+		ImageListSelection:                    imageListSelection,
+		OptimizeDestinationImageAlreadyExists: true,
 	}
 
 	for _, srcRepo := range srcRepoList {

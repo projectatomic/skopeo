@@ -31,6 +31,7 @@ const (
 	v2DockerRegistryURL   = "localhost:5555" // Update also policy.json
 	v2s1DockerRegistryURL = "localhost:5556"
 	knownWindowsOnlyImage = "docker://mcr.microsoft.com/windows/nanoserver:1909"
+	knownListImage        = "docker://registry.fedoraproject.org/fedora-minimal" // could have either ":latest" or "@sha256:..." appended
 )
 
 type CopySuite struct {
@@ -99,14 +100,14 @@ func (s *CopySuite) TestCopyWithManifestList(c *check.C) {
 	dir, err := ioutil.TempDir("", "copy-manifest-list")
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(dir)
-	assertSkopeoSucceeds(c, "", "copy", "docker://estesp/busybox:latest", "dir:"+dir)
+	assertSkopeoSucceeds(c, "", "copy", knownListImage, "dir:"+dir)
 }
 
 func (s *CopySuite) TestCopyAllWithManifestList(c *check.C) {
 	dir, err := ioutil.TempDir("", "copy-all-manifest-list")
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(dir)
-	assertSkopeoSucceeds(c, "", "copy", "--all", "docker://estesp/busybox:latest", "dir:"+dir)
+	assertSkopeoSucceeds(c, "", "copy", "--all", knownListImage, "dir:"+dir)
 }
 
 func (s *CopySuite) TestCopyAllWithManifestListRoundTrip(c *check.C) {
@@ -122,7 +123,7 @@ func (s *CopySuite) TestCopyAllWithManifestListRoundTrip(c *check.C) {
 	dir2, err := ioutil.TempDir("", "copy-all-manifest-list-dir")
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(dir2)
-	assertSkopeoSucceeds(c, "", "copy", "--all", "docker://estesp/busybox:latest", "oci:"+oci1)
+	assertSkopeoSucceeds(c, "", "copy", "--all", knownListImage, "oci:"+oci1)
 	assertSkopeoSucceeds(c, "", "copy", "--all", "oci:"+oci1, "dir:"+dir1)
 	assertSkopeoSucceeds(c, "", "copy", "--all", "dir:"+dir1, "oci:"+oci2)
 	assertSkopeoSucceeds(c, "", "copy", "--all", "oci:"+oci2, "dir:"+dir2)
@@ -144,9 +145,9 @@ func (s *CopySuite) TestCopyAllWithManifestListConverge(c *check.C) {
 	dir2, err := ioutil.TempDir("", "copy-all-manifest-list-dir")
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(dir2)
-	assertSkopeoSucceeds(c, "", "copy", "--all", "docker://estesp/busybox:latest", "oci:"+oci1)
+	assertSkopeoSucceeds(c, "", "copy", "--all", knownListImage, "oci:"+oci1)
 	assertSkopeoSucceeds(c, "", "copy", "--all", "oci:"+oci1, "dir:"+dir1)
-	assertSkopeoSucceeds(c, "", "copy", "--all", "--format", "oci", "docker://estesp/busybox:latest", "dir:"+dir2)
+	assertSkopeoSucceeds(c, "", "copy", "--all", "--format", "oci", knownListImage, "dir:"+dir2)
 	assertSkopeoSucceeds(c, "", "copy", "--all", "dir:"+dir2, "oci:"+oci2)
 	assertDirImagesAreEqual(c, dir1, dir2)
 	out := combinedOutputOfCommand(c, "diff", "-urN", oci1, oci2)
@@ -166,9 +167,9 @@ func (s *CopySuite) TestCopyWithManifestListConverge(c *check.C) {
 	dir2, err := ioutil.TempDir("", "copy-all-manifest-list-dir")
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(dir2)
-	assertSkopeoSucceeds(c, "", "copy", "docker://estesp/busybox:latest", "oci:"+oci1)
+	assertSkopeoSucceeds(c, "", "copy", knownListImage, "oci:"+oci1)
 	assertSkopeoSucceeds(c, "", "copy", "--all", "oci:"+oci1, "dir:"+dir1)
-	assertSkopeoSucceeds(c, "", "copy", "--format", "oci", "docker://estesp/busybox:latest", "dir:"+dir2)
+	assertSkopeoSucceeds(c, "", "copy", "--format", "oci", knownListImage, "dir:"+dir2)
 	assertSkopeoSucceeds(c, "", "copy", "--all", "dir:"+dir2, "oci:"+oci2)
 	assertDirImagesAreEqual(c, dir1, dir2)
 	out := combinedOutputOfCommand(c, "diff", "-urN", oci1, oci2)
@@ -180,7 +181,7 @@ func (s *CopySuite) TestCopyAllWithManifestListStorageFails(c *check.C) {
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(storage)
 	storage = fmt.Sprintf("[vfs@%s/root+%s/runroot]", storage, storage)
-	assertSkopeoFails(c, `.*destination transport .* does not support copying multiple images as a group.*`, "copy", "--all", "docker://estesp/busybox:latest", "containers-storage:"+storage+"test")
+	assertSkopeoFails(c, `.*destination transport .* does not support copying multiple images as a group.*`, "copy", "--all", knownListImage, "containers-storage:"+storage+"test")
 }
 
 func (s *CopySuite) TestCopyWithManifestListStorage(c *check.C) {
@@ -194,8 +195,8 @@ func (s *CopySuite) TestCopyWithManifestListStorage(c *check.C) {
 	dir2, err := ioutil.TempDir("", "copy-manifest-list-storage-dir")
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(dir2)
-	assertSkopeoSucceeds(c, "", "copy", "docker://estesp/busybox:latest", "containers-storage:"+storage+"test")
-	assertSkopeoSucceeds(c, "", "copy", "docker://estesp/busybox:latest", "dir:"+dir1)
+	assertSkopeoSucceeds(c, "", "copy", knownListImage, "containers-storage:"+storage+"test")
+	assertSkopeoSucceeds(c, "", "copy", knownListImage, "dir:"+dir1)
 	assertSkopeoSucceeds(c, "", "copy", "containers-storage:"+storage+"test", "dir:"+dir2)
 	runDecompressDirs(c, "", dir1, dir2)
 	assertDirImagesAreEqual(c, dir1, dir2)
@@ -212,9 +213,9 @@ func (s *CopySuite) TestCopyWithManifestListStorageMultiple(c *check.C) {
 	dir2, err := ioutil.TempDir("", "copy-manifest-list-storage-multiple-dir")
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(dir2)
-	assertSkopeoSucceeds(c, "", "--override-arch", "amd64", "copy", "docker://estesp/busybox:latest", "containers-storage:"+storage+"test")
-	assertSkopeoSucceeds(c, "", "--override-arch", "arm64", "copy", "docker://estesp/busybox:latest", "containers-storage:"+storage+"test")
-	assertSkopeoSucceeds(c, "", "--override-arch", "arm64", "copy", "docker://estesp/busybox:latest", "dir:"+dir1)
+	assertSkopeoSucceeds(c, "", "--override-arch", "amd64", "copy", knownListImage, "containers-storage:"+storage+"test")
+	assertSkopeoSucceeds(c, "", "--override-arch", "arm64", "copy", knownListImage, "containers-storage:"+storage+"test")
+	assertSkopeoSucceeds(c, "", "--override-arch", "arm64", "copy", knownListImage, "dir:"+dir1)
 	assertSkopeoSucceeds(c, "", "copy", "containers-storage:"+storage+"test", "dir:"+dir2)
 	runDecompressDirs(c, "", dir1, dir2)
 	assertDirImagesAreEqual(c, dir1, dir2)
@@ -233,12 +234,12 @@ func (s *CopySuite) TestCopyWithManifestListDigest(c *check.C) {
 	oci2, err := ioutil.TempDir("", "copy-manifest-list-digest-oci")
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(oci2)
-	m := combinedOutputOfCommand(c, skopeoBinary, "inspect", "--raw", "docker://estesp/busybox:latest")
+	m := combinedOutputOfCommand(c, skopeoBinary, "inspect", "--raw", knownListImage)
 	manifestDigest, err := manifest.Digest([]byte(m))
 	c.Assert(err, check.IsNil)
 	digest := manifestDigest.String()
-	assertSkopeoSucceeds(c, "", "copy", "docker://estesp/busybox@"+digest, "dir:"+dir1)
-	assertSkopeoSucceeds(c, "", "copy", "--all", "docker://estesp/busybox@"+digest, "dir:"+dir2)
+	assertSkopeoSucceeds(c, "", "copy", knownListImage+"@"+digest, "dir:"+dir1)
+	assertSkopeoSucceeds(c, "", "copy", "--all", knownListImage+"@"+digest, "dir:"+dir2)
 	assertSkopeoSucceeds(c, "", "copy", "dir:"+dir1, "oci:"+oci1)
 	assertSkopeoSucceeds(c, "", "copy", "dir:"+dir2, "oci:"+oci2)
 	out := combinedOutputOfCommand(c, "diff", "-urN", oci1, oci2)
@@ -256,13 +257,13 @@ func (s *CopySuite) TestCopyWithManifestListStorageDigest(c *check.C) {
 	dir2, err := ioutil.TempDir("", "copy-manifest-list-storage-digest-dir")
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(dir2)
-	m := combinedOutputOfCommand(c, skopeoBinary, "inspect", "--raw", "docker://estesp/busybox:latest")
+	m := combinedOutputOfCommand(c, skopeoBinary, "inspect", "--raw", knownListImage)
 	manifestDigest, err := manifest.Digest([]byte(m))
 	c.Assert(err, check.IsNil)
 	digest := manifestDigest.String()
-	assertSkopeoSucceeds(c, "", "copy", "docker://estesp/busybox@"+digest, "containers-storage:"+storage+"test@"+digest)
+	assertSkopeoSucceeds(c, "", "copy", knownListImage+"@"+digest, "containers-storage:"+storage+"test@"+digest)
 	assertSkopeoSucceeds(c, "", "copy", "containers-storage:"+storage+"test@"+digest, "dir:"+dir1)
-	assertSkopeoSucceeds(c, "", "copy", "docker://estesp/busybox@"+digest, "dir:"+dir2)
+	assertSkopeoSucceeds(c, "", "copy", knownListImage+"@"+digest, "dir:"+dir2)
 	runDecompressDirs(c, "", dir1, dir2)
 	assertDirImagesAreEqual(c, dir1, dir2)
 }
@@ -278,13 +279,13 @@ func (s *CopySuite) TestCopyWithManifestListStorageDigestMultipleArches(c *check
 	dir2, err := ioutil.TempDir("", "copy-manifest-list-storage-digest-dir")
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(dir2)
-	m := combinedOutputOfCommand(c, skopeoBinary, "inspect", "--raw", "docker://estesp/busybox:latest")
+	m := combinedOutputOfCommand(c, skopeoBinary, "inspect", "--raw", knownListImage)
 	manifestDigest, err := manifest.Digest([]byte(m))
 	c.Assert(err, check.IsNil)
 	digest := manifestDigest.String()
-	assertSkopeoSucceeds(c, "", "copy", "docker://estesp/busybox@"+digest, "containers-storage:"+storage+"test@"+digest)
+	assertSkopeoSucceeds(c, "", "copy", knownListImage+"@"+digest, "containers-storage:"+storage+"test@"+digest)
 	assertSkopeoSucceeds(c, "", "copy", "containers-storage:"+storage+"test@"+digest, "dir:"+dir1)
-	assertSkopeoSucceeds(c, "", "copy", "docker://estesp/busybox@"+digest, "dir:"+dir2)
+	assertSkopeoSucceeds(c, "", "copy", knownListImage+"@"+digest, "dir:"+dir2)
 	runDecompressDirs(c, "", dir1, dir2)
 	assertDirImagesAreEqual(c, dir1, dir2)
 }
@@ -294,14 +295,14 @@ func (s *CopySuite) TestCopyWithManifestListStorageDigestMultipleArchesBothUseLi
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(storage)
 	storage = fmt.Sprintf("[vfs@%s/root+%s/runroot]", storage, storage)
-	m := combinedOutputOfCommand(c, skopeoBinary, "inspect", "--raw", "docker://estesp/busybox:latest")
+	m := combinedOutputOfCommand(c, skopeoBinary, "inspect", "--raw", knownListImage)
 	manifestDigest, err := manifest.Digest([]byte(m))
 	c.Assert(err, check.IsNil)
 	digest := manifestDigest.String()
 	_, err = manifest.ListFromBlob([]byte(m), manifest.GuessMIMEType([]byte(m)))
 	c.Assert(err, check.IsNil)
-	assertSkopeoSucceeds(c, "", "--override-arch=amd64", "copy", "docker://estesp/busybox@"+digest, "containers-storage:"+storage+"test@"+digest)
-	assertSkopeoSucceeds(c, "", "--override-arch=arm64", "copy", "docker://estesp/busybox@"+digest, "containers-storage:"+storage+"test@"+digest)
+	assertSkopeoSucceeds(c, "", "--override-arch=amd64", "copy", knownListImage+"@"+digest, "containers-storage:"+storage+"test@"+digest)
+	assertSkopeoSucceeds(c, "", "--override-arch=arm64", "copy", knownListImage+"@"+digest, "containers-storage:"+storage+"test@"+digest)
 	assertSkopeoFails(c, `.*error reading manifest for image instance.*does not exist.*`, "--override-arch=amd64", "inspect", "containers-storage:"+storage+"test@"+digest)
 	assertSkopeoFails(c, `.*error reading manifest for image instance.*does not exist.*`, "--override-arch=amd64", "inspect", "--config", "containers-storage:"+storage+"test@"+digest)
 	i2 := combinedOutputOfCommand(c, skopeoBinary, "--override-arch=arm64", "inspect", "--config", "containers-storage:"+storage+"test@"+digest)
@@ -316,7 +317,7 @@ func (s *CopySuite) TestCopyWithManifestListStorageDigestMultipleArchesFirstUses
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(storage)
 	storage = fmt.Sprintf("[vfs@%s/root+%s/runroot]", storage, storage)
-	m := combinedOutputOfCommand(c, skopeoBinary, "inspect", "--raw", "docker://estesp/busybox:latest")
+	m := combinedOutputOfCommand(c, skopeoBinary, "inspect", "--raw", knownListImage)
 	manifestDigest, err := manifest.Digest([]byte(m))
 	c.Assert(err, check.IsNil)
 	digest := manifestDigest.String()
@@ -326,8 +327,8 @@ func (s *CopySuite) TestCopyWithManifestListStorageDigestMultipleArchesFirstUses
 	c.Assert(err, check.IsNil)
 	arm64Instance, err := list.ChooseInstance(&types.SystemContext{ArchitectureChoice: "arm64"})
 	c.Assert(err, check.IsNil)
-	assertSkopeoSucceeds(c, "", "--override-arch=amd64", "copy", "docker://estesp/busybox@"+digest, "containers-storage:"+storage+"test@"+digest)
-	assertSkopeoSucceeds(c, "", "--override-arch=arm64", "copy", "docker://estesp/busybox@"+arm64Instance.String(), "containers-storage:"+storage+"test@"+arm64Instance.String())
+	assertSkopeoSucceeds(c, "", "--override-arch=amd64", "copy", knownListImage+"@"+digest, "containers-storage:"+storage+"test@"+digest)
+	assertSkopeoSucceeds(c, "", "--override-arch=arm64", "copy", knownListImage+"@"+arm64Instance.String(), "containers-storage:"+storage+"test@"+arm64Instance.String())
 	i1 := combinedOutputOfCommand(c, skopeoBinary, "--override-arch=amd64", "inspect", "--config", "containers-storage:"+storage+"test@"+digest)
 	var image1 imgspecv1.Image
 	err = json.Unmarshal([]byte(i1), &image1)
@@ -352,7 +353,7 @@ func (s *CopySuite) TestCopyWithManifestListStorageDigestMultipleArchesSecondUse
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(storage)
 	storage = fmt.Sprintf("[vfs@%s/root+%s/runroot]", storage, storage)
-	m := combinedOutputOfCommand(c, skopeoBinary, "inspect", "--raw", "docker://estesp/busybox:latest")
+	m := combinedOutputOfCommand(c, skopeoBinary, "inspect", "--raw", knownListImage)
 	manifestDigest, err := manifest.Digest([]byte(m))
 	c.Assert(err, check.IsNil)
 	digest := manifestDigest.String()
@@ -362,8 +363,8 @@ func (s *CopySuite) TestCopyWithManifestListStorageDigestMultipleArchesSecondUse
 	c.Assert(err, check.IsNil)
 	arm64Instance, err := list.ChooseInstance(&types.SystemContext{ArchitectureChoice: "arm64"})
 	c.Assert(err, check.IsNil)
-	assertSkopeoSucceeds(c, "", "--override-arch=amd64", "copy", "docker://estesp/busybox@"+amd64Instance.String(), "containers-storage:"+storage+"test@"+amd64Instance.String())
-	assertSkopeoSucceeds(c, "", "--override-arch=arm64", "copy", "docker://estesp/busybox@"+digest, "containers-storage:"+storage+"test@"+digest)
+	assertSkopeoSucceeds(c, "", "--override-arch=amd64", "copy", knownListImage+"@"+amd64Instance.String(), "containers-storage:"+storage+"test@"+amd64Instance.String())
+	assertSkopeoSucceeds(c, "", "--override-arch=arm64", "copy", knownListImage+"@"+digest, "containers-storage:"+storage+"test@"+digest)
 	i1 := combinedOutputOfCommand(c, skopeoBinary, "--override-arch=amd64", "inspect", "--config", "containers-storage:"+storage+"test@"+amd64Instance.String())
 	var image1 imgspecv1.Image
 	err = json.Unmarshal([]byte(i1), &image1)
@@ -388,7 +389,7 @@ func (s *CopySuite) TestCopyWithManifestListStorageDigestMultipleArchesThirdUses
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(storage)
 	storage = fmt.Sprintf("[vfs@%s/root+%s/runroot]", storage, storage)
-	m := combinedOutputOfCommand(c, skopeoBinary, "inspect", "--raw", "docker://estesp/busybox:latest")
+	m := combinedOutputOfCommand(c, skopeoBinary, "inspect", "--raw", knownListImage)
 	manifestDigest, err := manifest.Digest([]byte(m))
 	c.Assert(err, check.IsNil)
 	digest := manifestDigest.String()
@@ -398,9 +399,9 @@ func (s *CopySuite) TestCopyWithManifestListStorageDigestMultipleArchesThirdUses
 	c.Assert(err, check.IsNil)
 	arm64Instance, err := list.ChooseInstance(&types.SystemContext{ArchitectureChoice: "arm64"})
 	c.Assert(err, check.IsNil)
-	assertSkopeoSucceeds(c, "", "--override-arch=amd64", "copy", "docker://estesp/busybox@"+amd64Instance.String(), "containers-storage:"+storage+"test@"+amd64Instance.String())
-	assertSkopeoSucceeds(c, "", "--override-arch=amd64", "copy", "docker://estesp/busybox@"+digest, "containers-storage:"+storage+"test@"+digest)
-	assertSkopeoSucceeds(c, "", "--override-arch=arm64", "copy", "docker://estesp/busybox@"+digest, "containers-storage:"+storage+"test@"+digest)
+	assertSkopeoSucceeds(c, "", "--override-arch=amd64", "copy", knownListImage+"@"+amd64Instance.String(), "containers-storage:"+storage+"test@"+amd64Instance.String())
+	assertSkopeoSucceeds(c, "", "--override-arch=amd64", "copy", knownListImage+"@"+digest, "containers-storage:"+storage+"test@"+digest)
+	assertSkopeoSucceeds(c, "", "--override-arch=arm64", "copy", knownListImage+"@"+digest, "containers-storage:"+storage+"test@"+digest)
 	assertSkopeoFails(c, `.*error reading manifest for image instance.*does not exist.*`, "--override-arch=amd64", "inspect", "--config", "containers-storage:"+storage+"test@"+digest)
 	i1 := combinedOutputOfCommand(c, skopeoBinary, "--override-arch=amd64", "inspect", "--config", "containers-storage:"+storage+"test@"+amd64Instance.String())
 	var image1 imgspecv1.Image
@@ -424,7 +425,7 @@ func (s *CopySuite) TestCopyWithManifestListStorageDigestMultipleArchesTagAndDig
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(storage)
 	storage = fmt.Sprintf("[vfs@%s/root+%s/runroot]", storage, storage)
-	m := combinedOutputOfCommand(c, skopeoBinary, "inspect", "--raw", "docker://estesp/busybox:latest")
+	m := combinedOutputOfCommand(c, skopeoBinary, "inspect", "--raw", knownListImage)
 	manifestDigest, err := manifest.Digest([]byte(m))
 	c.Assert(err, check.IsNil)
 	digest := manifestDigest.String()
@@ -434,8 +435,8 @@ func (s *CopySuite) TestCopyWithManifestListStorageDigestMultipleArchesTagAndDig
 	c.Assert(err, check.IsNil)
 	arm64Instance, err := list.ChooseInstance(&types.SystemContext{ArchitectureChoice: "arm64"})
 	c.Assert(err, check.IsNil)
-	assertSkopeoSucceeds(c, "", "--override-arch=amd64", "copy", "docker://estesp/busybox:latest", "containers-storage:"+storage+"test:latest")
-	assertSkopeoSucceeds(c, "", "--override-arch=arm64", "copy", "docker://estesp/busybox@"+digest, "containers-storage:"+storage+"test@"+digest)
+	assertSkopeoSucceeds(c, "", "--override-arch=amd64", "copy", knownListImage, "containers-storage:"+storage+"test:latest")
+	assertSkopeoSucceeds(c, "", "--override-arch=arm64", "copy", knownListImage+"@"+digest, "containers-storage:"+storage+"test@"+digest)
 	assertSkopeoFails(c, `.*error reading manifest for image instance.*does not exist.*`, "--override-arch=amd64", "inspect", "--config", "containers-storage:"+storage+"test@"+digest)
 	i1 := combinedOutputOfCommand(c, skopeoBinary, "--override-arch=arm64", "inspect", "--config", "containers-storage:"+storage+"test:latest")
 	var image1 imgspecv1.Image
@@ -464,16 +465,16 @@ func (s *CopySuite) TestCopyWithManifestListStorageDigestMultipleArchesTagAndDig
 	c.Assert(image5.Architecture, check.Equals, "arm64")
 }
 
-func (s *CopySuite) TestCopyFailsWhenImageOSDoesntMatchRuntimeOS(c *check.C) {
-	storage, err := ioutil.TempDir("", "copy-fails-image-doesnt-match-runtime")
+func (s *CopySuite) TestCopyFailsWhenImageOSDoesNotMatchRuntimeOS(c *check.C) {
+	storage, err := ioutil.TempDir("", "copy-fails-image-does-not-match-runtime")
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(storage)
 	storage = fmt.Sprintf("[vfs@%s/root+%s/runroot]", storage, storage)
 	assertSkopeoFails(c, `.*no image found in manifest list for architecture .*, variant .*, OS .*`, "copy", knownWindowsOnlyImage, "containers-storage:"+storage+"test")
 }
 
-func (s *CopySuite) TestCopySucceedsWhenImageDoesntMatchRuntimeButWeOverride(c *check.C) {
-	storage, err := ioutil.TempDir("", "copy-succeeds-image-doesnt-match-runtime-but-override")
+func (s *CopySuite) TestCopySucceedsWhenImageDoesNotMatchRuntimeButWeOverride(c *check.C) {
+	storage, err := ioutil.TempDir("", "copy-succeeds-image-does-not-match-runtime-but-override")
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(storage)
 	storage = fmt.Sprintf("[vfs@%s/root+%s/runroot]", storage, storage)
@@ -511,28 +512,28 @@ func (s *CopySuite) TestCopySimple(c *check.C) {
 
 	// FIXME: It would be nice to use one of the local Docker registries instead of needing an Internet connection.
 	// "pull": docker: → dir:
-	assertSkopeoSucceeds(c, "", "copy", "docker://busybox", "dir:"+dir1)
+	assertSkopeoSucceeds(c, "", "copy", "docker://k8s.gcr.io/pause", "dir:"+dir1)
 	// "push": dir: → docker(v2s2):
-	assertSkopeoSucceeds(c, "", "--tls-verify=false", "--debug", "copy", "dir:"+dir1, ourRegistry+"busybox:unsigned")
+	assertSkopeoSucceeds(c, "", "--tls-verify=false", "--debug", "copy", "dir:"+dir1, ourRegistry+"pause:unsigned")
 	// The result of pushing and pulling is an unmodified image.
-	assertSkopeoSucceeds(c, "", "--tls-verify=false", "copy", ourRegistry+"busybox:unsigned", "dir:"+dir2)
+	assertSkopeoSucceeds(c, "", "--tls-verify=false", "copy", ourRegistry+"pause:unsigned", "dir:"+dir2)
 	out := combinedOutputOfCommand(c, "diff", "-urN", dir1, dir2)
 	c.Assert(out, check.Equals, "")
 
 	// docker v2s2 -> OCI image layout with image name
 	// ociDest will be created by oci: if it doesn't exist
 	// so don't create it here to exercise auto-creation
-	ociDest := "busybox-latest-image"
-	ociImgName := "busybox"
+	ociDest := "pause-latest-image"
+	ociImgName := "pause"
 	defer os.RemoveAll(ociDest)
-	assertSkopeoSucceeds(c, "", "copy", "docker://busybox:latest", "oci:"+ociDest+":"+ociImgName)
+	assertSkopeoSucceeds(c, "", "copy", "docker://k8s.gcr.io/pause:latest", "oci:"+ociDest+":"+ociImgName)
 	_, err = os.Stat(ociDest)
 	c.Assert(err, check.IsNil)
 
 	// docker v2s2 -> OCI image layout without image name
-	ociDest = "busybox-latest-noimage"
+	ociDest = "pause-latest-noimage"
 	defer os.RemoveAll(ociDest)
-	assertSkopeoSucceeds(c, "", "copy", "docker://busybox:latest", "oci:"+ociDest)
+	assertSkopeoSucceeds(c, "", "copy", "docker://k8s.gcr.io/pause:latest", "oci:"+ociDest)
 	_, err = os.Stat(ociDest)
 	c.Assert(err, check.IsNil)
 }
@@ -801,7 +802,7 @@ func (s *CopySuite) TestCopySignatures(c *check.C) {
 		"--policy", policy, "copy", "docker://busybox:latest", dirDest)
 
 	// type: insecureAcceptAnything
-	assertSkopeoSucceeds(c, "", "--policy", policy, "copy", "docker://openshift/hello-openshift", dirDest)
+	assertSkopeoSucceeds(c, "", "--policy", policy, "copy", "docker://quay.io/openshift/origin-hello-openshift", dirDest)
 
 	// type: signedBy
 	// Sign the images
@@ -863,7 +864,7 @@ func (s *CopySuite) TestCopyDirSignatures(c *check.C) {
 	assertSkopeoSucceeds(c, "", "copy", "docker://estesp/busybox:armfh", topDirDest+"/dir1")
 	assertSkopeoSucceeds(c, "", "copy", "docker://estesp/busybox:s390x", topDirDest+"/dir2")
 
-	// Sign the images. By coping fom a topDirDest/dirN, also test that non-/restricted paths
+	// Sign the images. By coping from a topDirDest/dirN, also test that non-/restricted paths
 	// use the dir:"" default of insecureAcceptAnything.
 	// (For signing, we must push to atomic: to get a Docker identity to use in the signature.)
 	assertSkopeoSucceeds(c, "", "--tls-verify=false", "--policy", policy, "copy", "--sign-by", "personal@example.com", topDirDest+"/dir1", "atomic:localhost:5000/myns/personal:dirstaging")
@@ -1067,6 +1068,25 @@ func (s *CopySuite) TestCopyAtomicExtension(c *check.C) {
 	assertDirImagesAreEqual(c, filepath.Join(topDir, "dirDA"), filepath.Join(topDir, "dirDD"))
 }
 
+// copyWithSignedIdentity creates a copy of an unsigned image, adding a signature for an unrelated identity
+// This should be easier than using standalone-sign.
+func copyWithSignedIdentity(c *check.C, src, dest, signedIdentity, signBy, registriesDir string) {
+	topDir, err := ioutil.TempDir("", "copyWithSignedIdentity")
+	c.Assert(err, check.IsNil)
+	defer os.RemoveAll(topDir)
+
+	signingDir := filepath.Join(topDir, "signing-temp")
+	assertSkopeoSucceeds(c, "", "copy", "--src-tls-verify=false", src, "dir:"+signingDir)
+	// Unknown error in Travis: https://github.com/containers/skopeo/issues/1093
+	//	c.Logf("%s", combinedOutputOfCommand(c, "ls", "-laR", signingDir))
+	assertSkopeoSucceeds(c, "^$", "standalone-sign", "-o", filepath.Join(signingDir, "signature-1"),
+		filepath.Join(signingDir, "manifest.json"), signedIdentity, signBy)
+	// Unknown error in Travis: https://github.com/containers/skopeo/issues/1093
+	//	c.Logf("%s", combinedOutputOfCommand(c, "ls", "-laR", signingDir))
+	assertSkopeoSucceeds(c, "", "--registries.d", registriesDir, "copy", "--dest-tls-verify=false", "dir:"+signingDir, dest)
+}
+
+// Both mirroring support in registries.conf, and mirrored remapIdentity support in policy.json
 func (s *CopySuite) TestCopyVerifyingMirroredSignatures(c *check.C) {
 	const regPrefix = "docker://localhost:5006/myns/mirroring-"
 
@@ -1077,7 +1097,7 @@ func (s *CopySuite) TestCopyVerifyingMirroredSignatures(c *check.C) {
 		c.Skip(fmt.Sprintf("Signing not supported: %v", err))
 	}
 
-	topDir, err := ioutil.TempDir("", "mirrored-signatures") // FIXME: Will this be used?
+	topDir, err := ioutil.TempDir("", "mirrored-signatures")
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(topDir)
 	registriesDir := filepath.Join(topDir, "registries.d") // An empty directory to disable sigstore use
@@ -1111,16 +1131,10 @@ func (s *CopySuite) TestCopyVerifyingMirroredSignatures(c *check.C) {
 	assertSkopeoFails(c, ".*Source image rejected: None of the signatures were accepted, reasons: Signature for identity localhost:5006/myns/mirroring-primary:direct is not accepted; Signature for identity localhost:5006/myns/mirroring-mirror:mirror-signed is not accepted.*",
 		"--policy", policy, "--registries.d", registriesDir, "--registries-conf", "fixtures/registries.conf", "copy", "--src-tls-verify=false", regPrefix+"primary:mirror-signed", dirDest)
 
-	// Create a signature for mirroring-primary:primary-signed without pushing there. This should be easier than using standalone-sign.
-	signingDir := filepath.Join(topDir, "signing-temp")
-	assertSkopeoSucceeds(c, "", "copy", "--src-tls-verify=false", regPrefix+"primary:unsigned", "dir:"+signingDir)
-	// Unknown error in Travis: https://github.com/containers/skopeo/issues/1093
-	//	c.Logf("%s", combinedOutputOfCommand(c, "ls", "-laR", signingDir))
-	assertSkopeoSucceeds(c, "^$", "standalone-sign", "-o", filepath.Join(signingDir, "signature-1"),
-		filepath.Join(signingDir, "manifest.json"), "localhost:5006/myns/mirroring-primary:primary-signed", "personal@example.com")
-	// Unknown error in Travis: https://github.com/containers/skopeo/issues/1093
-	//	c.Logf("%s", combinedOutputOfCommand(c, "ls", "-laR", signingDir))
-	assertSkopeoSucceeds(c, "", "--registries.d", registriesDir, "copy", "--dest-tls-verify=false", "dir:"+signingDir, regPrefix+"mirror:primary-signed")
+	// Create a signature for mirroring-primary:primary-signed without pushing there.
+	copyWithSignedIdentity(c, regPrefix+"primary:unsigned", regPrefix+"mirror:primary-signed",
+		"localhost:5006/myns/mirroring-primary:primary-signed", "personal@example.com",
+		registriesDir)
 	// Verify that a correctly signed image for the primary is accessible using the primary's reference
 	assertSkopeoSucceeds(c, "", "--policy", policy, "--registries.d", registriesDir, "--registries-conf", "fixtures/registries.conf", "copy", "--src-tls-verify=false", regPrefix+"primary:primary-signed", dirDest)
 	// … but verify that while it is accessible using the mirror location
@@ -1128,6 +1142,20 @@ func (s *CopySuite) TestCopyVerifyingMirroredSignatures(c *check.C) {
 	// … verify it is NOT accessible when requiring a signature.
 	assertSkopeoFails(c, ".*Source image rejected: None of the signatures were accepted, reasons: Signature for identity localhost:5006/myns/mirroring-primary:direct is not accepted; Signature for identity localhost:5006/myns/mirroring-mirror:mirror-signed is not accepted; Signature for identity localhost:5006/myns/mirroring-primary:primary-signed is not accepted.*",
 		"--policy", policy, "--registries.d", registriesDir, "--registries-conf", "fixtures/registries.conf", "copy", "--src-tls-verify=false", regPrefix+"mirror:primary-signed", dirDest)
+
+	assertSkopeoSucceeds(c, "", "--registries.d", registriesDir, "--registries-conf", "fixtures/registries.conf", "copy", "--src-tls-verify=false", "--dest-tls-verify=false", regPrefix+"primary:unsigned", regPrefix+"remap:remapped")
+	// Verify that while a remapIdentity image is accessible using the remapped (mirror) location
+	assertSkopeoSucceeds(c, "" /* no --policy */, "--registries.d", registriesDir, "--registries-conf", "fixtures/registries.conf", "copy", "--src-tls-verify=false", regPrefix+"remap:remapped", dirDest)
+	// … it is NOT accessible when requiring a signature …
+	assertSkopeoFails(c, ".*Source image rejected: None of the signatures were accepted, reasons: Signature for identity localhost:5006/myns/mirroring-primary:direct is not accepted; Signature for identity localhost:5006/myns/mirroring-mirror:mirror-signed is not accepted; Signature for identity localhost:5006/myns/mirroring-primary:primary-signed is not accepted.*", "--policy", policy, "--registries.d", registriesDir, "--registries-conf", "fixtures/registries.conf", "copy", "--src-tls-verify=false", regPrefix+"remap:remapped", dirDest)
+	// … until signed.
+	copyWithSignedIdentity(c, regPrefix+"remap:remapped", regPrefix+"remap:remapped",
+		"localhost:5006/myns/mirroring-primary:remapped", "personal@example.com",
+		registriesDir)
+	assertSkopeoSucceeds(c, "", "--policy", policy, "--registries.d", registriesDir, "--registries-conf", "fixtures/registries.conf", "copy", "--src-tls-verify=false", regPrefix+"remap:remapped", dirDest)
+	// To be extra clear about the semantics, verify that the signedPrefix (primary) location never exists
+	// and only the remapped prefix (mirror) is accessed.
+	assertSkopeoFails(c, ".*Error initializing source docker://localhost:5006/myns/mirroring-primary:remapped:.*manifest unknown: manifest unknown.*", "--policy", policy, "--registries.d", registriesDir, "--registries-conf", "fixtures/registries.conf", "copy", "--src-tls-verify=false", regPrefix+"primary:remapped", dirDest)
 }
 
 func (s *SkopeoSuite) TestCopySrcWithAuth(c *check.C) {
@@ -1147,7 +1175,7 @@ func (s *SkopeoSuite) TestCopySrcAndDestWithAuth(c *check.C) {
 	assertSkopeoSucceeds(c, "", "--tls-verify=false", "copy", "--src-creds=testuser:testpassword", "--dest-creds=testuser:testpassword", fmt.Sprintf("docker://%s/busybox:latest", s.regV2WithAuth.url), fmt.Sprintf("docker://%s/test:auth", s.regV2WithAuth.url))
 }
 
-func (s *CopySuite) TestCopyNoPanicOnHTTPResponseWOTLSVerifyFalse(c *check.C) {
+func (s *CopySuite) TestCopyNoPanicOnHTTPResponseWithoutTLSVerifyFalse(c *check.C) {
 	const ourRegistry = "docker://" + v2DockerRegistryURL + "/"
 
 	// dir:test isn't created beforehand just because we already know this could

@@ -30,6 +30,7 @@ import (
 	digest "github.com/opencontainers/go-digest"
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -119,6 +120,30 @@ type ContainerBigDataStore interface {
 	// SetBigData stores a (potentially large) piece of data associated
 	// with this ID.
 	SetBigData(id, key string, data []byte) error
+}
+
+// A ROLayerBigDataStore wraps up how we store RO big-data associated with layers.
+type ROLayerBigDataStore interface {
+	// SetBigData stores a (potentially large) piece of data associated
+	// with this ID.
+	BigData(id, key string) (io.ReadCloser, error)
+
+	// BigDataNames() returns a list of the names of previously-stored pieces of
+	// data.
+	BigDataNames(id string) ([]string, error)
+}
+
+// A RWLayerBigDataStore wraps up how we store big-data associated with layers.
+type RWLayerBigDataStore interface {
+	// SetBigData stores a (potentially large) piece of data associated
+	// with this ID.
+	SetBigData(id, key string, data io.Reader) error
+}
+
+// A LayerBigDataStore wraps up how we store big-data associated with layers.
+type LayerBigDataStore interface {
+	ROLayerBigDataStore
+	RWLayerBigDataStore
 }
 
 // A FlaggableStore can have flags set and cleared on items which it manages.
@@ -384,6 +409,18 @@ type Store interface {
 	// allow ImagesByDigest to find images by their correct digests.
 	SetImageBigData(id, key string, data []byte, digestManifest func([]byte) (digest.Digest, error)) error
 
+	// ListLayerBigData retrieves a list of the (possibly large) chunks of
+	// named data associated with an layer.
+	ListLayerBigData(id string) ([]string, error)
+
+	// LayerBigData retrieves a (possibly large) chunk of named data
+	// associated with a layer.
+	LayerBigData(id, key string) (io.ReadCloser, error)
+
+	// SetLayerBigData stores a (possibly large) chunk of named data
+	// associated with a layer.
+	SetLayerBigData(id, key string, data io.Reader) error
+
 	// ImageSize computes the size of the image's layers and ancillary data.
 	ImageSize(id string) (int64, error)
 
@@ -562,6 +599,7 @@ type ContainerOptions struct {
 	LabelOpts []string
 	Flags     map[string]interface{}
 	MountOpts []string
+	Volatile  bool
 }
 
 type store struct {
@@ -1626,6 +1664,95 @@ func (s *store) ImageBigData(id, key string) ([]byte, error) {
 	return nil, errors.Wrapf(ErrImageUnknown, "error locating image with ID %q", id)
 }
 
+// ListLayerBigData retrieves a list of the (possibly large) chunks of
+// named data associated with an layer.
+func (s *store) ListLayerBigData(id string) ([]string, error) {
+	lstore, err := s.LayerStore()
+	if err != nil {
+		return nil, err
+	}
+	lstores, err := s.ROLayerStores()
+	if err != nil {
+		return nil, err
+	}
+	foundLayer := false
+	for _, s := range append([]ROLayerStore{lstore}, lstores...) {
+		store := s
+		store.RLock()
+		defer store.Unlock()
+		if modified, err := store.Modified(); modified || err != nil {
+			if err = store.Load(); err != nil {
+				return nil, err
+			}
+		}
+		data, err := store.BigDataNames(id)
+		if err == nil {
+			return data, nil
+		}
+		if store.Exists(id) {
+			foundLayer = true
+		}
+	}
+	if foundLayer {
+		return nil, errors.Wrapf(os.ErrNotExist, "error locating big data for layer with ID %q", id)
+	}
+	return nil, errors.Wrapf(ErrLayerUnknown, "error locating layer with ID %q", id)
+}
+
+// LayerBigData retrieves a (possibly large) chunk of named data
+// associated with a layer.
+func (s *store) LayerBigData(id, key string) (io.ReadCloser, error) {
+	lstore, err := s.LayerStore()
+	if err != nil {
+		return nil, err
+	}
+	lstores, err := s.ROLayerStores()
+	if err != nil {
+		return nil, err
+	}
+	foundLayer := false
+	for _, s := range append([]ROLayerStore{lstore}, lstores...) {
+		store := s
+		store.RLock()
+		defer store.Unlock()
+		if modified, err := store.Modified(); modified || err != nil {
+			if err = store.Load(); err != nil {
+				return nil, err
+			}
+		}
+		data, err := store.BigData(id, key)
+		if err == nil {
+			return data, nil
+		}
+		if store.Exists(id) {
+			foundLayer = true
+		}
+	}
+	if foundLayer {
+		return nil, errors.Wrapf(os.ErrNotExist, "error locating item named %q for layer with ID %q", key, id)
+	}
+	return nil, errors.Wrapf(ErrLayerUnknown, "error locating layer with ID %q", id)
+}
+
+// SetLayerBigData stores a (possibly large) chunk of named data
+// associated with a layer.
+func (s *store) SetLayerBigData(id, key string, data io.Reader) error {
+	store, err := s.LayerStore()
+	if err != nil {
+		return err
+	}
+
+	store.Lock()
+	defer store.Unlock()
+	if modified, err := store.Modified(); modified || err != nil {
+		if err = store.Load(); err != nil {
+			return nil
+		}
+	}
+
+	return store.SetBigData(id, key, data)
+}
+
 func (s *store) SetImageBigData(id, key string, data []byte, digestManifest func([]byte) (digest.Digest, error)) error {
 	ristore, err := s.ImageStore()
 	if err != nil {
@@ -2687,6 +2814,9 @@ func (s *store) Mount(id, mountLabel string) (string, error) {
 		options.UidMaps = container.UIDMap
 		options.GidMaps = container.GIDMap
 		options.Options = container.MountOpts()
+		if v, found := container.Flags["Volatile"]; found {
+			options.Volatile = v.(bool)
+		}
 	}
 	return s.mount(id, options)
 }
@@ -3521,11 +3651,15 @@ func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) {
 		fmt.Printf("Failed to parse %s %v\n", configFile, err.Error())
 		return
 	}
-	if os.Getenv("STORAGE_DRIVER") != "" {
-		config.Storage.Driver = os.Getenv("STORAGE_DRIVER")
-	}
 	if config.Storage.Driver != "" {
 		storeOptions.GraphDriverName = config.Storage.Driver
+	}
+	if os.Getenv("STORAGE_DRIVER") != "" {
+		config.Storage.Driver = os.Getenv("STORAGE_DRIVER")
+		storeOptions.GraphDriverName = config.Storage.Driver
+	}
+	if storeOptions.GraphDriverName == "" {
+		logrus.Errorf("The storage 'driver' option must be set in %s, guarantee proper operation.", configFile)
 	}
 	if config.Storage.RunRoot != "" {
 		storeOptions.RunRoot = config.Storage.RunRoot
@@ -3636,7 +3770,7 @@ func reloadConfigurationFileIfNeeded(configFile string, storeOptions *StoreOptio
 }
 
 func init() {
-	defaultStoreOptions.RunRoot = "/var/run/containers/storage"
+	defaultStoreOptions.RunRoot = "/run/containers/storage"
 	defaultStoreOptions.GraphRoot = "/var/lib/containers/storage"
 	defaultStoreOptions.GraphDriverName = ""
 

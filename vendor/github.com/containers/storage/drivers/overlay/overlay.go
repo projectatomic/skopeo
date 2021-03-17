@@ -28,6 +28,7 @@ import (
 	"github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/parsers"
 	"github.com/containers/storage/pkg/system"
+	"github.com/containers/storage/pkg/unshare"
 	units "github.com/docker/go-units"
 	rsystem "github.com/opencontainers/runc/libcontainer/system"
 	"github.com/opencontainers/selinux/go-selinux/label"
@@ -98,18 +99,19 @@ type overlayOptions struct {
 
 // Driver contains information about the home directory and the list of active mounts that are created using this driver.
 type Driver struct {
-	name          string
-	home          string
-	runhome       string
-	uidMaps       []idtools.IDMap
-	gidMaps       []idtools.IDMap
-	ctr           *graphdriver.RefCounter
-	quotaCtl      *quota.Control
-	options       overlayOptions
-	naiveDiff     graphdriver.DiffDriver
-	supportsDType bool
-	usingMetacopy bool
-	locker        *locker.Locker
+	name             string
+	home             string
+	runhome          string
+	uidMaps          []idtools.IDMap
+	gidMaps          []idtools.IDMap
+	ctr              *graphdriver.RefCounter
+	quotaCtl         *quota.Control
+	options          overlayOptions
+	naiveDiff        graphdriver.DiffDriver
+	supportsDType    bool
+	supportsVolatile bool
+	usingMetacopy    bool
+	locker           *locker.Locker
 }
 
 var (
@@ -123,6 +125,51 @@ var (
 func init() {
 	graphdriver.Register("overlay", Init)
 	graphdriver.Register("overlay2", Init)
+}
+
+func hasMetacopyOption(opts []string) bool {
+	for _, s := range opts {
+		if s == "metacopy=on" {
+			return true
+		}
+	}
+	return false
+}
+
+func hasVolatileOption(opts []string) bool {
+	for _, s := range opts {
+		if s == "volatile" {
+			return true
+		}
+	}
+	return false
+}
+
+func checkSupportVolatile(home, runhome string) (bool, error) {
+	feature := fmt.Sprintf("volatile")
+	volatileCacheResult, _, err := cachedFeatureCheck(runhome, feature)
+	var usingVolatile bool
+	if err == nil {
+		if volatileCacheResult {
+			logrus.Debugf("cached value indicated that volatile is being used")
+		} else {
+			logrus.Debugf("cached value indicated that volatile is not being used")
+		}
+		usingVolatile = volatileCacheResult
+	} else {
+		usingVolatile, err = doesVolatile(home)
+		if err == nil {
+			if usingVolatile {
+				logrus.Debugf("overlay test mount indicated that volatile is being used")
+			} else {
+				logrus.Debugf("overlay test mount indicated that volatile is not being used")
+			}
+			if err = cachedFeatureRecord(runhome, feature, usingVolatile, ""); err != nil {
+				return false, errors.Wrap(err, "error recording volatile-being-used status")
+			}
+		}
+	}
+	return usingVolatile, nil
 }
 
 // Init returns the a native diff driver for overlay filesystem.
@@ -169,8 +216,10 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 
 	var usingMetacopy bool
 	var supportsDType bool
+	var supportsVolatile bool
 	if opts.mountProgram != "" {
 		supportsDType = true
+		supportsVolatile = true
 	} else {
 		feature := "overlay"
 		overlayCacheResult, overlayCacheText, err := cachedFeatureCheck(runhome, feature)
@@ -229,6 +278,10 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 				return nil, err
 			}
 		}
+		supportsVolatile, err = checkSupportVolatile(home, runhome)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if !opts.skipMountHome {
@@ -243,16 +296,17 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 	}
 
 	d := &Driver{
-		name:          "overlay",
-		home:          home,
-		runhome:       runhome,
-		uidMaps:       options.UIDMaps,
-		gidMaps:       options.GIDMaps,
-		ctr:           graphdriver.NewRefCounter(graphdriver.NewFsChecker(fileSystemType)),
-		supportsDType: supportsDType,
-		usingMetacopy: usingMetacopy,
-		locker:        locker.New(),
-		options:       *opts,
+		name:             "overlay",
+		home:             home,
+		runhome:          runhome,
+		uidMaps:          options.UIDMaps,
+		gidMaps:          options.GIDMaps,
+		ctr:              graphdriver.NewRefCounter(graphdriver.NewFsChecker(fileSystemType)),
+		supportsDType:    supportsDType,
+		usingMetacopy:    usingMetacopy,
+		supportsVolatile: supportsVolatile,
+		locker:           locker.New(),
+		options:          *opts,
 	}
 
 	d.naiveDiff = graphdriver.NewNaiveDiffDriver(d, graphdriver.NewNaiveLayerIDMapUpdater(d))
@@ -521,6 +575,18 @@ func (d *Driver) Metadata(id string) (map[string]string, error) {
 	return metadata, nil
 }
 
+// ReadWriteDiskUsage returns the disk usage of the writable directory for the ID.
+// For Overlay, it attempts to check the XFS quota for size, and falls back to
+// finding the size of the "diff" directory.
+func (d *Driver) ReadWriteDiskUsage(id string) (*directory.DiskUsage, error) {
+	usage := &directory.DiskUsage{}
+	if d.quotaCtl != nil {
+		err := d.quotaCtl.GetDiskUsage(d.dir(id), usage)
+		return usage, err
+	}
+	return directory.Usage(path.Join(d.dir(id), "diff"))
+}
+
 // Cleanup any state created by overlay which should be cleaned when daemon
 // is being shutdown. For now, we just have to unmount the bind mounted
 // we had created.
@@ -612,17 +678,22 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 		}
 	}()
 
-	if opts != nil && len(opts.StorageOpt) > 0 {
-		driver := &Driver{}
-		if err := d.parseStorageOpt(opts.StorageOpt, driver); err != nil {
-			return err
-		}
-
-		if driver.options.quota.Size > 0 {
-			// Set container disk quota limit
-			if err := d.quotaCtl.SetQuota(dir, driver.options.quota); err != nil {
+	if d.quotaCtl != nil {
+		quota := quota.Quota{}
+		if opts != nil && len(opts.StorageOpt) > 0 {
+			driver := &Driver{}
+			if err := d.parseStorageOpt(opts.StorageOpt, driver); err != nil {
 				return err
 			}
+			if driver.options.quota.Size > 0 {
+				quota.Size = driver.options.quota.Size
+			}
+
+		}
+		// Set container disk quota limit
+		// If it is set to 0, we will track the disk usage, but not enforce a limit
+		if err := d.quotaCtl.SetQuota(dir, quota); err != nil {
+			return err
 		}
 	}
 
@@ -741,8 +812,22 @@ func (d *Driver) getLowerDirs(id string) ([]string, error) {
 		for _, s := range strings.Split(string(lowers), ":") {
 			lower := d.dir(s)
 			lp, err := os.Readlink(lower)
+			// if the link does not exist, we lost the symlinks during a sudden reboot.
+			// Let's go ahead and recreate those symlinks.
 			if err != nil {
-				return nil, err
+				if os.IsNotExist(err) {
+					logrus.Warnf("Can't read link %q because it does not exist. Going through storage to recreate the missing symlinks.", lower)
+					if err := d.recreateSymlinks(); err != nil {
+						return nil, fmt.Errorf("error recreating the missing symlinks: %v", err)
+					}
+					// let's call Readlink on lower again now that we have recreated the missing symlinks
+					lp, err = os.Readlink(lower)
+					if err != nil {
+						return nil, err
+					}
+				} else {
+					return nil, err
+				}
 			}
 			lowersArray = append(lowersArray, path.Clean(d.dir(path.Join("link", lp))))
 		}
@@ -761,19 +846,29 @@ func (d *Driver) optsAppendMappings(opts string, uidMaps, gidMaps []idtools.IDMa
 	}
 	if uidMaps != nil {
 		var uids, gids bytes.Buffer
-		for _, i := range uidMaps {
-			if uids.Len() > 0 {
-				uids.WriteString(":")
+		if len(uidMaps) == 1 && uidMaps[0].Size == 1 {
+			uids.WriteString(fmt.Sprintf("squash_to_uid=%d", uidMaps[0].HostID))
+		} else {
+			uids.WriteString("uidmapping=")
+			for _, i := range uidMaps {
+				if uids.Len() > 0 {
+					uids.WriteString(":")
+				}
+				uids.WriteString(fmt.Sprintf("%d:%d:%d", i.ContainerID, i.HostID, i.Size))
 			}
-			uids.WriteString(fmt.Sprintf("%d:%d:%d", i.ContainerID, i.HostID, i.Size))
 		}
-		for _, i := range gidMaps {
-			if gids.Len() > 0 {
-				gids.WriteString(":")
+		if len(gidMaps) == 1 && gidMaps[0].Size == 1 {
+			gids.WriteString(fmt.Sprintf("squash_to_gid=%d", gidMaps[0].HostID))
+		} else {
+			gids.WriteString("gidmapping=")
+			for _, i := range gidMaps {
+				if gids.Len() > 0 {
+					gids.WriteString(":")
+				}
+				gids.WriteString(fmt.Sprintf("%d:%d:%d", i.ContainerID, i.HostID, i.Size))
 			}
-			gids.WriteString(fmt.Sprintf("%d:%d:%d", i.ContainerID, i.HostID, i.Size))
 		}
-		return fmt.Sprintf("%s,uidmapping=%s,gidmapping=%s", opts, uids.String(), gids.String())
+		return fmt.Sprintf("%s,%s,%s", opts, uids.String(), gids.String())
 	}
 	return opts
 }
@@ -853,7 +948,21 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 	}
 	readWrite := true
 
-	for _, o := range options.Options {
+	optsList := options.Options
+	if len(optsList) == 0 {
+		optsList = strings.Split(d.options.mountOptions, ",")
+	} else {
+		// If metacopy=on is present in d.options.mountOptions it must be present in the mount
+		// options otherwise the kernel refuses to follow the metacopy xattr.
+		if hasMetacopyOption(strings.Split(d.options.mountOptions, ",")) && !hasMetacopyOption(options.Options) {
+			if d.usingMetacopy {
+				optsList = append(optsList, "metacopy=on")
+			} else {
+				logrus.Warnf("ignoring metacopy option from storage.conf, not supported with booted kernel")
+			}
+		}
+	}
+	for _, o := range optsList {
 		if o == "ro" {
 			readWrite = false
 			break
@@ -991,11 +1100,25 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 	} else {
 		opts = fmt.Sprintf("lowerdir=%s:%s", diffDir, strings.Join(absLowers, ":"))
 	}
-	if len(options.Options) > 0 {
-		opts = fmt.Sprintf("%s,%s", strings.Join(options.Options, ","), opts)
-	} else if d.options.mountOptions != "" {
-		opts = fmt.Sprintf("%s,%s", d.options.mountOptions, opts)
+	if len(optsList) > 0 {
+		opts = fmt.Sprintf("%s,%s", strings.Join(optsList, ","), opts)
 	}
+
+	if d.options.mountProgram == "" && unshare.IsRootless() {
+		opts = fmt.Sprintf("%s,userxattr", opts)
+	}
+
+	// overlay has a check in place to prevent mounting the same file system twice
+	// if volatile was already specified.
+	err = os.RemoveAll(filepath.Join(dir, "work", "incompat/volatile"))
+	if err != nil && !os.IsNotExist(err) {
+		return "", err
+	}
+	// If "volatile" is not supported by the file system, just ignore the request
+	if d.supportsVolatile && options.Volatile && !hasVolatileOption(strings.Split(opts, ",")) {
+		opts = fmt.Sprintf("%s,volatile", opts)
+	}
+
 	mountData := label.FormatMountLabel(opts, options.MountLabel)
 	mountFunc := unix.Mount
 	mountTarget := mergedDir
@@ -1211,6 +1334,7 @@ func (d *Driver) DiffSize(id string, idMappings *idtools.IDMappings, parent stri
 	if d.useNaiveDiff() || !d.isParent(id, parent) {
 		return d.naiveDiff.DiffSize(id, idMappings, parent, parentMappings, mountLabel)
 	}
+
 	return directory.Size(d.getDiffPath(id))
 }
 

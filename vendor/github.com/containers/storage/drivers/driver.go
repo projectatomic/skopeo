@@ -12,6 +12,7 @@ import (
 	"github.com/vbatts/tar-split/tar/storage"
 
 	"github.com/containers/storage/pkg/archive"
+	"github.com/containers/storage/pkg/directory"
 	"github.com/containers/storage/pkg/idtools"
 )
 
@@ -52,6 +53,10 @@ type MountOpts struct {
 	UidMaps []idtools.IDMap // nolint: golint
 	GidMaps []idtools.IDMap // nolint: golint
 	Options []string
+
+	// Volatile specifies whether the container storage can be optimized
+	// at the cost of not syncing all the dirty files in memory.
+	Volatile bool
 }
 
 // ApplyDiffOpts contains optional arguments for ApplyDiff methods.
@@ -105,6 +110,8 @@ type ProtoDriver interface {
 	// Returns a set of key-value pairs which give low level information
 	// about the image/container driver is managing.
 	Metadata(id string) (map[string]string, error)
+	// ReadWriteDiskUsage returns the disk usage of the writable directory for the specified ID.
+	ReadWriteDiskUsage(id string) (*directory.DiskUsage, error)
 	// Cleanup performs necessary tasks to release resources
 	// held by the driver, e.g., unmounting all layered filesystems
 	// known to this driver.

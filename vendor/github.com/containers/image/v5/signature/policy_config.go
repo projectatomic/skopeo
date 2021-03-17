@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/containers/image/v5/docker/reference"
 	"github.com/containers/image/v5/transports"
@@ -29,7 +30,7 @@ import (
 
 // systemDefaultPolicyPath is the policy path used for DefaultPolicy().
 // You can override this at build time with
-// -ldflags '-X github.com/containers/image/signature.systemDefaultPolicyPath=$your_path'
+// -ldflags '-X github.com/containers/image/v5/signature.systemDefaultPolicyPath=$your_path'
 var systemDefaultPolicyPath = builtinDefaultPolicyPath
 
 // builtinDefaultPolicyPath is the policy path used for DefaultPolicy().
@@ -58,10 +59,16 @@ func DefaultPolicy(sys *types.SystemContext) (*Policy, error) {
 
 // defaultPolicyPath returns a path to the default policy of the system.
 func defaultPolicyPath(sys *types.SystemContext) string {
+	return defaultPolicyPathWithHomeDir(sys, homedir.Get())
+}
+
+// defaultPolicyPathWithHomeDir is an internal implementation detail of defaultPolicyPath,
+// it exists only to allow testing it with an artificial home directory.
+func defaultPolicyPathWithHomeDir(sys *types.SystemContext, homeDir string) string {
 	if sys != nil && sys.SignaturePolicyPath != "" {
 		return sys.SignaturePolicyPath
 	}
-	userPolicyFilePath := filepath.Join(homedir.Get(), userPolicyFile)
+	userPolicyFilePath := filepath.Join(homeDir, userPolicyFile)
 	if _, err := os.Stat(userPolicyFilePath); err == nil {
 		return userPolicyFilePath
 	}
@@ -507,6 +514,8 @@ func newPolicyReferenceMatchFromJSON(data []byte) (PolicyReferenceMatch, error) 
 		res = &prmExactReference{}
 	case prmTypeExactRepository:
 		res = &prmExactRepository{}
+	case prmTypeRemapIdentity:
+		res = &prmRemapIdentity{}
 	default:
 		return nil, InvalidPolicyFormatError(fmt.Sprintf("Unknown policy reference match type \"%s\"", typeField.Type))
 	}
@@ -687,6 +696,79 @@ func (prm *prmExactRepository) UnmarshalJSON(data []byte) error {
 	}
 
 	res, err := newPRMExactRepository(tmp.DockerRepository)
+	if err != nil {
+		return err
+	}
+	*prm = *res
+	return nil
+}
+
+// Private objects for validateIdentityRemappingPrefix
+var (
+	// remapIdentityDomainRegexp matches exactly a reference domain (name[:port])
+	remapIdentityDomainRegexp = regexp.MustCompile("^" + reference.DomainRegexp.String() + "$")
+	// remapIdentityDomainPrefixRegexp matches a reference that starts with a domain;
+	// we need this because reference.NameRegexp accepts short names with docker.io implied.
+	remapIdentityDomainPrefixRegexp = regexp.MustCompile("^" + reference.DomainRegexp.String() + "/")
+	// remapIdentityNameRegexp matches exactly a reference.Named name (possibly unnormalized)
+	remapIdentityNameRegexp = regexp.MustCompile("^" + reference.NameRegexp.String() + "$")
+)
+
+// validateIdentityRemappingPrefix returns an InvalidPolicyFormatError if s is detected to be invalid
+// for the Prefix or SignedPrefix values of prmRemapIdentity.
+// Note that it may not recognize _all_ invalid values.
+func validateIdentityRemappingPrefix(s string) error {
+	if remapIdentityDomainRegexp.MatchString(s) ||
+		(remapIdentityNameRegexp.MatchString(s) && remapIdentityDomainPrefixRegexp.MatchString(s)) {
+		// FIXME? This does not reject "shortname" nor "ns/shortname", because docker/reference
+		// does not provide an API for the short vs. long name logic.
+		// It will either not match, or fail in the ParseNamed call of
+		// prmRemapIdentity.remapReferencePrefix when trying to use such a prefix.
+		return nil
+	}
+	return InvalidPolicyFormatError(fmt.Sprintf("prefix %q is not valid", s))
+}
+
+// newPRMRemapIdentity is NewPRMRemapIdentity, except it returns the private type.
+func newPRMRemapIdentity(prefix, signedPrefix string) (*prmRemapIdentity, error) {
+	if err := validateIdentityRemappingPrefix(prefix); err != nil {
+		return nil, err
+	}
+	if err := validateIdentityRemappingPrefix(signedPrefix); err != nil {
+		return nil, err
+	}
+	return &prmRemapIdentity{
+		prmCommon:    prmCommon{Type: prmTypeRemapIdentity},
+		Prefix:       prefix,
+		SignedPrefix: signedPrefix,
+	}, nil
+}
+
+// NewPRMRemapIdentity returns a new "remapIdentity" PolicyRepositoryMatch.
+func NewPRMRemapIdentity(prefix, signedPrefix string) (PolicyReferenceMatch, error) {
+	return newPRMRemapIdentity(prefix, signedPrefix)
+}
+
+// Compile-time check that prmRemapIdentity implements json.Unmarshaler.
+var _ json.Unmarshaler = (*prmRemapIdentity)(nil)
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (prm *prmRemapIdentity) UnmarshalJSON(data []byte) error {
+	*prm = prmRemapIdentity{}
+	var tmp prmRemapIdentity
+	if err := paranoidUnmarshalJSONObjectExactFields(data, map[string]interface{}{
+		"type":         &tmp.Type,
+		"prefix":       &tmp.Prefix,
+		"signedPrefix": &tmp.SignedPrefix,
+	}); err != nil {
+		return err
+	}
+
+	if tmp.Type != prmTypeRemapIdentity {
+		return InvalidPolicyFormatError(fmt.Sprintf("Unexpected policy requirement type \"%s\"", tmp.Type))
+	}
+
+	res, err := newPRMRemapIdentity(tmp.Prefix, tmp.SignedPrefix)
 	if err != nil {
 		return err
 	}

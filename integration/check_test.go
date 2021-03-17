@@ -102,7 +102,7 @@ func (s *SkopeoSuite) TestCopyWithLocalAuth(c *check.C) {
 	// copy to private registry using local authentication
 	imageName := fmt.Sprintf("docker://%s/busybox:mine", s.regV2WithAuth.url)
 	assertSkopeoSucceeds(c, "", "copy", "--dest-tls-verify=false", "docker://docker.io/library/busybox:latest", imageName)
-	// inspec from private registry
+	// inspect from private registry
 	assertSkopeoSucceeds(c, "", "inspect", "--tls-verify=false", imageName)
 	// logout from the registry
 	wanted = fmt.Sprintf("^Removed login credentials for %s\n$", s.regV2WithAuth.url)

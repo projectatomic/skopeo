@@ -58,8 +58,8 @@ func TestStandaloneSign(t *testing.T) {
 
 	// Error reading manifest
 	out, err := runSkopeo("standalone-sign", "-o", "/dev/null",
-		"/this/doesnt/exist", dockerReference, fixturesTestKeyFingerprint)
-	assertTestFailed(t, out, err, "/this/doesnt/exist")
+		"/this/does/not/exist", dockerReference, fixturesTestKeyFingerprint)
+	assertTestFailed(t, out, err, "/this/does/not/exist")
 
 	// Invalid Docker reference
 	out, err = runSkopeo("standalone-sign", "-o", "/dev/null",
@@ -117,14 +117,14 @@ func TestStandaloneVerify(t *testing.T) {
 	}
 
 	// Error reading manifest
-	out, err := runSkopeo("standalone-verify", "/this/doesnt/exist",
+	out, err := runSkopeo("standalone-verify", "/this/does/not/exist",
 		dockerReference, fixturesTestKeyFingerprint, signaturePath)
-	assertTestFailed(t, out, err, "/this/doesnt/exist")
+	assertTestFailed(t, out, err, "/this/does/not/exist")
 
 	// Error reading signature
 	out, err = runSkopeo("standalone-verify", manifestPath,
-		dockerReference, fixturesTestKeyFingerprint, "/this/doesnt/exist")
-	assertTestFailed(t, out, err, "/this/doesnt/exist")
+		dockerReference, fixturesTestKeyFingerprint, "/this/does/not/exist")
+	assertTestFailed(t, out, err, "/this/does/not/exist")
 
 	// Error verifying signature
 	out, err = runSkopeo("standalone-verify", manifestPath,
@@ -151,8 +151,8 @@ func TestUntrustedSignatureDump(t *testing.T) {
 
 	// Error reading manifest
 	out, err := runSkopeo("untrusted-signature-dump-without-verification",
-		"/this/doesnt/exist")
-	assertTestFailed(t, out, err, "/this/doesnt/exist")
+		"/this/does/not/exist")
+	assertTestFailed(t, out, err, "/this/does/not/exist")
 
 	// Error reading signature (input is not a signature)
 	out, err = runSkopeo("untrusted-signature-dump-without-verification", "fixtures/image.manifest.json")

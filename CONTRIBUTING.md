@@ -142,7 +142,7 @@ When new PRs for [containers/image](https://github.com/containers/image) break `
 - as soon as possible after that, in the skopeo PR, restore the `containers/image` line in `vendor.conf` to use `containers/image:master`
 - run `make vendor`
 - update the skopeo PR with the result, drop the “DO NOT MERGE” marking
-- after tests complete succcesfully again, merge the skopeo PR
+- after tests complete successfully again, merge the skopeo PR
 
 ## Communications
 

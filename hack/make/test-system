@@ -12,7 +12,7 @@ sed -i \
 
 # Build skopeo, install into /usr/bin
 make bin/skopeo ${BUILDTAGS:+BUILDTAGS="$BUILDTAGS"}
-make install
+make PREFIX=/usr install
 
 # Run tests
 SKOPEO_BINARY=/usr/bin/skopeo bats --tap systemtest

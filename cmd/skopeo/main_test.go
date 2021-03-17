@@ -23,7 +23,10 @@ func TestGlobalOptionsNewSystemContext(t *testing.T) {
 	// Default state
 	opts, _ := fakeGlobalOptions(t, []string{})
 	res := opts.newSystemContext()
-	assert.Equal(t, &types.SystemContext{}, res)
+	assert.Equal(t, &types.SystemContext{
+		// User-Agent is set by default.
+		DockerRegistryUserAgent: defaultUserAgent,
+	}, res)
 	// Set everything to non-default values.
 	opts, _ = fakeGlobalOptions(t, []string{
 		"--registries.d", "/srv/registries.d",
@@ -43,5 +46,6 @@ func TestGlobalOptionsNewSystemContext(t *testing.T) {
 		BigFilesTemporaryDir:        "/srv",
 		SystemRegistriesConfPath:    "/srv/registries.conf",
 		DockerInsecureSkipTLSVerify: types.OptionalBoolTrue,
+		DockerRegistryUserAgent:     defaultUserAgent,
 	}, res)
 }

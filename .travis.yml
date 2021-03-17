@@ -57,6 +57,7 @@ jobs:
       <<: *local-build
       name: local build for osx
       os: osx
+      osx_image: xcode11.3
       install:
         # Ideally, the (brew update) should not be necessary and Travis would have fairly
         # frequently updated OS images; that's not been the case historically.

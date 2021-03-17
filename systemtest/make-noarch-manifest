@@ -1,0 +1,70 @@
+#!/bin/sh
+#
+# Tool for creating an image whose OS and arch will (probably) never
+# match a system on which skopeo will run. This image will be used
+# in the 'inspect' test.
+#
+set -ex
+
+# Name and tag of the image we create
+imgname=notmyarch
+imgtag=$(date +%Y%m%d)
+
+# (In case older image exists from a prior run)
+buildah rmi $imgname:$imgtag &>/dev/null || true
+
+#
+# Step 1: create an image containing only a README and a copy of this script
+#
+id=$(buildah from scratch)
+
+now=$(date --rfc-3339=seconds)
+readme=$(mktemp -t README.XXXXXXXX)
+ME=$(basename $0)
+
+cat >| $readme <<EOF
+This is a dummy image intended solely for skopeo testing.
+
+This image was created $now
+
+The script used to create this image is available as $ME
+EOF
+
+buildah copy $id $readme /README
+buildah copy $id $0      /$ME
+
+buildah commit $id my_tmp_image
+buildah rm     $id
+
+#
+# Step 2: create a manifest list, then add the above image but with
+# an os+arch override.
+#
+buildah manifest create $imgname:$imgtag
+
+buildah manifest add \
+        --os amigaos \
+        --arch mc68000 \
+        --variant 1000 \
+        $imgname:$imgtag my_tmp_image
+
+# Done. Show instructions.
+cat <<EOF
+DONE!
+
+You can inspect the created image with:
+
+    skopeo inspect --raw containers-storage:localhost/$imgname:$imgtag | jq .
+
+(FIXME: is there a way to, like, mount the image and verify the files?)
+
+If you're happy with this image, you can now:
+
+    buildah manifest push --all $imgname:$imgtag docker://quay.io/libpod/$imgname:$imgtag
+
+Once done, you urgently need to:
+
+    buildah rmi $imgname:$imgtag  my_tmp_image
+
+If you don't do this, 'podman images' will barf catastrophically!
+EOF

@@ -1,27 +1,26 @@
 .PHONY: all binary build-container docs docs-in-container build-local clean install install-binary install-completions shell test-integration .install.vndr vendor vendor-in-container
 
 export GOPROXY=https://proxy.golang.org
+PREFIX ?= /usr/local
 
 ifeq ($(shell uname),Darwin)
-PREFIX ?= ${DESTDIR}/usr/local
 DARWIN_BUILD_TAG=
-# On macOS, (brew install gpgme) installs it within /usr/local, but /usr/local/include is not in the default search path.
-# Rather than hard-code this directory, use gpgme-config. Sadly that must be done at the top-level user
-# instead of locally in the gpgme subpackage, because cgo supports only pkg-config, not general shell scripts,
-# and gpgme does not install a pkg-config file.
+endif
+
+# On some plaforms (eg. macOS, FreeBSD) gpgme is installed in /usr/local/ but /usr/local/include/ is
+# not in the default search path. Rather than hard-code this directory, use gpgme-config.
+# Sadly that must be done at the top-level user instead of locally in the gpgme subpackage, because cgo 
+# supports only pkg-config, not general shell scripts, and gpgme does not install a pkg-config file.
 # If gpgme is not installed or gpgme-config can’t be found for other reasons, the error is silently ignored
 # (and the user will probably find out because the cgo compilation will fail).
 GPGME_ENV := CGO_CFLAGS="$(shell gpgme-config --cflags 2>/dev/null)" CGO_LDFLAGS="$(shell gpgme-config --libs 2>/dev/null)"
-else
-PREFIX ?= ${DESTDIR}/usr
-endif
 
-INSTALLDIR=${PREFIX}/bin
-MANINSTALLDIR=${PREFIX}/share/man
-CONTAINERSSYSCONFIGDIR=${DESTDIR}/etc/containers
-REGISTRIESDDIR=${CONTAINERSSYSCONFIGDIR}/registries.d
-SIGSTOREDIR=${DESTDIR}/var/lib/containers/sigstore
-BASHINSTALLDIR=${PREFIX}/share/bash-completion/completions
+CONTAINERSCONFDIR=/etc/containers
+REGISTRIESDDIR=${CONTAINERSCONFDIR}/registries.d
+SIGSTOREDIR=/var/lib/containers/sigstore
+BINDIR=${PREFIX}/bin
+MANDIR=${PREFIX}/share/man
+BASHCOMPLETIONSDIR=${PREFIX}/share/bash-completion/completions
 
 GO ?= go
 GOBIN := $(shell $(GO) env GOBIN)
@@ -32,6 +31,10 @@ ifeq ($(GOBIN),)
 GOBIN := $(GOPATH)/bin
 endif
 
+# Required for integration-tests to detect they are running inside a specific
+# container image.  Env. var defined in image, make does not automatically
+# pass to children unless explicitly exported
+export container_magic
 CONTAINER_RUNTIME := $(shell command -v podman 2> /dev/null || echo docker)
 GOMD2MAN ?= $(shell command -v go-md2man || echo '$(GOBIN)/go-md2man')
 
@@ -114,7 +117,7 @@ binary: cmd/skopeo
 # Update nix/nixpkgs.json its latest stable commit
 .PHONY: nixpkgs
 nixpkgs:
-	@nix run -f channel:nixos-20.03 nix-prefetch-git -c nix-prefetch-git \
+	@nix run -f channel:nixos-20.09 nix-prefetch-git -c nix-prefetch-git \
 		--no-deepClone https://github.com/nixos/nixpkgs > nix/nixpkgs.json
 
 # Build statically linked binary
@@ -149,23 +152,23 @@ clean:
 	rm -rf bin docs/*.1
 
 install: install-binary install-docs install-completions
-	install -d -m 755 ${SIGSTOREDIR}
-	install -d -m 755 ${CONTAINERSSYSCONFIGDIR}
-	install -m 644 default-policy.json ${CONTAINERSSYSCONFIGDIR}/policy.json
-	install -d -m 755 ${REGISTRIESDDIR}
-	install -m 644 default.yaml ${REGISTRIESDDIR}/default.yaml
+	install -d -m 755 ${DESTDIR}/${SIGSTOREDIR}
+	install -d -m 755 ${DESTDIR}/${CONTAINERSCONFIGDIR}
+	install -m 644 default-policy.json ${DESTDIR}/${CONTAINERSCONFIGDIR}/policy.json
+	install -d -m 755 ${DESTDIR}/${REGISTRIESDDIR}
+	install -m 644 default.yaml ${DESTDIR}/${REGISTRIESDDIR}/default.yaml
 
 install-binary: bin/skopeo
-	install -d -m 755 ${INSTALLDIR}
-	install -m 755 bin/skopeo ${INSTALLDIR}/skopeo
+	install -d -m 755 ${DESTDIR}/${BINDIR}
+	install -m 755 bin/skopeo ${DESTDIR}/${BINDIR}/skopeo
 
 install-docs: docs
-	install -d -m 755 ${MANINSTALLDIR}/man1
-	install -m 644 docs/*.1 ${MANINSTALLDIR}/man1/
+	install -d -m 755 ${DESTDIR}/${MANDIR}/man1
+	install -m 644 docs/*.1 ${DESTDIR}/${MANDIR}/man1
 
 install-completions:
-	install -m 755 -d ${BASHINSTALLDIR}
-	install -m 644 completions/bash/skopeo ${BASHINSTALLDIR}/skopeo
+	install -m 755 -d ${DESTDIR}/${BASHCOMPLETIONSDIR}
+	install -m 644 completions/bash/skopeo ${DESTDIR}/${BASHCOMPLETIONSDIR}/skopeo
 
 shell: build-container
 	$(CONTAINER_RUN) bash
@@ -174,7 +177,11 @@ check: validate test-unit test-integration test-system
 
 # The tests can run out of entropy and block in containers, so replace /dev/random.
 test-integration: build-container
-	$(CONTAINER_RUN) bash -c 'rm -f /dev/random; ln -sf /dev/urandom /dev/random; SKOPEO_CONTAINER_TESTS=1 BUILDTAGS="$(BUILDTAGS)" hack/make.sh test-integration'
+	$(CONTAINER_RUN) bash -c 'rm -f /dev/random; ln -sf /dev/urandom /dev/random; SKOPEO_CONTAINER_TESTS=1 BUILDTAGS="$(BUILDTAGS)" $(MAKE) test-integration-local'
+
+# Intended for CI, shortcut 'build-container' since already running inside container.
+test-integration-local:
+	hack/make.sh test-integration
 
 # complicated set of options needed to run podman-in-podman
 test-system: build-container
@@ -182,10 +189,14 @@ test-system: build-container
 	$(CONTAINER_CMD) --privileged \
 	    -v $$DTEMP:/var/lib/containers:Z -v /run/systemd/journal/socket:/run/systemd/journal/socket \
             "$(IMAGE)" \
-            bash -c 'BUILDTAGS="$(BUILDTAGS)" hack/make.sh test-system'; \
+            bash -c 'BUILDTAGS="$(BUILDTAGS)" $(MAKE) test-system-local'; \
 	rc=$$?; \
 	$(RM) -rf $$DTEMP; \
 	exit $$rc
+
+# Intended for CI, shortcut 'build-container' since already running inside container.
+test-system-local:
+	hack/make.sh test-system
 
 test-unit: build-container
 	# Just call (make test unit-local) here instead of worrying about environment differences

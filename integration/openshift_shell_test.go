@@ -19,7 +19,7 @@ to start a container, then within the container:
 	SKOPEO_CONTAINER_TESTS=1 PS1='nested> ' go test -tags openshift_shell -timeout=24h ./integration -v -check.v -check.vv -check.f='CopySuite.TestRunShell'
 
 An example of what can be done within the container:
-	cd ..; make bin/skopeo install
+	cd ..; make bin/skopeo PREFIX=/usr install
 	./skopeo --tls-verify=false  copy --sign-by=personal@example.com docker://busybox:latest atomic:localhost:5000/myns/personal:personal
 	oc get istag personal:personal -o json
 	curl -L -v 'http://localhost:5000/v2/'

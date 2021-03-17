@@ -37,7 +37,9 @@ func TestImageOptionsNewSystemContext(t *testing.T) {
 	opts := fakeImageOptions(t, "dest-", []string{}, []string{})
 	res, err := opts.newSystemContext()
 	require.NoError(t, err)
-	assert.Equal(t, &types.SystemContext{}, res)
+	assert.Equal(t, &types.SystemContext{
+		DockerRegistryUserAgent: defaultUserAgent,
+	}, res)
 
 	// Set everything to non-default values.
 	opts = fakeImageOptions(t, "dest-", []string{
@@ -72,6 +74,7 @@ func TestImageOptionsNewSystemContext(t *testing.T) {
 		DockerDaemonCertPath:              "/srv/cert-dir",
 		DockerDaemonHost:                  "daemon-host.example.com",
 		DockerDaemonInsecureSkipTLSVerify: true,
+		DockerRegistryUserAgent:           defaultUserAgent,
 		BigFilesTemporaryDir:              "/srv",
 	}, res)
 
@@ -129,7 +132,9 @@ func TestImageDestOptionsNewSystemContext(t *testing.T) {
 	opts := fakeImageDestOptions(t, "dest-", []string{}, []string{})
 	res, err := opts.newSystemContext()
 	require.NoError(t, err)
-	assert.Equal(t, &types.SystemContext{}, res)
+	assert.Equal(t, &types.SystemContext{
+		DockerRegistryUserAgent: defaultUserAgent,
+	}, res)
 
 	oldXRD, hasXRD := os.LookupEnv("REGISTRY_AUTH_FILE")
 	defer func() {
@@ -149,7 +154,10 @@ func TestImageDestOptionsNewSystemContext(t *testing.T) {
 	})
 	res, err = opts.newSystemContext()
 	require.NoError(t, err)
-	assert.Equal(t, &types.SystemContext{AuthFilePath: authFile}, res)
+	assert.Equal(t, &types.SystemContext{
+		AuthFilePath:            authFile,
+		DockerRegistryUserAgent: defaultUserAgent,
+	}, res)
 
 	// Set everything to non-default values.
 	opts = fakeImageDestOptions(t, "dest-", []string{
@@ -184,6 +192,7 @@ func TestImageDestOptionsNewSystemContext(t *testing.T) {
 		DockerDaemonCertPath:              "/srv/cert-dir",
 		DockerDaemonHost:                  "daemon-host.example.com",
 		DockerDaemonInsecureSkipTLSVerify: true,
+		DockerRegistryUserAgent:           defaultUserAgent,
 		DirForceCompress:                  true,
 		BigFilesTemporaryDir:              "/srv",
 	}, res)
@@ -233,7 +242,8 @@ func TestImageOptionsAuthfileOverride(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, &types.SystemContext{
-			AuthFilePath: testCase.expectedAuthfilePath,
+			AuthFilePath:            testCase.expectedAuthfilePath,
+			DockerRegistryUserAgent: defaultUserAgent,
 		}, res)
 	}
 }

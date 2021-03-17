@@ -196,7 +196,7 @@ _skopeo_logout() {
 }
 
 _skopeo_skopeo() {
-     # XXX: Changes here need to be refleceted in the manually expanded
+     # XXX: Changes here need to be reflected in the manually expanded
      # string in the `case` statement below as well.
      local options_with_args="
        --policy
@@ -230,7 +230,7 @@ _skopeo_skopeo() {
      )
 
      case "$prev" in
-         # XXX: Changes here need to be refleceted in $options_with_args as well.
+         # XXX: Changes here need to be reflected in $options_with_args as well.
          --policy|--registries.d|--override-arch|--override-os|--override-variant|--command-timeout)
              return
              ;;

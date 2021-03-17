@@ -179,7 +179,7 @@ This will copy the following images:
 For the registry `registry.example.com`, the "john"/"this is a secret" credentials are used, with server TLS certificates located at `/home/john/certs`.
 
 TLS verification is normally enabled, and it can be disabled setting `tls-verify` to `false`.
-In the above example, TLS verification is enabled for `reigstry.example.com`, while is
+In the above example, TLS verification is enabled for `registry.example.com`, while is
 disabled for `quay.io`.
 
 ## SEE ALSO

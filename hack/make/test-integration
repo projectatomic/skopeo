@@ -9,6 +9,6 @@ bundle_test_integration() {
 # subshell so that we can export PATH without breaking other things
 (
 	make bin/skopeo ${BUILDTAGS:+BUILDTAGS="$BUILDTAGS"}
-	make install
+	make PREFIX=/usr install
 	bundle_test_integration
 ) 2>&1
