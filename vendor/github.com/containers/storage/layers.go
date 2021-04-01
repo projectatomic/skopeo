@@ -247,6 +247,16 @@ type LayerStore interface {
 	// applies its changes to a specified layer.
 	ApplyDiff(to string, diff io.Reader) (int64, error)
 
+	// ApplyDiffWithDiffer applies the changes through the differ callback function.
+	// If to is the empty string, then a staging directory is created by the driver.
+	ApplyDiffWithDiffer(to string, options *drivers.ApplyDiffOpts, differ drivers.Differ) (*drivers.DriverWithDifferOutput, error)
+
+	// ApplyDiffFromStagingDirectory uses stagingDirectory to create the diff.
+	ApplyDiffFromStagingDirectory(id, stagingDirectory string, diffOutput *drivers.DriverWithDifferOutput, options *drivers.ApplyDiffOpts) error
+
+	// DifferTarget gets the location where files are stored for the layer.
+	DifferTarget(id string) (string, error)
+
 	// LoadLocked wraps Load in a locked state. This means it loads the store
 	// and cleans-up invalid layers if needed.
 	LoadLocked() error
@@ -1494,6 +1504,85 @@ func (r *layerStore) ApplyDiff(to string, diff io.Reader) (size int64, err error
 	err = r.Save()
 
 	return size, err
+}
+
+func (r *layerStore) DifferTarget(id string) (string, error) {
+	ddriver, ok := r.driver.(drivers.DriverWithDiffer)
+	if !ok {
+		return "", ErrNotSupported
+	}
+	layer, ok := r.lookup(id)
+	if !ok {
+		return "", ErrLayerUnknown
+	}
+	return ddriver.DifferTarget(layer.ID)
+}
+
+func (r *layerStore) ApplyDiffFromStagingDirectory(id, stagingDirectory string, diffOutput *drivers.DriverWithDifferOutput, options *drivers.ApplyDiffOpts) error {
+	ddriver, ok := r.driver.(drivers.DriverWithDiffer)
+	if !ok {
+		return ErrNotSupported
+	}
+	layer, ok := r.lookup(id)
+	if !ok {
+		return ErrLayerUnknown
+	}
+	if options == nil {
+		options = &drivers.ApplyDiffOpts{
+			Mappings:   r.layerMappings(layer),
+			MountLabel: layer.MountLabel,
+		}
+	}
+	err := ddriver.ApplyDiffFromStagingDirectory(layer.ID, layer.Parent, stagingDirectory, diffOutput, options)
+	if err != nil {
+		return err
+	}
+	layer.UIDs = diffOutput.UIDs
+	layer.GIDs = diffOutput.GIDs
+	layer.UncompressedDigest = diffOutput.UncompressedDigest
+	layer.UncompressedSize = diffOutput.Size
+	layer.Metadata = diffOutput.Metadata
+	if err = r.Save(); err != nil {
+		return err
+	}
+	for k, v := range diffOutput.BigData {
+		if err := r.SetBigData(id, k, bytes.NewReader(v)); err != nil {
+			r.Delete(id)
+			return err
+		}
+	}
+	return err
+}
+
+func (r *layerStore) ApplyDiffWithDiffer(to string, options *drivers.ApplyDiffOpts, differ drivers.Differ) (*drivers.DriverWithDifferOutput, error) {
+	ddriver, ok := r.driver.(drivers.DriverWithDiffer)
+	if !ok {
+		return nil, ErrNotSupported
+	}
+
+	if to == "" {
+		output, err := ddriver.ApplyDiffWithDiffer("", "", options, differ)
+		return &output, err
+	}
+
+	layer, ok := r.lookup(to)
+	if !ok {
+		return nil, ErrLayerUnknown
+	}
+	if options == nil {
+		options = &drivers.ApplyDiffOpts{
+			Mappings:   r.layerMappings(layer),
+			MountLabel: layer.MountLabel,
+		}
+	}
+	output, err := ddriver.ApplyDiffWithDiffer(layer.ID, layer.Parent, options, differ)
+	if err != nil {
+		return nil, err
+	}
+	layer.UIDs = output.UIDs
+	layer.GIDs = output.GIDs
+	err = r.Save()
+	return &output, err
 }
 
 func (r *layerStore) layersByDigestMap(m map[digest.Digest][]string, d digest.Digest) ([]Layer, error) {

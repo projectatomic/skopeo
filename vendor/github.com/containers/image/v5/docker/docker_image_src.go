@@ -251,6 +251,7 @@ func (s *dockerImageSource) getExternalBlob(ctx context.Context, urls []string) 
 			if resp.StatusCode != http.StatusOK {
 				err = errors.Errorf("error fetching external blob from %q: %d (%s)", url, resp.StatusCode, http.StatusText(resp.StatusCode))
 				logrus.Debug(err)
+				resp.Body.Close()
 				continue
 			}
 			break
@@ -275,6 +276,41 @@ func (s *dockerImageSource) HasThreadSafeGetBlob() bool {
 	return true
 }
 
+// GetBlobAt returns a stream for the specified blob.
+func (s *dockerImageSource) GetBlobAt(ctx context.Context, info types.BlobInfo, chunks []types.ImageSourceChunk) (io.ReadCloser, string, error) {
+	headers := make(map[string][]string)
+
+	var rangeVals []string
+	for _, c := range chunks {
+		rangeVals = append(rangeVals, fmt.Sprintf("%d-%d", c.Offset, c.Offset+c.Length-1))
+	}
+
+	headers["Range"] = []string{fmt.Sprintf("bytes=%s", strings.Join(rangeVals, ","))}
+
+	if len(info.URLs) != 0 {
+		return nil, "", fmt.Errorf("external URLs not supported with GetBlobAt")
+	}
+
+	path := fmt.Sprintf(blobsPath, reference.Path(s.physicalRef.ref), info.Digest.String())
+	logrus.Debugf("Downloading %s", path)
+	res, err := s.c.makeRequest(ctx, "GET", path, headers, nil, v2Auth, nil)
+	if err != nil {
+		return nil, "", err
+	}
+	if err := httpResponseToError(res, "Error fetching partial blob"); err != nil {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, "", err
+	}
+	if res.StatusCode != http.StatusPartialContent {
+		res.Body.Close()
+		return nil, "", errors.Errorf("Invalid status code returned when fetching blob %d (%s)", res.StatusCode, http.StatusText(res.StatusCode))
+	}
+
+	return res.Body, res.Header.Get("Content-Type"), nil
+}
+
 // GetBlob returns a stream for the specified blob, and the blob’s size (or -1 if unknown).
 // The Digest field in BlobInfo is guaranteed to be provided, Size may be -1 and MediaType may be optionally provided.
 // May update BlobInfoCache, preferably after it knows for certain that a blob truly exists at a specific location.
@@ -290,6 +326,7 @@ func (s *dockerImageSource) GetBlob(ctx context.Context, info types.BlobInfo, ca
 		return nil, 0, err
 	}
 	if err := httpResponseToError(res, "Error fetching blob"); err != nil {
+		res.Body.Close()
 		return nil, 0, err
 	}
 	cache.RecordKnownLocation(s.physicalRef.Transport(), bicTransportScope(s.physicalRef), info.Digest, newBICLocationReference(s.physicalRef))

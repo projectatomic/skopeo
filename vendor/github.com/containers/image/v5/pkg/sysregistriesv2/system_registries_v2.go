@@ -30,7 +30,7 @@ const builtinRegistriesConfPath = "/etc/containers/registries.conf"
 // systemRegistriesConfDirPath is the path to the system-wide registry
 // configuration directory and is used to add/subtract potential registries for
 // obtaining images.  You can override this at build time with
-// -ldflags '-X github.com/containers/image/v5/sysregistries.systemRegistriesConfDirecotyPath=$your_path'
+// -ldflags '-X github.com/containers/image/v5/sysregistries.systemRegistriesConfDirectoryPath=$your_path'
 var systemRegistriesConfDirPath = builtinRegistriesConfDirPath
 
 // builtinRegistriesConfDirPath is the path to the registry configuration directory.
@@ -177,7 +177,7 @@ func (config *V2RegistriesConf) Nonempty() bool {
 
 // parsedConfig is the result of parsing, and possibly merging, configuration files;
 // it is the boundary between the process of reading+ingesting the files, and
-// later interpreting the configuraiton based on caller’s requests.
+// later interpreting the configuration based on caller’s requests.
 type parsedConfig struct {
 	// NOTE: Update also parsedConfig.updateWithConfigurationFrom!
 
@@ -450,7 +450,7 @@ func newConfigWrapperWithHomeDir(ctx *types.SystemContext, homeDir string) confi
 	return wrapper
 }
 
-// ConfigurationSourceDescription returns a string containres paths of registries.conf and registries.conf.d
+// ConfigurationSourceDescription returns a string containers paths of registries.conf and registries.conf.d
 func ConfigurationSourceDescription(ctx *types.SystemContext) string {
 	wrapper := newConfigWrapper(ctx)
 	configSources := []string{wrapper.configPath}
