@@ -5,7 +5,7 @@ go 1.12
 require (
 	github.com/containers/common v0.34.0
 	github.com/containers/image/v5 v5.10.2-0.20210219165336-d21b4da7f368
-	github.com/containers/ocicrypt v1.1.0
+	github.com/containers/ocicrypt v1.1.1
 	github.com/containers/storage v1.26.0
 	github.com/docker/docker v17.12.0-ce-rc1.0.20201020191947-73dc6a680cdd+incompatible
 	github.com/dsnet/compress v0.0.2-0.20210315054119-f66993602bf5 // indirect
@@ -23,7 +23,6 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635
 	go4.org v0.0.0-20190218023631-ce4c26f7be8e // indirect
-	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools/v3 v3.0.3 // indirect
 )
