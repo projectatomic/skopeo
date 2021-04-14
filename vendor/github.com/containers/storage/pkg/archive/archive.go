@@ -9,7 +9,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -18,7 +17,6 @@ import (
 
 	"github.com/containers/storage/pkg/fileutils"
 	"github.com/containers/storage/pkg/idtools"
-	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/pools"
 	"github.com/containers/storage/pkg/promise"
 	"github.com/containers/storage/pkg/system"
@@ -26,6 +24,7 @@ import (
 	rsystem "github.com/opencontainers/runc/libcontainer/system"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/ulikunitz/xz"
 )
 
 type (
@@ -99,6 +98,12 @@ func NewDefaultArchiver() *Archiver {
 // in order for the test to pass.
 type breakoutError error
 
+// overwriteError is used to differentiate errors related to attempting to
+// overwrite a directory with a non-directory or vice-versa.  When testing
+// copying a file over a directory, this error is expected in order for the
+// test to pass.
+type overwriteError error
+
 const (
 	// Uncompressed represents the uncompressed.
 	Uncompressed Compression = iota
@@ -167,12 +172,6 @@ func DetectCompression(source []byte) Compression {
 	return Uncompressed
 }
 
-func xzDecompress(archive io.Reader) (io.ReadCloser, <-chan struct{}, error) {
-	args := []string{"xz", "-d", "-c", "-q"}
-
-	return cmdStream(exec.Command(args[0], args[1:]...), archive)
-}
-
 // DecompressStream decompresses the archive and returns a ReaderCloser with the decompressed archive.
 func DecompressStream(archive io.Reader) (io.ReadCloser, error) {
 	p := pools.BufioReader32KPool
@@ -205,15 +204,12 @@ func DecompressStream(archive io.Reader) (io.ReadCloser, error) {
 		readBufWrapper := p.NewReadCloserWrapper(buf, bz2Reader)
 		return readBufWrapper, nil
 	case Xz:
-		xzReader, chdone, err := xzDecompress(buf)
+		xzReader, err := xz.NewReader(buf)
 		if err != nil {
 			return nil, err
 		}
 		readBufWrapper := p.NewReadCloserWrapper(buf, xzReader)
-		return ioutils.NewReadCloserWrapper(readBufWrapper, func() error {
-			<-chdone
-			return readBufWrapper.Close()
-		}), nil
+		return readBufWrapper, nil
 	case Zstd:
 		return zstdReader(buf)
 	default:
@@ -437,9 +433,16 @@ func ReadUserXattrToTarHeader(path string, hdr *tar.Header) error {
 	return nil
 }
 
-type tarWhiteoutConverter interface {
+type TarWhiteoutHandler interface {
+	Setxattr(path, name string, value []byte) error
+	Mknod(path string, mode uint32, dev int) error
+	Chown(path string, uid, gid int) error
+}
+
+type TarWhiteoutConverter interface {
 	ConvertWrite(*tar.Header, string, os.FileInfo) (*tar.Header, error)
 	ConvertRead(*tar.Header, string) (bool, error)
+	ConvertReadWithHandler(*tar.Header, string, TarWhiteoutHandler) (bool, error)
 }
 
 type tarAppender struct {
@@ -455,7 +458,7 @@ type tarAppender struct {
 	// non standard format. The whiteout files defined
 	// by the AUFS standard are used as the tar whiteout
 	// standard.
-	WhiteoutConverter tarWhiteoutConverter
+	WhiteoutConverter TarWhiteoutConverter
 	// CopyPass indicates that the contents of any archive we're creating
 	// will instantly be extracted and written to disk, so we can deviate
 	// from the traditional behavior/format to get features like subsecond
@@ -792,7 +795,7 @@ func TarWithOptions(srcPath string, options *TarOptions) (io.ReadCloser, error) 
 			compressWriter,
 			options.ChownOpts,
 		)
-		ta.WhiteoutConverter = getWhiteoutConverter(options.WhiteoutFormat, options.WhiteoutData)
+		ta.WhiteoutConverter = GetWhiteoutConverter(options.WhiteoutFormat, options.WhiteoutData)
 		ta.CopyPass = options.CopyPass
 
 		defer func() {
@@ -952,11 +955,11 @@ func Unpack(decompressedArchive io.Reader, dest string, options *TarOptions) err
 	var dirs []*tar.Header
 	idMappings := idtools.NewIDMappingsFromMaps(options.UIDMaps, options.GIDMaps)
 	rootIDs := idMappings.RootPair()
-	whiteoutConverter := getWhiteoutConverter(options.WhiteoutFormat, options.WhiteoutData)
+	whiteoutConverter := GetWhiteoutConverter(options.WhiteoutFormat, options.WhiteoutData)
 	buffer := make([]byte, 1<<20)
 
 	if options.ForceMask != nil {
-		uid, gid, mode, err := getFileOwner(dest)
+		uid, gid, mode, err := GetFileOwner(dest)
 		if err == nil {
 			value := fmt.Sprintf("%d:%d:0%o", uid, gid, mode)
 			if err := system.Lsetxattr(dest, containersOverrideXattr, []byte(value), 0); err != nil {
@@ -1020,13 +1023,13 @@ loop:
 			if options.NoOverwriteDirNonDir && fi.IsDir() && hdr.Typeflag != tar.TypeDir {
 				// If NoOverwriteDirNonDir is true then we cannot replace
 				// an existing directory with a non-directory from the archive.
-				return fmt.Errorf("cannot overwrite directory %q with non-directory %q", path, dest)
+				return overwriteError(fmt.Errorf("cannot overwrite directory %q with non-directory %q", path, dest))
 			}
 
 			if options.NoOverwriteDirNonDir && !fi.IsDir() && hdr.Typeflag == tar.TypeDir {
 				// If NoOverwriteDirNonDir is true then we cannot replace
 				// an existing non-directory with a directory from the archive.
-				return fmt.Errorf("cannot overwrite non-directory %q with directory %q", path, dest)
+				return overwriteError(fmt.Errorf("cannot overwrite non-directory %q with directory %q", path, dest))
 			}
 
 			if fi.IsDir() && hdr.Name == "." {
@@ -1304,35 +1307,6 @@ func remapIDs(readIDMappings, writeIDMappings *idtools.IDMappings, chownOpts *id
 	}
 	hdr.Uid, hdr.Gid = ids.UID, ids.GID
 	return nil
-}
-
-// cmdStream executes a command, and returns its stdout as a stream.
-// If the command fails to run or doesn't complete successfully, an error
-// will be returned, including anything written on stderr.
-func cmdStream(cmd *exec.Cmd, input io.Reader) (io.ReadCloser, <-chan struct{}, error) {
-	chdone := make(chan struct{})
-	cmd.Stdin = input
-	pipeR, pipeW := io.Pipe()
-	cmd.Stdout = pipeW
-	var errBuf bytes.Buffer
-	cmd.Stderr = &errBuf
-
-	// Run the command and return the pipe
-	if err := cmd.Start(); err != nil {
-		return nil, nil, err
-	}
-
-	// Copy stdout to the returned pipe
-	go func() {
-		if err := cmd.Wait(); err != nil {
-			pipeW.CloseWithError(fmt.Errorf("%s: %s", err, errBuf.String()))
-		} else {
-			pipeW.Close()
-		}
-		close(chdone)
-	}()
-
-	return pipeR, chdone, nil
 }
 
 // NewTempArchive reads the content of src into a temporary file, and returns the contents

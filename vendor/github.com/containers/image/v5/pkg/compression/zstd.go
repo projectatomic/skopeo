@@ -1,6 +1,7 @@
 package compression
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/klauspost/compress/zstd"
@@ -8,9 +9,13 @@ import (
 
 type wrapperZstdDecoder struct {
 	decoder *zstd.Decoder
+	closed  bool
 }
 
 func (w *wrapperZstdDecoder) Close() error {
+	if w.closed {
+		return nil
+	}
 	w.decoder.Close()
 	return nil
 }
@@ -28,6 +33,9 @@ func (w *wrapperZstdDecoder) Reset(r io.Reader) error {
 }
 
 func (w *wrapperZstdDecoder) WriteTo(wr io.Writer) (int64, error) {
+	if w.closed {
+		return 0, fmt.Errorf("file closed")
+	}
 	return w.decoder.WriteTo(wr)
 }
 
@@ -40,13 +48,13 @@ func zstdWriter(dest io.Writer) (io.WriteCloser, error) {
 	return zstd.NewWriter(dest)
 }
 
-func zstdWriterWithLevel(dest io.Writer, level int) (io.WriteCloser, error) {
+func zstdWriterWithLevel(dest io.Writer, level int) (*zstd.Encoder, error) {
 	el := zstd.EncoderLevelFromZstd(level)
 	return zstd.NewWriter(dest, zstd.WithEncoderLevel(el))
 }
 
 // zstdCompressor is a CompressorFunc for the zstd compression algorithm.
-func zstdCompressor(r io.Writer, level *int) (io.WriteCloser, error) {
+func zstdCompressor(r io.Writer, metadata map[string]string, level *int) (io.WriteCloser, error) {
 	if level == nil {
 		return zstdWriter(r)
 	}
