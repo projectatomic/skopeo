@@ -156,8 +156,8 @@ clean:
 
 install: install-binary install-docs install-completions
 	install -d -m 755 ${DESTDIR}/${SIGSTOREDIR}
-	install -d -m 755 ${DESTDIR}/${CONTAINERSCONFIGDIR}
-	install -m 644 default-policy.json ${DESTDIR}/${CONTAINERSCONFIGDIR}/policy.json
+	install -d -m 755 ${DESTDIR}/${CONTAINERSCONFDIR}
+	install -m 644 default-policy.json ${DESTDIR}/${CONTAINERSCONFDIR}/policy.json
 	install -d -m 755 ${DESTDIR}/${REGISTRIESDDIR}
 	install -m 644 default.yaml ${DESTDIR}/${REGISTRIESDDIR}/default.yaml
 
