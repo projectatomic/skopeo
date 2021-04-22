@@ -6,7 +6,7 @@ require (
 	github.com/containers/common v0.36.0
 	github.com/containers/image/v5 v5.11.1
 	github.com/containers/ocicrypt v1.1.1
-	github.com/containers/storage v1.29.0
+	github.com/containers/storage v1.30.0
 	github.com/docker/docker v17.12.0-ce-rc1.0.20201020191947-73dc6a680cdd+incompatible
 	github.com/dsnet/compress v0.0.2-0.20210315054119-f66993602bf5 // indirect
 	github.com/go-check/check v0.0.0-20180628173108-788fd7840127
