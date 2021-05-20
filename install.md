@@ -159,7 +159,12 @@ brew install gpgme
 sudo zypper install libgpgme-devel device-mapper-devel libbtrfs-devel glib2-devel
 ```
 
-For newer versions of Go with modules support, after installing the above prereqs, you can build and install Skopeo using a simple `go get`:
+For newer versions of Go configured with modules support, after installing the
+above prereqs, you can build and install Skopeo using a simple `go
+get`.  (For more information about module support and related environment
+configuration in Go 1.16, see [New module changes in Go 1.16](https://blog.golang.org/go116-module-changes).  
+For earlier Go versions, see [Go Modules in 2019](https://blog.golang.org/modules2019) 
+and [Using Go modules](https://blog.golang.org/using-go-modules).)
 
 ```
 go get -v github.com/containers/skopeo/cmd/skopeo
