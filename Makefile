@@ -12,10 +12,10 @@ GPGME_ENV := CGO_CFLAGS="$(shell gpgme-config --cflags 2>/dev/null)" CGO_LDFLAGS
 
 # Normally empty, DESTDIR can be used to relocate the entire install-tree
 DESTDIR ?=
-CONTAINERSCONFDIR ?= ${DESTDIR}/etc/containers
+PREFIX ?= ${DESTDIR}/usr/local
+CONTAINERSCONFDIR ?= ${PREFIX}/etc/containers
 REGISTRIESDDIR ?= ${CONTAINERSCONFDIR}/registries.d
 SIGSTOREDIR ?= ${DESTDIR}/var/lib/containers/sigstore
-PREFIX ?= ${DESTDIR}/usr/local
 BINDIR ?= ${PREFIX}/bin
 MANDIR ?= ${PREFIX}/share/man
 BASHCOMPLETIONSDIR ?= ${PREFIX}/share/bash-completion/completions
@@ -69,7 +69,13 @@ CONTAINER_RUN := $(CONTAINER_CMD) "$(IMAGE)"
 GIT_COMMIT := $(shell git rev-parse HEAD 2> /dev/null || true)
 
 EXTRA_LDFLAGS ?=
-SKOPEO_LDFLAGS := -ldflags '-X main.gitCommit=${GIT_COMMIT} $(EXTRA_LDFLAGS)'
+
+SKOPEO_LDFLAGS := -ldflags '-X main.gitCommit=${GIT_COMMIT} \
+		-X github.com/containers/image/v5/docker.systemRegistriesDirPath=${REGISTRIESDDIR} \
+		-X github.com/containers/image/v5/signature.systemDefaultPolicyPath=${CONTAINERSCONFDIR}/policy.json \
+		-X github.com/containers/image/v5/pkg/sysregistriesv2.systemRegistriesConfPath=${CONTAINERSCONFDIR}/registries.conf \
+		-X github.com/containers/image/v5/internal/tmpdir.unixTempDirForBigFiles=/var/tmp \
+		$(EXTRA_LDFLAGS)'
 
 MANPAGES_MD = $(wildcard docs/*.md)
 MANPAGES ?= $(MANPAGES_MD:%.md=%)
