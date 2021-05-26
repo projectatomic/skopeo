@@ -208,8 +208,8 @@ github.com/containers/ocicrypt v1.1.1 h1:prL8l9w3ntVqXvNH1CiNn5ENjcCnr38JqpSyvKK
 github.com/containers/ocicrypt v1.1.1/go.mod h1:Dm55fwWm1YZAjYRaJ94z2mfZikIyIN4B0oB3dj3jFxY=
 github.com/containers/storage v1.30.1/go.mod h1:NDJkiwxnSHD1Is+4DGcyR3SIEYSDOa0xnAW+uGQFx9E=
 github.com/containers/storage v1.31.1/go.mod h1:IFEf+yRTS0pvCGQt2tBv1Kzz2XUSPvED6uFBmWG7V/E=
-github.com/containers/storage v1.31.2 h1:wWi7OsNtHUydGdK0EpQiK94MfQNj5qK2GtxNLoj4tU4=
-github.com/containers/storage v1.31.2/go.mod h1:J3q772EVbN9vgqoN/dkvInKnp4xK9ZXm7wHNfuiIDgE=
+github.com/containers/storage v1.32.0 h1:l2O+EybfGVkisqDkRysKG1VAO6jPPIYOV5Q4/sau86c=
+github.com/containers/storage v1.32.0/go.mod h1:J3q772EVbN9vgqoN/dkvInKnp4xK9ZXm7wHNfuiIDgE=
 github.com/coreos/bbolt v1.3.2/go.mod h1:iRUV2dpdMOn7Bo10OQBFzIJO9kkE559Wcmn+qkEiiKk=
 github.com/coreos/etcd v3.3.10+incompatible/go.mod h1:uF7uidLiAD3TWHmW31ZFd/JWoc32PjwdhPthX9715RE=
 github.com/coreos/etcd v3.3.13+incompatible/go.mod h1:uF7uidLiAD3TWHmW31ZFd/JWoc32PjwdhPthX9715RE=
