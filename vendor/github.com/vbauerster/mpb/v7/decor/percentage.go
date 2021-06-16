@@ -5,7 +5,7 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/vbauerster/mpb/v6/internal"
+	"github.com/vbauerster/mpb/v7/internal"
 )
 
 type percentageType float64

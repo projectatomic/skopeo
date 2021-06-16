@@ -12,7 +12,7 @@ import (
 
 	"github.com/acarl005/stripansi"
 	"github.com/mattn/go-runewidth"
-	"github.com/vbauerster/mpb/v6/decor"
+	"github.com/vbauerster/mpb/v7/decor"
 )
 
 // Bar represents a progress bar.
@@ -390,12 +390,6 @@ func (b *Bar) wSyncTable() [][]chan int {
 }
 
 func (s *bState) draw(stat decor.Statistics) io.Reader {
-	if !s.trimSpace {
-		stat.AvailableWidth -= 2
-		s.bufB.WriteByte(' ')
-		defer s.bufB.WriteByte(' ')
-	}
-
 	nlr := strings.NewReader("\n")
 	tw := stat.AvailableWidth
 	for _, d := range s.pDecorators {
@@ -403,10 +397,16 @@ func (s *bState) draw(stat decor.Statistics) io.Reader {
 		stat.AvailableWidth -= runewidth.StringWidth(stripansi.Strip(str))
 		s.bufP.WriteString(str)
 	}
-	if stat.AvailableWidth <= 0 {
+	if stat.AvailableWidth < 1 {
 		trunc := strings.NewReader(runewidth.Truncate(stripansi.Strip(s.bufP.String()), tw, "…"))
 		s.bufP.Reset()
-		return io.MultiReader(trunc, s.bufB, nlr)
+		return io.MultiReader(trunc, nlr)
+	}
+
+	if !s.trimSpace && stat.AvailableWidth > 1 {
+		stat.AvailableWidth -= 2
+		s.bufB.WriteByte(' ')
+		defer s.bufB.WriteByte(' ')
 	}
 
 	tw = stat.AvailableWidth
@@ -415,7 +415,7 @@ func (s *bState) draw(stat decor.Statistics) io.Reader {
 		stat.AvailableWidth -= runewidth.StringWidth(stripansi.Strip(str))
 		s.bufA.WriteString(str)
 	}
-	if stat.AvailableWidth <= 0 {
+	if stat.AvailableWidth < 1 {
 		trunc := strings.NewReader(runewidth.Truncate(stripansi.Strip(s.bufA.String()), tw, "…"))
 		s.bufA.Reset()
 		return io.MultiReader(s.bufP, s.bufB, trunc, nlr)

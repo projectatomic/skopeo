@@ -3,7 +3,7 @@ package mpb
 import (
 	"io"
 
-	"github.com/vbauerster/mpb/v6/decor"
+	"github.com/vbauerster/mpb/v7/decor"
 )
 
 // BarFiller interface.
@@ -14,13 +14,16 @@ import (
 //
 // Default implementations can be obtained via:
 //
-//	func NewBarFiller(style string) BarFiller
-//	func NewBarFillerRev(style string) BarFiller
-//	func NewBarFillerPick(style string, rev bool) BarFiller
-//	func NewSpinnerFiller(style []string, alignment SpinnerAlignment) BarFiller
+//	func NewBarFiller(BarStyle()) BarFiller
+//	func NewBarFiller(SpinnerStyle()) BarFiller
 //
 type BarFiller interface {
 	Fill(w io.Writer, reqWidth int, stat decor.Statistics)
+}
+
+// BarFillerBuilder interface.
+type BarFillerBuilder interface {
+	Build() BarFiller
 }
 
 // BarFillerFunc is function type adapter to convert function into BarFiller.
@@ -28,4 +31,9 @@ type BarFillerFunc func(w io.Writer, reqWidth int, stat decor.Statistics)
 
 func (f BarFillerFunc) Fill(w io.Writer, reqWidth int, stat decor.Statistics) {
 	f(w, reqWidth, stat)
+}
+
+// NewBarFiller constructs a BarFiller from provided BarFillerBuilder.
+func NewBarFiller(b BarFillerBuilder) BarFiller {
+	return b.Build()
 }
