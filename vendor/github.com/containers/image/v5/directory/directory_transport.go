@@ -157,7 +157,11 @@ func (ref dirReference) NewImageDestination(ctx context.Context, sys *types.Syst
 	if sys != nil {
 		compress = sys.DirForceCompress
 	}
-	return newImageDestination(ref, compress)
+	decompress := false
+	if sys != nil {
+		decompress = sys.DirForceDecompress
+	}
+	return newImageDestination(ref, compress, decompress)
 }
 
 // DeleteImage deletes the named image from the registry, if supported.
