@@ -197,7 +197,16 @@ test-system: build-container
 
 # Intended for CI, shortcut 'build-container' since already running inside container.
 test-system-local:
+	$(MAKE) dump-ip
 	hack/make.sh test-system
+	$(MAKE) dump-ip
+
+dump-ip:
+	@for x in 'addr' 'rule' 'route list table local' 'route list table main' 'route list table default' 'route get 127.0.0.1'; do \
+		echo "=== ip $$x"; \
+		ip $$x || true ; \
+	done
+	@echo ===
 
 test-unit: build-container
 	# Just call (make test unit-local) here instead of worrying about environment differences
