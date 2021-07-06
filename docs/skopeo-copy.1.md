@@ -149,20 +149,8 @@ Let's say out of 3 layers that the image `docker.io/library/nginx:1.17.8` is mad
 skopeo  copy --encryption-key jwe:./public.key --encrypt-layer 1 oci:local_nginx:1.17.8 oci:try-encrypt:encrypted
 ```
 
-## NOTES
-
-In the context of `signatures`, this refers to `container signatures` as implemented by the [github.com/containers/image/signature](https://github.com/containers/image/tree/main/signature) package.
-
-```text
-The signature provides an end-to-end authenticated claim that a container image has been approved by a specific party (e.g. the creator of the image as their work, an automated build system as a result of an automated build, a company IT department approving the image for production) under a specified identity (e.g. an OS base image / specific application, with a specific version).
-
-A container signature consists of a cryptographic signature which identifies and authenticates who signed the image, and carries as a signed payload a JSON document. The JSON document identifies the image being signed, claims a specific identity of the image and if applicable, contains other information about the image.
-```
-
-Source: [Container signature format](https://github.com/containers/image/blob/main/docs/containers-signature.5.md)
-
 ## SEE ALSO
-skopeo(1), skopeo-login(1), docker-login(1), containers-auth.json(5), containers-policy.json(5), containers-transports(5)
+skopeo(1), skopeo-login(1), docker-login(1), containers-auth.json(5), containers-policy.json(5), containers-transports(5), containers-signature(5)
 
 ## AUTHORS
 
