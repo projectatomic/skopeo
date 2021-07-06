@@ -135,13 +135,13 @@ func DetectCompression(input io.Reader) (DecompressorFunc, io.Reader, error) {
 func AutoDecompress(stream io.Reader) (io.ReadCloser, bool, error) {
 	decompressor, stream, err := DetectCompression(stream)
 	if err != nil {
-		return nil, false, errors.Wrapf(err, "Error detecting compression")
+		return nil, false, errors.Wrapf(err, "detecting compression")
 	}
 	var res io.ReadCloser
 	if decompressor != nil {
 		res, err = decompressor(stream)
 		if err != nil {
-			return nil, false, errors.Wrapf(err, "Error initializing decompression")
+			return nil, false, errors.Wrapf(err, "initializing decompression")
 		}
 	} else {
 		res = ioutil.NopCloser(stream)

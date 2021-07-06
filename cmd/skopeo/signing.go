@@ -18,7 +18,7 @@ type standaloneSignOptions struct {
 func standaloneSignCmd() *cobra.Command {
 	opts := standaloneSignOptions{}
 	cmd := &cobra.Command{
-		Use:   "standalone-sign [command options] MANIFEST DOCKER-REFERENCE KEY-FINGERPRINT",
+		Use:   "standalone-sign [command options] MANIFEST DOCKER-REFERENCE KEY-FINGERPRINT --output|-o SIGNATURE",
 		Short: "Create a signature using local files",
 		RunE:  commandAction(opts.run),
 	}
