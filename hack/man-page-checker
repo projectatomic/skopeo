@@ -81,7 +81,7 @@ function compare_usage() {
     from_man=$(sed -E -e "s/\*\*$cmd\*\*[[:space:]]*//" <<<"$from_man")
     from_help=$(sed -E -e "s/^[[:space:]]*$cmd[[:space:]]*//" <<<"$from_help")
 
-    # man page lists 'foo [*options*]', help msg shows 'foo [flags]'.
+    # man page lists 'foo [*options*]', help msg shows 'foo [command options]'.
     # Make sure if one has it, the other does too.
     if expr "$from_man" : "\[\*options\*\]" >/dev/null; then
         if expr "$from_help" : "\[command options\]" >/dev/null; then
@@ -99,7 +99,10 @@ function compare_usage() {
     from_man=$(sed  -E -e 's/^\[\*options\*\][[:space:]]*//' <<<"$from_man")
     from_help=$(sed -E -e 's/^\[command options\][[:space:]]*//'      <<<"$from_help")
 
-    # Args in man page are '*foo*', in --help are 'FOO'. Convert all to
+    # Constant strings in man page are '**foo**', in --help are 'foo'.
+    from_man=$(sed -E -e 's/\*\*([^*]+)\*\*/\1/g' <<<"$from_man")
+
+    # Args in man page are '_foo_', in --help are 'FOO'. Convert all to
     # UPCASE simply because it stands out better to the eye.
     from_man=$(sed -E -e 's/_([a-z-]+)_/\U\1/g' <<<"$from_man")
 
@@ -121,7 +124,7 @@ for md in *.1.md;do
     # arguments are bracketed by single ones.
     #   E.g. '**skopeo copy** [*options*] _..._'
     # Get the command name, and confirm that it matches the md file name.
-    cmd=$(echo "$synopsis" | sed -E -e 's/(.*)\*\*.*/\1/' | tr -d \*)
+    cmd=$(echo "$synopsis" | sed -E -e 's/^\*\*([^*]+)\*\*.*/\1/' | tr -d \*)
     # Use sed, not tr, so we only replace the first dash: we want
     # skopeo-list-tags -> "skopeo list-tags", not "skopeo list tags"
     md_nodash=$(basename "$md" .1.md | sed -e 's/-/ /')

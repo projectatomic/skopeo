@@ -1,7 +1,7 @@
 % skopeo-list-tags(1)
 
 ## NAME
-skopeo\-list\-tags - Return a list of tags for the transport-specific image repository.
+skopeo\-list\-tags - List tags in the transport-specific image repository.
 
 ## SYNOPSIS
 **skopeo list-tags** [*options*] _repository-name_

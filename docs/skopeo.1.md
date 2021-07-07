@@ -80,7 +80,7 @@ See [containers-transports(5)](https://github.com/containers/image/blob/master/d
 | [skopeo-copy(1)](skopeo-copy.1.md)        | Copy an image (manifest, filesystem layers, signatures) from one location to another. |
 | [skopeo-delete(1)](skopeo-delete.1.md)    | Mark the _image-name_ for later deletion by the registry's garbage collector.  |
 | [skopeo-inspect(1)](skopeo-inspect.1.md)  | Return low-level information about _image-name_ in a registry.                 |
-| [skopeo-list-tags(1)](skopeo-list-tags.1.md)  | Return a list of tags for the transport-specific image repository.         |
+| [skopeo-list-tags(1)](skopeo-list-tags.1.md)  | List tags in the transport-specific image repository.                      |
 | [skopeo-login(1)](skopeo-login.1.md)  | Login to a container registry. |
 | [skopeo-logout(1)](skopeo-logout.1.md)  | Logout of a container registry. |
 | [skopeo-manifest-digest(1)](skopeo-manifest-digest.1.md)    | Compute a manifest digest for a manifest-file and write it to standard output. |

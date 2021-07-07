@@ -204,7 +204,7 @@ test-unit: build-container
 	$(CONTAINER_RUN) make test-unit-local BUILDTAGS='$(BUILDTAGS)'
 
 validate: build-container
-	$(CONTAINER_RUN) hack/make.sh validate-git-marks validate-gofmt validate-lint validate-vet
+	$(CONTAINER_RUN) make validate-local
 
 # This target is only intended for development, e.g. executing it from an IDE. Use (make test) for CI or pre-release testing.
 test-all-local: validate-local test-unit-local

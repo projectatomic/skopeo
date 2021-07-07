@@ -4,7 +4,7 @@
 skopeo\-standalone-sign - Debugging tool - Publish and sign an image in one step.
 
 ## SYNOPSIS
-**skopeo standalone-sign** [*options*] _manifest_ _docker-reference_ _key-fingerprint_
+**skopeo standalone-sign** [*options*] _manifest_ _docker-reference_ _key-fingerprint_ **--output**|**-o** _signature_
 
 ## DESCRIPTION
 This is primarily a debugging tool, or useful for special cases,

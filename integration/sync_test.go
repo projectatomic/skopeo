@@ -635,7 +635,7 @@ func (s *SyncSuite) TestFailsWithDockerSourceNotExisting(c *check.C) {
 		"sync", "--scoped", "--src-tls-verify=false", "--src", "docker", "--dest", "dir", repo, tmpDir)
 
 	//tagged
-	assertSkopeoFails(c, ".*Error reading manifest.*",
+	assertSkopeoFails(c, ".*reading manifest.*",
 		"sync", "--scoped", "--src-tls-verify=false", "--src", "docker", "--dest", "dir", repo+":thetag", tmpDir)
 }
 
