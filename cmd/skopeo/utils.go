@@ -165,6 +165,7 @@ func (opts *imageOptions) newSystemContext() (*types.SystemContext, error) {
 type imageDestOptions struct {
 	*imageOptions
 	dirForceCompression         bool        // Compress layers when saving to the dir: transport
+	dirForceDecompression       bool        // Decompress layers when saving to the dir: transport
 	ociAcceptUncompressedLayers bool        // Whether to accept uncompressed layers in the oci: transport
 	compressionFormat           string      // Format to use for the compression
 	compressionLevel            optionalInt // Level to use for the compression
@@ -177,6 +178,7 @@ func imageDestFlags(global *globalOptions, shared *sharedImageOptions, flagPrefi
 	fs := pflag.FlagSet{}
 	fs.AddFlagSet(&genericFlags)
 	fs.BoolVar(&opts.dirForceCompression, flagPrefix+"compress", false, "Compress tarball image layers when saving to directory using the 'dir' transport. (default is same compression type as source)")
+	fs.BoolVar(&opts.dirForceDecompression, flagPrefix+"decompress", false, "Decompress tarball image layers when saving to directory using the 'dir' transport. (default is same compression type as source)")
 	fs.BoolVar(&opts.ociAcceptUncompressedLayers, flagPrefix+"oci-accept-uncompressed-layers", false, "Allow uncompressed image layers when saving to an OCI image using the 'oci' transport. (default is to compress things that aren't compressed)")
 	fs.StringVar(&opts.compressionFormat, flagPrefix+"compress-format", "", "`FORMAT` to use for the compression")
 	fs.Var(newOptionalIntValue(&opts.compressionLevel), flagPrefix+"compress-level", "`LEVEL` to use for the compression")
@@ -192,6 +194,7 @@ func (opts *imageDestOptions) newSystemContext() (*types.SystemContext, error) {
 	}
 
 	ctx.DirForceCompress = opts.dirForceCompression
+	ctx.DirForceDecompress = opts.dirForceDecompression
 	ctx.OCIAcceptUncompressedLayers = opts.ociAcceptUncompressedLayers
 	if opts.compressionFormat != "" {
 		cf, err := compression.AlgorithmByName(opts.compressionFormat)

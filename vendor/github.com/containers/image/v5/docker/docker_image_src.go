@@ -36,7 +36,7 @@ type dockerImageSource struct {
 func newImageSource(ctx context.Context, sys *types.SystemContext, ref dockerReference) (*dockerImageSource, error) {
 	registry, err := sysregistriesv2.FindRegistry(sys, ref.ref.Name())
 	if err != nil {
-		return nil, errors.Wrapf(err, "loading registries configuration")
+		return nil, errors.Wrapf(err, "error loading registries configuration")
 	}
 	if registry == nil {
 		// No configuration was found for the provided reference, so use the
@@ -69,6 +69,7 @@ func newImageSource(ctx context.Context, sys *types.SystemContext, ref dockerRef
 		} else {
 			logrus.Debugf("Trying to access %q", pullSource.Reference)
 		}
+		logrus.Debugf("Trying to access %q", pullSource.Reference)
 		s, err := newImageSourceAttempt(ctx, sys, ref, pullSource)
 		if err == nil {
 			return s, nil
@@ -196,7 +197,7 @@ func (s *dockerImageSource) fetchManifest(ctx context.Context, tagOrDigest strin
 	logrus.Debugf("Content-Type from manifest GET is %q", res.Header.Get("Content-Type"))
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		return nil, "", errors.Wrapf(registryHTTPResponseToError(res), "reading manifest %s in %s", tagOrDigest, s.physicalRef.ref.Name())
+		return nil, "", errors.Wrapf(registryHTTPResponseToError(res), "Error reading manifest %s in %s", tagOrDigest, s.physicalRef.ref.Name())
 	}
 
 	manblob, err := iolimits.ReadAtMost(res.Body, iolimits.MaxManifestBodySize)
