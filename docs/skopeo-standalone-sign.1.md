@@ -7,8 +7,7 @@ skopeo\-standalone-sign - Debugging tool - Publish and sign an image in one step
 **skopeo standalone-sign** [*options*] _manifest_ _docker-reference_ _key-fingerprint_ **--output**|**-o** _signature_
 
 ## DESCRIPTION
-This is primarily a debugging tool, or useful for special cases,
-and usually should not be a part of your normal operational workflow; use `skopeo copy --sign-by` instead to publish and sign an image in one step.
+This is primarily a debugging tool, useful for special cases, and usually should not be a part of your normal operational workflow; use `skopeo copy --sign-by` instead to publish and sign an image in one step.
 
   _manifest_ Path to a file containing the image manifest
 

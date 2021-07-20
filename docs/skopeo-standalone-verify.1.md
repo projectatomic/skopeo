@@ -8,7 +8,7 @@ skopeo\-standalone\-verify - Verify an image signature.
 
 ## DESCRIPTION
 
-Verify a signature using local files, digest will be printed on success. This is primarily a debugging tool, or useful for special cases,
+Verify a signature using local files; the digest will be printed on success. This is primarily a debugging tool, useful for special cases,
 and usually should not be a part of your normal operational workflow. Additionally, consider configuring a signature verification policy file,
 as per containers-policy.json(5).
 
