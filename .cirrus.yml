@@ -41,8 +41,9 @@ env:
     UBUNTU_CONTAINER_FQIN: "quay.io/libpod/ubuntu_podman:${IMAGE_SUFFIX}"
     PRIOR_UBUNTU_CONTAINER_FQIN: "quay.io/libpod/prior-ubuntu_podman:${IMAGE_SUFFIX}"
 
-    # Equivilent to image produced by 'make build-container'
-    SKOPEO_CI_CONTAINER_FQIN: "quay.io/skopeo/ci:${DEST_BRANCH}"
+    # Equivilent to image produced by 'make build-container'. Auto-built by quay.
+    # TODO:SKOPEO_CI_CONTAINER_FQIN: "quay.io/libpod/skopeo_cidev:${IMAGE_SUFFIX}"
+    SKOPEO_CI_CONTAINER_FQIN: "quay.io/libpod/skopeo_cidev:c5636194336768000"
 
 
 # Default timeout for each task
@@ -57,8 +58,8 @@ validate_task:
     # under Cirrus-CI, due to challenges obtaining the starting commit ID.
     # Only do validation for PRs.
     only_if: $CIRRUS_PR != ''
-    container:  &build_container
-        image: "${SKOPEO_CI_CONTAINER_FQIN}"
+    container:
+        image: '${SKOPEO_CI_CONTAINER_FQIN}'
         cpu: 4
         memory: 8
     script: |
@@ -140,8 +141,6 @@ test_skopeo_task:
         "${SKOPEO_PATH}/${SCRIPT_BASE}/runner.sh" vendor
     build_script: >-
         "${SKOPEO_PATH}/${SCRIPT_BASE}/runner.sh" build
-    validate_script: >-
-        "${SKOPEO_PATH}/${SCRIPT_BASE}/runner.sh" validate
     unit_script: >-
         "${SKOPEO_PATH}/${SCRIPT_BASE}/runner.sh" unit
     integration_script: >-

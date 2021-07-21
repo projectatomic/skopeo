@@ -1,4 +1,4 @@
-.PHONY: all binary build-container docs docs-in-container build-local clean install install-binary install-completions shell test-integration .install.vndr vendor vendor-in-container
+.PHONY: all binary docs docs-in-container build-local clean install install-binary install-completions shell test-integration .install.vndr vendor vendor-in-container
 
 export GOPROXY=https://proxy.golang.org
 
@@ -54,9 +54,10 @@ ifeq ($(GOOS), linux)
 endif
 
 GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
-IMAGE := skopeo-dev$(if $(GIT_BRANCH),:$(GIT_BRANCH))
+# TODO: Lookup tag from .cirrus.yml
+IMAGE := quay.io/libpod/skopeo_cidev:c5636194336768000
 # set env like gobuildtag?
-CONTAINER_CMD := ${CONTAINER_RUNTIME} run --rm -i -e TESTFLAGS="$(TESTFLAGS)" #$(CONTAINER_ENVS)
+CONTAINER_CMD := ${CONTAINER_RUNTIME} run --rm -i -e TESTFLAGS="$(TESTFLAGS)"
 # if this session isn't interactive, then we don't want to allocate a
 # TTY, which would fail, but if it is interactive, we do want to attach
 # so that the user can send e.g. ^C through.
@@ -105,10 +106,8 @@ help:
 	@echo " * 'shell' - Run the built image and attach to a shell"
 	@echo " * 'clean' - Clean artifacts"
 
-# Build a container image (skopeobuild) that has everything we need to build.
-# Then do the build and the output (skopeo) should appear in current dir
+# Do the build and the output (skopeo) should appear in current dir
 binary: cmd/skopeo
-	${CONTAINER_RUNTIME} build ${BUILD_ARGS} -f Dockerfile.build -t skopeobuildimage .
 	${CONTAINER_RUNTIME} run --rm --security-opt label=disable -v $$(pwd):/src/github.com/containers/skopeo \
 		skopeobuildimage make bin/skopeo $(if $(DEBUG),DEBUG=$(DEBUG)) BUILDTAGS='$(BUILDTAGS)'
 
@@ -135,9 +134,6 @@ bin/skopeo:
 bin/skopeo.%:
 	GOOS=$(word 2,$(subst ., ,$@)) GOARCH=$(word 3,$(subst ., ,$@)) $(GO) build $(MOD_VENDOR) ${SKOPEO_LDFLAGS} -tags "containers_image_openpgp $(BUILDTAGS)" -o $@ ./cmd/skopeo
 local-cross: bin/skopeo.darwin.amd64 bin/skopeo.linux.arm bin/skopeo.linux.arm64 bin/skopeo.windows.386.exe bin/skopeo.windows.amd64.exe
-
-build-container:
-	${CONTAINER_RUNTIME} build ${BUILD_ARGS} -t "$(IMAGE)" .
 
 $(MANPAGES): %: %.md
 	sed -e 's/\((skopeo.*\.md)\)//' -e 's/\[\(skopeo.*\)\]/\1/' $<  | $(GOMD2MAN) -in /dev/stdin -out $@
@@ -171,21 +167,20 @@ install-completions:
 	install -m 755 -d ${DESTDIR}${BASHCOMPLETIONSDIR}
 	install -m 644 completions/bash/skopeo ${DESTDIR}${BASHCOMPLETIONSDIR}/skopeo
 
-shell: build-container
+shell:
 	$(CONTAINER_RUN) bash
 
 check: validate test-unit test-integration test-system
 
-# The tests can run out of entropy and block in containers, so replace /dev/random.
-test-integration: build-container
-	$(CONTAINER_RUN) bash -c 'rm -f /dev/random; ln -sf /dev/urandom /dev/random; SKOPEO_CONTAINER_TESTS=1 BUILDTAGS="$(BUILDTAGS)" $(MAKE) test-integration-local'
+test-integration:
+	$(CONTAINER_RUN) bash -c 'SKOPEO_CONTAINER_TESTS=1 BUILDTAGS="$(BUILDTAGS)" $(MAKE) test-integration-local'
 
-# Intended for CI, shortcut 'build-container' since already running inside container.
+# Intended for CI, assumed to already be running in quay.io/libpod/skopeo_cidev container.
 test-integration-local:
 	hack/make.sh test-integration
 
 # complicated set of options needed to run podman-in-podman
-test-system: build-container
+test-system:
 	DTEMP=$(shell mktemp -d --tmpdir=/var/tmp podman-tmp.XXXXXX); \
 	$(CONTAINER_CMD) --privileged \
 	    -v $$DTEMP:/var/lib/containers:Z -v /run/systemd/journal/socket:/run/systemd/journal/socket \
@@ -195,15 +190,15 @@ test-system: build-container
 	$(RM) -rf $$DTEMP; \
 	exit $$rc
 
-# Intended for CI, shortcut 'build-container' since already running inside container.
+# Intended for CI, assumed to already be running in quay.io/libpod/skopeo_cidev container.
 test-system-local:
 	hack/make.sh test-system
 
-test-unit: build-container
+test-unit:
 	# Just call (make test unit-local) here instead of worrying about environment differences
 	$(CONTAINER_RUN) make test-unit-local BUILDTAGS='$(BUILDTAGS)'
 
-validate: build-container
+validate:
 	$(CONTAINER_RUN) make validate-local
 
 # This target is only intended for development, e.g. executing it from an IDE. Use (make test) for CI or pre-release testing.
