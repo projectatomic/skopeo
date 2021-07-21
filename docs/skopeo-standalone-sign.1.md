@@ -15,7 +15,15 @@ This is primarily a debugging tool, useful for special cases, and usually should
 
   _key-fingerprint_ Key identity to use for signing
 
-  **--output**|**-o** output file
+## OPTIONS
+
+**--help**, **-h**
+
+Print usage statement
+
+**--output**, **-o** _output file_
+
+Write signature to _output file_.
 
 ## EXAMPLES
 

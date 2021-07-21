@@ -22,6 +22,12 @@ as per containers-policy.json(5).
 
 **Note:** If you do use this, make sure that the image can not be changed at the source location between the times of its verification and use.
 
+## OPTIONS
+
+**--help**, **-h**
+
+Print usage statement
+
 ## EXAMPLES
 
 ```sh
