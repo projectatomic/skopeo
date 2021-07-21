@@ -1092,12 +1092,10 @@ func copyWithSignedIdentity(c *check.C, src, dest, signedIdentity, signBy, regis
 
 	signingDir := filepath.Join(topDir, "signing-temp")
 	assertSkopeoSucceeds(c, "", "copy", "--src-tls-verify=false", src, "dir:"+signingDir)
-	// Unknown error in Travis: https://github.com/containers/skopeo/issues/1093
-	//	c.Logf("%s", combinedOutputOfCommand(c, "ls", "-laR", signingDir))
+	c.Logf("%s", combinedOutputOfCommand(c, "ls", "-laR", signingDir))
 	assertSkopeoSucceeds(c, "^$", "standalone-sign", "-o", filepath.Join(signingDir, "signature-1"),
 		filepath.Join(signingDir, "manifest.json"), signedIdentity, signBy)
-	// Unknown error in Travis: https://github.com/containers/skopeo/issues/1093
-	//	c.Logf("%s", combinedOutputOfCommand(c, "ls", "-laR", signingDir))
+	c.Logf("%s", combinedOutputOfCommand(c, "ls", "-laR", signingDir))
 	assertSkopeoSucceeds(c, "", "--registries.d", registriesDir, "copy", "--dest-tls-verify=false", "dir:"+signingDir, dest)
 }
 

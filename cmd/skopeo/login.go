@@ -12,7 +12,6 @@ import (
 type loginOptions struct {
 	global    *globalOptions
 	loginOpts auth.LoginOptions
-	getLogin  optionalBool
 	tlsVerify optionalBool
 }
 

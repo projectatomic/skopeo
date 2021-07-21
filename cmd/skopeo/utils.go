@@ -114,10 +114,6 @@ func imageFlags(global *globalOptions, shared *sharedImageOptions, flagPrefix, c
 	return fs, opts
 }
 
-type retryOptions struct {
-	maxRetry int // The number of times to possibly retry
-}
-
 func retryFlags() (pflag.FlagSet, *retry.RetryOptions) {
 	opts := retry.RetryOptions{}
 	fs := pflag.FlagSet{}

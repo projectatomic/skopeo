@@ -82,13 +82,13 @@ func syncCmd(global *globalOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sync [command options] --src TRANSPORT --dest TRANSPORT SOURCE DESTINATION",
 		Short: "Synchronize one or more images from one location to another",
-		Long: fmt.Sprint(`Copy all the images from a SOURCE to a DESTINATION.
+		Long: `Copy all the images from a SOURCE to a DESTINATION.
 
 Allowed SOURCE transports (specified with --src): docker, dir, yaml.
 Allowed DESTINATION transports (specified with --dest): docker, dir.
 
 See skopeo-sync(1) for details.
-`),
+`,
 		RunE:    commandAction(opts.run),
 		Example: `skopeo sync --src docker --dest dir --scoped registry.example.com/busybox /media/usb`,
 	}
@@ -207,7 +207,6 @@ func getImageTags(ctx context.Context, sysCtx *types.SystemContext, repoRef refe
 		// Some registries may decide to block the "list all tags" endpoint.
 		// Gracefully allow the sync to continue in this case.
 		logrus.Warnf("Registry disallows tag list retrieval: %s", err)
-		break
 	default:
 		return tags, errors.Wrapf(err, "Error determining repository tags for image %s", name)
 	}

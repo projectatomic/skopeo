@@ -117,29 +117,31 @@ commit automatically with `git commit -s`.
 
 ### Dependencies management
 
-Make sure [`vndr`](https://github.com/LK4D4/vndr) is installed.
+Dependencies are managed via [standard go modules](https://golang.org/ref/mod).
 
 In order to add a new dependency to this project:
 
-- add a new line to `vendor.conf` according to `vndr` rules (e.g. `github.com/pkg/errors master`)
+- use `go get -d path/to/dep@version` to add a new line to `go.mod`
 - run `make vendor`
 
 In order to update an existing dependency:
 
-- update the relevant dependency line in `vendor.conf`
+- use `go get -d -u path/to/dep@version` to update the relevant dependency line in `go.mod`
 - run `make vendor`
 
 When new PRs for [containers/image](https://github.com/containers/image) break `skopeo` (i.e. `containers/image` tests fail in `make test-skopeo`):
 
 - create out a new branch in your `skopeo` checkout and switch to it
-- update `vendor.conf`. Find out the `containers/image` dependency; update it to vendor from your own branch and your own repository fork (e.g. `github.com/containers/image my-branch https://github.com/runcom/image`)
+- find out the version of `containers/image` you want to use and note its commit ID. You might also want to use a fork of `containers/image`, in that case note its repo
+- use `go get -d github.com/$REPO/image@$COMMIT_ID` to download the right version. The command will fetch the dependency and then fail because of a conflict in `go.mod`, this is expected. Note the pseudo-version (eg. `v5.13.1-0.20210707123201-50afbf0a326`)
+- use `go mod edit -replace=github.com/containers/image=github.com/$REPO/image@$PSEUDO_VERSION` to add a replacement line to `go.mod` (e.g. `replace github.com/containers/image/v5 => github.com/moio/image/v5 v5.13.1-0.20210707123201-50afbf0a3262`)
 - run `make vendor`
 - make any other necessary changes in the skopeo repo (e.g. add other dependencies now required by `containers/image`, or update skopeo for changed `containers/image` API)
 - optionally add new integration tests to the skopeo repo
 - submit the resulting branch as a skopeo PR, marked “DO NOT MERGE”
 - iterate until tests pass and the PR is reviewed
 - then the original `containers/image` PR can be merged, disregarding its `make test-skopeo` failure
-- as soon as possible after that, in the skopeo PR, restore the `containers/image` line in `vendor.conf` to use `containers/image:master`
+- as soon as possible after that, in the skopeo PR, use `go mod edit -dropreplace=github.com/containers/image` to remove the `replace` line in `go.mod`
 - run `make vendor`
 - update the skopeo PR with the result, drop the “DO NOT MERGE” marking
 - after tests complete successfully again, merge the skopeo PR

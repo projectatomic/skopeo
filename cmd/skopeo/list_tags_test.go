@@ -5,6 +5,7 @@ import (
 
 	"github.com/containers/image/v5/transports/alltransports"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Tests the kinds of inputs allowed and expected to the command
@@ -17,10 +18,10 @@ func TestDockerRepositoryReferenceParser(t *testing.T) {
 	} {
 
 		ref, err := parseDockerRepositoryReference(test[0])
+		require.NoError(t, err)
 		expected, err := alltransports.ParseImageName(test[0])
-		if assert.NoError(t, err, "Could not parse, got error on %v", test[0]) {
-			assert.Equal(t, expected.DockerReference().Name(), ref.DockerReference().Name(), "Mismatched parse result for input %v", test[0])
-		}
+		require.NoError(t, err)
+		assert.Equal(t, expected.DockerReference().Name(), ref.DockerReference().Name(), "Mismatched parse result for input %v", test[0])
 	}
 
 	for _, test := range [][]string{

@@ -222,13 +222,6 @@ func (opts *inspectOptions) run(args []string, stdout io.Writer) (retErr error) 
 	return printTmpl(row, data)
 }
 
-func inspectNormalize(row string) string {
-	r := strings.NewReplacer(
-		".ImageID", ".Image",
-	)
-	return r.Replace(row)
-}
-
 func printTmpl(row string, data []interface{}) error {
 	t, err := template.New("skopeo inspect").Parse(row)
 	if err != nil {
